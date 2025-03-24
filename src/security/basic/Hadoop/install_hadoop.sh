@@ -26,17 +26,65 @@ if ! command -v java &> /dev/null; then
     exit 1
 fi
 
+# 检查并设置 JAVA_HOME
+if [ -z "${JAVA_HOME}" ]; then
+    JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java))))
+    print_message "自动设置 JAVA_HOME 为: ${JAVA_HOME}"
+fi
+
+if [ ! -d "${JAVA_HOME}" ]; then
+    print_error "JAVA_HOME 目录不存在: ${JAVA_HOME}"
+    exit 1
+fi
+
+# 检查必要组件
+check_requirements() {
+    local missing=""
+    for cmd in wget tar ssh-keygen java; do
+        if ! command -v $cmd &> /dev/null; then
+            missing="$missing $cmd"
+        fi
+    done
+    
+    if [ ! -z "$missing" ]; then
+        print_error "缺少必要组件:$missing"
+        exit 1
+    fi
+}
+
+check_requirements
+
+# 添加错误处理函数
+handle_error() {
+    print_error "在执行过程中发生错误，请检查日志"
+    exit 1
+}
+
+# 添加错误捕获
+trap 'handle_error' ERR
+
 # 设置变量
 HADOOP_VERSION="2.7.7"
 HADOOP_HOME="/data/hadoop-${HADOOP_VERSION}/base"
 HADOOP_DATA="/data/hadoop-${HADOOP_VERSION}/data"
 HADOOP_LOGS="/data/hadoop-${HADOOP_VERSION}/logs"
 DOWNLOAD_URL="https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz"
+BACKUP_URL="https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz"
 
 # 获取系统信息
 CPU_CORES=$(nproc)
 TOTAL_MEM=$(free -g | awk '/^Mem:/{print $2}')
 HADOOP_HEAP_SIZE=$(($TOTAL_MEM * 60 / 100))
+
+# 清理和备份
+if [ -d "${HADOOP_HOME}" ]; then
+    print_message "发现旧安装，创建备份..."
+    backup_dir="/data/backup/hadoop-$(date +%Y%m%d_%H%M%S)"
+    mkdir -p ${backup_dir}
+    mv ${HADOOP_HOME} ${backup_dir}/
+    mv ${HADOOP_DATA} ${backup_dir}/ 2>/dev/null || true
+    mv ${HADOOP_LOGS} ${backup_dir}/ 2>/dev/null || true
+fi
 
 # 创建目录
 print_message "创建目录结构..."
@@ -44,30 +92,87 @@ mkdir -p ${HADOOP_HOME}
 mkdir -p ${HADOOP_DATA}/{namenode,datanode}
 mkdir -p ${HADOOP_LOGS}
 
+# 创建 hadoop 用户和组
+print_message "创建 hadoop 用户..."
+groupadd hadoop
+useradd -m -g hadoop -s /bin/bash hadoop
+
+# 设置权限
+print_message "设置权限..."
+chown -R hadoop:hadoop ${HADOOP_HOME}
+chown -R hadoop:hadoop ${HADOOP_DATA}
+chown -R hadoop:hadoop ${HADOOP_LOGS}
+chmod -R 755 ${HADOOP_HOME}
+chmod -R 755 ${HADOOP_DATA}
+chmod -R 755 ${HADOOP_LOGS}
+
+# 配置 SSH 免密登录
+print_message "配置 SSH 免密登录..."
+su - hadoop -c "ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa"
+su - hadoop -c "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys"
+su - hadoop -c "chmod 600 ~/.ssh/authorized_keys"
+
 # 下载 Hadoop
 print_message "下载 Hadoop..."
 cd /tmp
-if [ ! -f "hadoop-${HADOOP_VERSION}.tar.gz" ]; then
-    wget ${DOWNLOAD_URL}
-    if [ $? -ne 0 ]; then
-        print_error "下载失败，请检查网络连接"
-        exit 1
+HADOOP_FILE="hadoop-${HADOOP_VERSION}.tar.gz"
+
+# 检查文件是否存在且有效
+check_file() {
+    if [ -f "$1" ] && [ -s "$1" ]; then
+        print_message "发现有效的安装包: $1"
+        return 0
     fi
+    return 1
+}
+
+# 首先检查当前目录
+if check_file "${HADOOP_FILE}"; then
+    print_message "使用当前目录的安装包..."
+# 然后检查 /tmp 目录
+elif check_file "/tmp/${HADOOP_FILE}"; then
+    print_message "使用 /tmp 目录的安装包..."
+    cp "/tmp/${HADOOP_FILE}" .
+else
+    print_message "未找到本地安装包，尝试从镜像下载..."
+    wget ${DOWNLOAD_URL} || {
+        print_message "Apache 下载失败，尝试清华镜像..."
+        wget ${BACKUP_URL} || {
+            print_error "所有下载源均失败"
+            exit 1
+        }
+    }
 fi
 
 # 解压安装
 print_message "安装 Hadoop..."
-tar -xzf hadoop-${HADOOP_VERSION}.tar.gz -C ${HADOOP_HOME} --strip-components=1
+tar -xzf "${HADOOP_FILE}" -C ${HADOOP_HOME} --strip-components=1
 
 # 配置环境变量
 print_message "配置环境变量..."
 cat > /etc/profile.d/hadoop.sh << EOF
 # Hadoop 环境变量
+export JAVA_HOME=${JAVA_HOME}
 export HADOOP_HOME=${HADOOP_HOME}
-export PATH=\$PATH:\$HADOOP_HOME/bin:\$HADOOP_HOME/sbin
-export HADOOP_CONF_DIR=\$HADOOP_HOME/etc/hadoop
+export HADOOP_CONF_DIR=\${HADOOP_HOME}/etc/hadoop
 export HADOOP_LOG_DIR=${HADOOP_LOGS}
 export YARN_LOG_DIR=${HADOOP_LOGS}
+export PATH=\${JAVA_HOME}/bin:\${HADOOP_HOME}/bin:\${HADOOP_HOME}/sbin:\${PATH}
+export HADOOP_OPTS="-Djava.library.path=\${HADOOP_HOME}/lib/native"
+export HADOOP_COMMON_LIB_NATIVE_DIR=\${HADOOP_HOME}/lib/native
+EOF
+
+# 配置日志轮转
+print_message "配置日志轮转..."
+cat > /etc/logrotate.d/hadoop << EOF
+${HADOOP_LOGS}/*.log {
+    weekly
+    rotate 52
+    copytruncate
+    compress
+    missingok
+    notifempty
+}
 EOF
 
 # 配置 core-site.xml
@@ -163,6 +268,24 @@ cat > ${HADOOP_HOME}/etc/hadoop/yarn-site.xml << EOF
 </configuration>
 EOF
 
+# 配置防火墙
+print_message "配置防火墙..."
+# 检查防火墙状态
+if ! systemctl is-active firewalld &>/dev/null; then
+    print_message "防火墙服务未运行，正在启动..."
+    systemctl start firewalld
+    systemctl enable firewalld
+fi
+
+if systemctl is-active firewalld &>/dev/null; then
+    firewall-cmd --permanent --add-port=9000/tcp
+    firewall-cmd --permanent --add-port=50070/tcp
+    firewall-cmd --permanent --add-port=8088/tcp
+    firewall-cmd --reload
+else
+    print_message "警告: 防火墙服务未运行，跳过端口配置"
+fi
+
 # 创建服务文件
 print_message "创建系统服务..."
 cat > /usr/lib/systemd/system/hadoop.service << EOF
@@ -172,8 +295,10 @@ After=network.target
 
 [Service]
 Type=forking
-User=root
+User=hadoop
+Group=hadoop
 Environment=JAVA_HOME=${JAVA_HOME}
+Environment=HADOOP_HOME=${HADOOP_HOME}
 ExecStart=${HADOOP_HOME}/sbin/start-all.sh
 ExecStop=${HADOOP_HOME}/sbin/stop-all.sh
 Restart=on-failure
@@ -182,15 +307,9 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
-# 设置权限
-print_message "设置权限..."
-chmod -R 755 ${HADOOP_HOME}
-chmod -R 755 ${HADOOP_DATA}
-chmod -R 755 ${HADOOP_LOGS}
-
 # 格式化 namenode
 print_message "格式化 namenode..."
-${HADOOP_HOME}/bin/hdfs namenode -format
+su - hadoop -c "${HADOOP_HOME}/bin/hdfs namenode -format"
 
 # 启动服务
 print_message "启动 Hadoop 服务..."
@@ -199,13 +318,42 @@ systemctl enable hadoop
 systemctl start hadoop
 
 # 等待服务启动
-sleep 30
+print_message "等待服务启动..."
+max_attempts=30
+attempt=1
+
+check_service() {
+    local service=$1
+    jps | grep -q "$service"
+    return $?
+}
+
+wait_for_service() {
+    local service=$1
+    while [ $attempt -le $max_attempts ]; do
+        if check_service "$service"; then
+            return 0
+        fi
+        print_message "等待 $service 启动... $attempt/$max_attempts"
+        attempt=$((attempt + 1))
+        sleep 2
+    done
+    return 1
+}
+
+# 检查关键服务
+for service in NameNode DataNode ResourceManager NodeManager; do
+    if ! wait_for_service "$service"; then
+        print_error "$service 启动失败"
+        exit 1
+    fi
+    print_message "$service 已启动"
+done
 
 # 测试验证
 print_message "验证 Hadoop 安装..."
-jps
-${HADOOP_HOME}/bin/hadoop fs -mkdir /test
-${HADOOP_HOME}/bin/hadoop fs -ls /
+su - hadoop -c "${HADOOP_HOME}/bin/hadoop fs -mkdir /test"
+su - hadoop -c "${HADOOP_HOME}/bin/hadoop fs -ls /"
 
 print_message "Hadoop 安装完成！"
 print_message "Web 界面: http://localhost:50070"
