@@ -111,7 +111,10 @@ EOF
 
 # 初始化 MySQL
 print_message "初始化 MySQL..."
-${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql --basedir=${MYSQL_BASE}/base --datadir=${MYSQL_BASE}/data
+${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
+--basedir=${MYSQL_BASE}/base \
+--datadir=${MYSQL_BASE}/data \
+--log-error=${MYSQL_BASE}/log/error.log
 
 # 创建服务文件
 print_message "创建 MySQL 服务..."
