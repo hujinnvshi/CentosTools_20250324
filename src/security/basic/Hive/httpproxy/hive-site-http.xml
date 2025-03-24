@@ -50,6 +50,7 @@
   <value>mr</value>
 </property>
 
+<!-- HTTP 模式配置 -->
 <property>
     <name>hive.server2.transport.mode</name>
     <value>http</value>
@@ -60,9 +61,31 @@
     <value>10001</value>
 </property>
 
+<!-- 添加主机绑定配置 -->
+<property>
+    <name>hive.server2.thrift.bind.host</name>
+    <value>172.16.48.106</value>
+</property>
+
 <property>
     <name>hive.server2.thrift.http.path</name>
     <value>cliservice</value>
+</property>
+
+<!-- HTTP 模式的安全配置 -->
+<property>
+    <name>hive.server2.use.SSL</name>
+    <value>false</value>
+</property>
+
+<property>
+    <name>hive.server2.authentication</name>
+    <value>NONE</value>
+</property>
+
+<property>
+    <name>hive.server2.enable.doAs</name>
+    <value>true</value>
 </property>
 
 </configuration>

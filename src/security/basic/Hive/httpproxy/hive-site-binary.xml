@@ -1,0 +1,80 @@
+<configuration>
+
+<!--配置mysql的连接字符串-->
+<property>
+<name>javax.jdo.option.ConnectionURL</name>
+<value>jdbc:mysql://bdn1:6003/HIVE3_1_2?createDatabaseIfNotExist=true</value>
+<description>JDBC connect string for a JDBC metastore</description>
+</property>
+
+<!--配置mysql的连接驱动-->
+<property>
+<name>javax.jdo.option.ConnectionDriverName</name>
+<value>com.mysql.jdbc.Driver</value>
+<description>Driver class name for a JDBC metastore</description>
+</property>
+
+<!--配置登录mysql的用户-->
+<property>
+<name>javax.jdo.option.ConnectionUserName</name>
+<value>HIVE3_1_2</value>
+<description>username to use against metastore database</description>
+</property>
+
+<!--配置登录mysql的密码-->
+<property>
+<name>javax.jdo.option.ConnectionPassword</name>
+<value>Secsmart#612</value>
+<description>password to use against metastore database</description>
+</property>
+
+<!--生成源数据表-->
+<property>
+<name>datanucleus.schema.autoCreateAll</name>
+<value>true</value>
+</property>
+
+<!--生成源数据表-->
+<property>
+<name>hive.server2.logging.operation.log.location</name>
+<value>/bd/apache-hive-3.1.2-bin/logs/operation</value>
+</property>
+
+<property>
+<name>hive.server2.logging.session.log.location</name>
+<value>/bd/apache-hive-3.1.2-bin/logs/session</value>
+</property>
+
+<property>
+  <name>hive.execution.engine</name>
+  <value>mr</value>
+</property>
+
+<!-- Binary 模式配置 -->
+<property>
+    <name>hive.server2.transport.mode</name>
+    <value>binary</value>
+</property>
+
+<property>
+    <name>hive.server2.thrift.port</name>
+    <value>10000</value>
+</property>
+
+<property>
+    <name>hive.server2.thrift.bind.host</name>
+    <value>172.16.48.106</value>
+</property>
+
+<!-- 安全配置 -->
+<property>
+    <name>hive.server2.authentication</name>
+    <value>NONE</value>
+</property>
+
+<property>
+    <name>hive.server2.enable.doAs</name>
+    <value>true</value>
+</property>
+
+</configuration>
