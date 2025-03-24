@@ -35,3 +35,11 @@ case "$1" in
         echo "用法: $0 {start|stop|restart|status}"
         exit 1
 esac
+# 关闭 MySQL
+mysqladmin -u root -p shutdown
+
+-- 创建测试数据库和用户
+CREATE DATABASE hive20250324 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE USER 'hive20250324'@'%' IDENTIFIED BY 'Secsmart#612';
+GRANT ALL PRIVILEGES ON testdb.* TO 'hive20250324'@'%';
+FLUSH PRIVILEGES;

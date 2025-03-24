@@ -36,9 +36,16 @@ print_message "安装依赖包..."
 yum install -y wget libaio numactl-libs perl net-tools
 
 # 下载并安装 MySQL
-print_message "下载 MySQL..."
+print_message "准备 MySQL 安装包..."
 cd /tmp
-wget https://dev.mysql.com/get/Downloads/MySQL-5.7/mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.gz
+MYSQL_FILE="mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.gz"
+
+if [ -f "${MYSQL_FILE}" ]; then
+    print_message "MySQL 安装包已存在，跳过下载"
+else
+    print_message "下载 MySQL 安装包..."
+    wget https://dev.mysql.com/get/Downloads/MySQL-5.7/${MYSQL_FILE}
+fi
 
 print_message "解压 MySQL..."
 tar xzf mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.gz
@@ -53,6 +60,7 @@ useradd -r -g mysql -s /bin/false mysql
 print_message "设置目录权限..."
 chown -R mysql:mysql ${MYSQL_BASE}
 chmod -R 755 ${MYSQL_BASE}
+rm -fr ${MYSQL_BASE}/data
 
 # 创建配置文件
 print_message "创建 MySQL 配置文件..."
@@ -68,6 +76,7 @@ pid-file = ${MYSQL_BASE}/mysql.pid
 character-set-server = utf8mb4
 collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
+server-id = 10086
 
 # 性能配置
 innodb_buffer_pool_size = ${INNODB_BUFFER_POOL_SIZE}
@@ -96,7 +105,6 @@ sync_binlog = 1
 local-infile = 0
 max_allowed_packet = 16M
 ssl = 1
-validate_password_policy = STRONG
 secure-file-priv = NULL
 
 # 其他优化
@@ -126,13 +134,29 @@ After=network.target
 [Service]
 User=mysql
 Group=mysql
-ExecStart=${MYSQL_BASE}/base/bin/mysqld --defaults-file=${MYSQL_BASE}/my.cnf
+ExecStart=${MYSQL_BASE}/base/bin/mysqld_safe --defaults-file=${MYSQL_BASE}/my.cnf
 LimitNOFILE=65535
 Restart=on-failure
+RestartSec=5
+TimeoutSec=600
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# 创建 mysqld_safe 配置
+print_message "创建 mysqld_safe 配置..."
+cat >> ${MYSQL_BASE}/my.cnf << EOF
+
+[mysqld_safe]
+log-error = ${MYSQL_BASE}/log/error.log
+pid-file = ${MYSQL_BASE}/mysql.pid
+malloc-lib = /usr/lib64/libjemalloc.so.1
+EOF
+
+# 安装 jemalloc 以提升性能
+print_message "安装 jemalloc..."
+yum install -y jemalloc
 
 # 启动 MySQL
 print_message "启动 MySQL 服务..."
@@ -143,9 +167,25 @@ systemctl enable mysqld
 # 等待 MySQL 启动
 sleep 10
 
+# 等待 MySQL 启动并检查状态
+print_message "等待 MySQL 启动..."
+for i in {1..30}; do
+    if [ -S "${MYSQL_BASE}/mysql.sock" ]; then
+        print_message "MySQL 已成功启动"
+        break
+    fi
+    print_message "等待 MySQL 启动中... $i/30"
+    sleep 2
+done
+
+if [ ! -S "${MYSQL_BASE}/mysql.sock" ]; then
+    print_error "MySQL 启动失败，请检查错误日志：${MYSQL_BASE}/log/error.log"
+    exit 1
+fi
+
 # 设置 root 密码和安全配置
 print_message "配置 MySQL root 密码..."
-${MYSQL_BASE}/base/bin/mysql -u root << EOF
+${MYSQL_BASE}/base/bin/mysql -u root --socket=${MYSQL_BASE}/mysql.sock << EOF
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
 DELETE FROM mysql.user WHERE User='';
 DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1');
@@ -154,6 +194,10 @@ DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
 FLUSH PRIVILEGES;
 
 -- 创建测试数据库和用户
+CREATE DATABASE hive20250324 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE USER 'hive20250324'@'%' IDENTIFIED BY 'Secsmart#612';
+GRANT ALL PRIVILEGES ON testdb.* TO 'hive20250324'@'%';
+
 CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Test#123456';
 GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'localhost';
@@ -168,14 +212,14 @@ CREATE TABLE users (
     status ENUM('active', 'inactive') DEFAULT 'active'
 );
 
-INSERT INTO users (username, email) VALUES ('test_user', 'test@example.com');
+INSERT INTO users (username, email) VALUES ('test_user', 'test@secsmart.net');
 FLUSH PRIVILEGES;
 EOF
 
 # 验证安装
 print_message "验证 MySQL 安装..."
-${MYSQL_BASE}/base/bin/mysql -u root -p${MYSQL_ROOT_PASSWORD} -e "SELECT VERSION();"
-${MYSQL_BASE}/base/bin/mysql -u testuser -pTest#123456 testdb -e "SELECT * FROM users;"
+${MYSQL_BASE}/base/bin/mysql -u root -p${MYSQL_ROOT_PASSWORD} --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT VERSION();"
+${MYSQL_BASE}/base/bin/mysql -u testuser -pTest#123456 testdb --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
 
 print_message "MySQL 安装完成！"
 print_message "MySQL 版本：$(${MYSQL_BASE}/base/bin/mysql -V)"
