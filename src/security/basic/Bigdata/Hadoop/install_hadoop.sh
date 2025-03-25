@@ -195,7 +195,7 @@ cat > ${HADOOP_HOME}/etc/hadoop/core-site.xml << EOF
     
     <property>
         <name>fs.defaultFS</name>
-        <value>hdfs://localhost:9000</value>
+        <value>hdfs://localhost:8020</value>
     </property>
     
     <property>
@@ -311,7 +311,7 @@ if ! systemctl is-active firewalld &>/dev/null; then
 fi
 
 if systemctl is-active firewalld &>/dev/null; then
-    firewall-cmd --permanent --add-port=9000/tcp || print_warning "添加端口 9000 失败"
+    firewall-cmd --permanent --add-port=8020/tcp || print_warning "添加端口 8020 失败"
     firewall-cmd --permanent --add-port=50070/tcp || print_warning "添加端口 50070 失败"
     firewall-cmd --permanent --add-port=8088/tcp || print_warning "添加端口 8088 失败"
     firewall-cmd --reload || print_warning "重载防火墙配置失败"
@@ -423,3 +423,12 @@ print_message "YARN 界面: http://localhost:8088"
 print_message "当前服务状态:"
 jps
 systemctl status hadoop
+
+# 在脚本末尾添加
+print_message "执行验证和测试..."
+if [ -f "./verify_hadoop.sh" ]; then
+    chmod +x ./verify_hadoop.sh
+    ./verify_hadoop.sh
+else
+    print_error "未找到验证脚本 verify_hadoop.sh"
+fi

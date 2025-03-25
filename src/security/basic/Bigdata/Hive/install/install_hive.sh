@@ -26,10 +26,11 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 设置变量
+# 修改 Hive 安装路径变量
 HIVE_VERSION="3.1.2"
-HIVE_HOME="/data/hive"
+HIVE_HOME="/data/hive"  # 已正确
 HIVE_CONF_DIR="${HIVE_HOME}/conf"
-HIVE_LOG_DIR="/data/hive/logs"
+HIVE_LOG_DIR="${HIVE_HOME}/logs"  # 调整到 /data/hive/logs
 DOWNLOAD_URL="https://archive.apache.org/dist/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz"
 BACKUP_URL="https://mirrors.tuna.tsinghua.edu.cn/apache/hive/hive-${HIVE_VERSION}/apache-hive-${HIVE_VERSION}-bin.tar.gz"
 
@@ -251,6 +252,15 @@ cat > ${HIVE_CONF_DIR}/hive-site.xml << EOF
     </property>
 
     <!-- 其他配置保持不变 -->
+    # 在 hive-site.xml 中添加 HDFS 配置
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>hdfs://localhost:8020/user/hive/warehouse</value>
+    </property>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://localhost:8020</value>
+    </property>
 </configuration>
 EOF
 
