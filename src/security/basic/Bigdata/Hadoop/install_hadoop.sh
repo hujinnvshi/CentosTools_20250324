@@ -3,11 +3,16 @@
 # 设置颜色变量
 GREEN='\033[0;32m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # 输出函数
 print_message() {
     echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 print_error() {
@@ -54,15 +59,6 @@ check_requirements() {
 
 check_requirements
 
-# 添加错误处理函数
-handle_error() {
-    print_error "在执行过程中发生错误，请检查日志"
-    exit 1
-}
-
-# 添加错误捕获
-trap 'handle_error' ERR
-
 # 设置变量
 HADOOP_VERSION="2.7.7"
 HADOOP_HOME="/data/hadoop-${HADOOP_VERSION}/base"
@@ -78,39 +74,49 @@ HADOOP_HEAP_SIZE=$(($TOTAL_MEM * 60 / 100))
 
 # 清理和备份
 if [ -d "${HADOOP_HOME}" ]; then
-    print_message "发现旧安装，创建备份..."
+    print_warning "发现旧安装，创建备份..."
     backup_dir="/data/backup/hadoop-$(date +%Y%m%d_%H%M%S)"
     mkdir -p ${backup_dir}
-    mv ${HADOOP_HOME} ${backup_dir}/
-    mv ${HADOOP_DATA} ${backup_dir}/ 2>/dev/null || true
-    mv ${HADOOP_LOGS} ${backup_dir}/ 2>/dev/null || true
+    mv ${HADOOP_HOME} ${backup_dir}/ 2>/dev/null || print_warning "备份 ${HADOOP_HOME} 失败"
+    mv ${HADOOP_DATA} ${backup_dir}/ 2>/dev/null || print_warning "备份 ${HADOOP_DATA} 失败"
+    mv ${HADOOP_LOGS} ${backup_dir}/ 2>/dev/null || print_warning "备份 ${HADOOP_LOGS} 失败"
 fi
 
 # 创建目录
 print_message "创建目录结构..."
-mkdir -p ${HADOOP_HOME}
-mkdir -p ${HADOOP_DATA}/{namenode,datanode}
-mkdir -p ${HADOOP_LOGS}
+mkdir -p ${HADOOP_HOME} 2>/dev/null || print_warning "目录 ${HADOOP_HOME} 已存在"
+mkdir -p ${HADOOP_DATA}/{namenode,datanode} 2>/dev/null || print_warning "目录 ${HADOOP_DATA} 已存在"
+mkdir -p ${HADOOP_LOGS} 2>/dev/null || print_warning "目录 ${HADOOP_LOGS} 已存在"
 
 # 创建 hadoop 用户和组
 print_message "创建 hadoop 用户..."
-groupadd hadoop
-useradd -m -g hadoop -s /bin/bash hadoop
+groupadd hadoop 2>/dev/null || print_warning "用户组 hadoop 已存在"
+useradd -m -g hadoop -s /bin/bash hadoop 2>/dev/null || print_warning "用户 hadoop 已存在"
+
+# 创建 hadoop 用户组和 hdfs 用户
+print_message "创建用户和用户组..."
+groupadd hadoop 2>/dev/null || print_warning "用户组 hadoop 已存在"
+useradd -m -g hadoop -s /bin/bash hdfs 2>/dev/null || print_warning "用户 hdfs 已存在"
 
 # 设置权限
 print_message "设置权限..."
-chown -R hadoop:hadoop ${HADOOP_HOME}
-chown -R hadoop:hadoop ${HADOOP_DATA}
-chown -R hadoop:hadoop ${HADOOP_LOGS}
+chown -R hdfs:hadoop ${HADOOP_HOME} 2>/dev/null || print_warning "设置 ${HADOOP_HOME} 权限失败，可能已设置"
+chown -R hdfs:hadoop ${HADOOP_DATA} 2>/dev/null || print_warning "设置 ${HADOOP_DATA} 权限失败，可能已设置"
+chown -R hdfs:hadoop ${HADOOP_LOGS} 2>/dev/null || print_warning "设置 ${HADOOP_LOGS} 权限失败，可能已设置"
 chmod -R 755 ${HADOOP_HOME}
 chmod -R 755 ${HADOOP_DATA}
 chmod -R 755 ${HADOOP_LOGS}
 
 # 配置 SSH 免密登录
 print_message "配置 SSH 免密登录..."
-su - hadoop -c "ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa"
-su - hadoop -c "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys"
-su - hadoop -c "chmod 600 ~/.ssh/authorized_keys"
+if [ ! -f "/home/hdfs/.ssh/id_rsa" ]; then
+    su - hdfs -c "ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa"
+else
+    print_warning "SSH 密钥已存在"
+fi
+
+su - hdfs -c "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys" 2>/dev/null || print_warning "authorized_keys 可能已配置"
+su - hdfs -c "chmod 600 ~/.ssh/authorized_keys" 2>/dev/null || print_warning "authorized_keys 权限已设置"
 
 # 下载 Hadoop
 print_message "下载 Hadoop..."
@@ -146,7 +152,10 @@ fi
 
 # 解压安装
 print_message "安装 Hadoop..."
-tar -xzf "${HADOOP_FILE}" -C ${HADOOP_HOME} --strip-components=1
+tar -xzf "${HADOOP_FILE}" -C ${HADOOP_HOME} --strip-components=1 || {
+    print_error "解压安装包失败"
+    exit 1
+}
 
 # 配置环境变量
 print_message "配置环境变量..."
@@ -161,6 +170,8 @@ export PATH=\${JAVA_HOME}/bin:\${HADOOP_HOME}/bin:\${HADOOP_HOME}/sbin:\${PATH}
 export HADOOP_OPTS="-Djava.library.path=\${HADOOP_HOME}/lib/native"
 export HADOOP_COMMON_LIB_NATIVE_DIR=\${HADOOP_HOME}/lib/native
 EOF
+
+source /etc/profile.d/hadoop.sh
 
 # 配置日志轮转
 print_message "配置日志轮转..."
@@ -181,14 +192,37 @@ cat > ${HADOOP_HOME}/etc/hadoop/core-site.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
+    
     <property>
         <name>fs.defaultFS</name>
         <value>hdfs://localhost:9000</value>
     </property>
+    
     <property>
         <name>hadoop.tmp.dir</name>
         <value>${HADOOP_DATA}</value>
     </property>
+    
+    <property>
+        <name>hadoop.proxyuser.hadoop.hosts</name>
+        <value>*</value>
+    </property>
+    
+    <property>
+        <name>hadoop.proxyuser.hadoop.groups</name>
+        <value>*</value>
+    </property>
+    
+    <property>
+        <name>hadoop.proxyuser.hive.hosts</name>
+        <value>*</value>
+    </property>
+    
+    <property>
+        <name>hadoop.proxyuser.hive.groups</name>
+        <value>*</value>
+    </property>
+
 </configuration>
 EOF
 
@@ -215,7 +249,7 @@ EOF
 
 # 配置 mapred-site.xml
 print_message "配置 mapred-site.xml..."
-cp ${HADOOP_HOME}/etc/hadoop/mapred-site.xml.template ${HADOOP_HOME}/etc/hadoop/mapred-site.xml
+cp ${HADOOP_HOME}/etc/hadoop/mapred-site.xml.template ${HADOOP_HOME}/etc/hadoop/mapred-site.xml 2>/dev/null || print_warning "mapred-site.xml 已存在"
 cat > ${HADOOP_HOME}/etc/hadoop/mapred-site.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
@@ -270,24 +304,28 @@ EOF
 
 # 配置防火墙
 print_message "配置防火墙..."
-# 检查防火墙状态
 if ! systemctl is-active firewalld &>/dev/null; then
-    print_message "防火墙服务未运行，正在启动..."
-    systemctl start firewalld
-    systemctl enable firewalld
+    print_warning "防火墙服务未运行，尝试启动..."
+    systemctl start firewalld 2>/dev/null || print_warning "启动防火墙失败"
+    systemctl enable firewalld 2>/dev/null || print_warning "设置防火墙开机启动失败"
 fi
 
 if systemctl is-active firewalld &>/dev/null; then
-    firewall-cmd --permanent --add-port=9000/tcp
-    firewall-cmd --permanent --add-port=50070/tcp
-    firewall-cmd --permanent --add-port=8088/tcp
-    firewall-cmd --reload
+    firewall-cmd --permanent --add-port=9000/tcp || print_warning "添加端口 9000 失败"
+    firewall-cmd --permanent --add-port=50070/tcp || print_warning "添加端口 50070 失败"
+    firewall-cmd --permanent --add-port=8088/tcp || print_warning "添加端口 8088 失败"
+    firewall-cmd --reload || print_warning "重载防火墙配置失败"
 else
-    print_message "警告: 防火墙服务未运行，跳过端口配置"
+    print_warning "防火墙服务未运行，跳过端口配置"
 fi
 
 # 创建服务文件
 print_message "创建系统服务..."
+if [ -f "/usr/lib/systemd/system/hadoop.service" ]; then
+    print_warning "Hadoop 服务文件已存在，将覆盖..."
+    systemctl stop hadoop 2>/dev/null || true
+fi
+
 cat > /usr/lib/systemd/system/hadoop.service << EOF
 [Unit]
 Description=Hadoop Service
@@ -295,7 +333,7 @@ After=network.target
 
 [Service]
 Type=forking
-User=hadoop
+User=hdfs
 Group=hadoop
 Environment=JAVA_HOME=${JAVA_HOME}
 Environment=HADOOP_HOME=${HADOOP_HOME}
@@ -309,35 +347,57 @@ EOF
 
 # 格式化 namenode
 print_message "格式化 namenode..."
-su - hadoop -c "${HADOOP_HOME}/bin/hdfs namenode -format"
+if [ -d "${HADOOP_DATA}/namenode/current" ]; then
+    print_warning "NameNode 已格式化，跳过格式化步骤"
+else
+    su - hdfs -c "${HADOOP_HOME}/bin/hdfs namenode -format"
+fi
 
 # 启动服务
 print_message "启动 Hadoop 服务..."
 systemctl daemon-reload
-systemctl enable hadoop
-systemctl start hadoop
+
+# 检查并显示 Hadoop 日志目录权限
+print_message "检查日志目录权限..."
+ls -la ${HADOOP_LOGS}
+chown -R hdfs:hadoop ${HADOOP_LOGS}
+
+# 尝试启动服务
+systemctl enable hadoop || print_warning "设置 Hadoop 服务开机启动失败"
+if ! systemctl start hadoop; then
+    print_warning "通过 systemd 启动失败，尝试直接启动..."
+    su - hdfs -c "${HADOOP_HOME}/sbin/start-dfs.sh"
+    su - hdfs -c "${HADOOP_HOME}/sbin/start-yarn.sh"
+fi
 
 # 等待服务启动
 print_message "等待服务启动..."
-max_attempts=30
+max_attempts=10
 attempt=1
 
 check_service() {
     local service=$1
-    jps | grep -q "$service"
-    return $?
+    if ! jps | grep -q "$service"; then
+        # 检查相关日志
+        print_warning "检查 ${service} 日志..."
+        tail -n 20 ${HADOOP_LOGS}/${service}*.log 2>/dev/null || print_warning "无法找到 ${service} 日志"
+        return 1
+    fi
+    return 0
 }
 
 wait_for_service() {
     local service=$1
     while [ $attempt -le $max_attempts ]; do
         if check_service "$service"; then
+            print_message "${service} 启动成功"
             return 0
         fi
-        print_message "等待 $service 启动... $attempt/$max_attempts"
+        print_message "等待 ${service} 启动... $attempt/$max_attempts"
         attempt=$((attempt + 1))
-        sleep 2
+        sleep 5
     done
+    print_error "${service} 启动失败"
     return 1
 }
 
@@ -352,9 +412,14 @@ done
 
 # 测试验证
 print_message "验证 Hadoop 安装..."
-su - hadoop -c "${HADOOP_HOME}/bin/hadoop fs -mkdir /test"
-su - hadoop -c "${HADOOP_HOME}/bin/hadoop fs -ls /"
+su - hdfs -c "${HADOOP_HOME}/bin/hadoop fs -mkdir /test" 2>/dev/null || print_message "测试目录已存在"
+su - hdfs -c "${HADOOP_HOME}/bin/hadoop fs -ls /"
 
 print_message "Hadoop 安装完成！"
 print_message "Web 界面: http://localhost:50070"
 print_message "YARN 界面: http://localhost:8088"
+
+# 显示服务状态
+print_message "当前服务状态:"
+jps
+systemctl status hadoop
