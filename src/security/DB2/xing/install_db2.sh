@@ -34,60 +34,68 @@ DB2_PASSWORD="Secsmart#612"
 DB2_PORT="50000"
 DB2_PACKAGE="v11.5.8_linuxx64_server_dec.tar.gz"
 
+# 安装依赖包
+print_message "安装依赖包..."
+yum install -y \
+    pam.i686 \
+    libstdc++.i686 \
+    ksh \
+    gcc \
+    gcc-c++ \
+    kernel-devel \
+    libstdc++ \
+    libstdc++-devel \
+    numactl \
+    numactl-devel \
+    pam-devel \
+    net-tools \
+    bind-utils
+
+# 创建 ksh 链接
+print_message "配置 ksh..."
+if [ ! -f /bin/ksh ]; then
+    ln -s /bin/bash /bin/ksh
+fi
+
+# 清理旧目录
+print_message "清理旧安装..."
+if [ -d "${DB2_HOME}" ]; then
+    print_warning "清理旧的安装目录..."
+    rm -rf ${DB2_HOME}/*
+fi
+
 # 创建必要目录
 print_message "创建目录结构..."
 mkdir -p ${DB2_HOME}/{instance,data,backup,log,bin}
 chmod -R 755 ${DB2_HOME}
 
-# 检查安装包
-if [ ! -f "${DB2_PACKAGE}" ]; then
-    print_error "未找到安装包：${DB2_PACKAGE}"
-    exit 1
-fi
-
-# 解压安装包
+# 解压安装包到临时目录
 print_message "解压安装包..."
-tar -xzf ${DB2_PACKAGE} -C /tmp
-cd /tmp/server_dec
+TEMP_DIR=$(mktemp -d)
+tar -xzf ${DB2_PACKAGE} -C ${TEMP_DIR}
+cd ${TEMP_DIR}/server_dec
+
+# 运行预检查
+print_message "运行安装预检查..."
+./db2prereqcheck -l ${DB2_HOME}/log/prereq.log
+if [ $? -ne 0 ]; then
+    print_warning "预检查发现一些问题，请查看日志: ${DB2_HOME}/log/prereq.log"
+    sleep 5
+fi
 
 # 安装 DB2
 print_message "安装 DB2..."
-./db2_install -b ${DB2_HOME} -p SERVER -l ${DB2_HOME}/log/install.log
+./db2_install -b ${DB2_HOME} -p SERVER -l ${DB2_HOME}/log/install.log -n
 
-# 等待安装完成
+# 等待安装完成并检查结果
 sleep 10
-
-# 验证安装目录
-if [ ! -d "${DB2_HOME}/instance" ]; then
-    print_error "DB2 安装目录结构不完整，请检查安装日志"
-    exit 1
-fi
-
-# 创建实例前检查
-print_message "检查实例创建环境..."
 if [ ! -f "${DB2_HOME}/instance/db2icrt" ]; then
-    print_error "找不到 db2icrt 工具，安装可能不完整"
+    print_error "DB2 安装失败，请检查安装日志: ${DB2_HOME}/log/install.log"
     exit 1
 fi
 
-# 创建用户组
-print_message "创建用户组..."
-groupadd -g 999 db2iadm1 2>/dev/null || print_warning "用户组 db2iadm1 已存在"
-groupadd -g 998 db2fadm1 2>/dev/null || print_warning "用户组 db2fadm1 已存在"
-
-# 创建用户
-print_message "创建用户..."
-useradd -g db2iadm1 -m -d /home/${DB2_INSTANCE} ${DB2_INSTANCE} 2>/dev/null || print_warning "用户 ${DB2_INSTANCE} 已存在"
-useradd -g db2fadm1 -m -d /home/${DB2_FENCED} ${DB2_FENCED} 2>/dev/null || print_warning "用户 ${DB2_FENCED} 已存在"
-
-# 设置密码
-print_message "设置用户密码..."
-echo "${DB2_PASSWORD}" | passwd --stdin ${DB2_INSTANCE}
-echo "${DB2_PASSWORD}" | passwd --stdin ${DB2_FENCED}
-
-# 创建实例
-print_message "创建 DB2 实例..."
-${DB2_HOME}/instance/db2icrt -u ${DB2_FENCED} ${DB2_INSTANCE}
+# 清理临时目录
+rm -rf ${TEMP_DIR}
 
 # 验证实例创建
 if ! id ${DB2_INSTANCE} >/dev/null 2>&1; then
