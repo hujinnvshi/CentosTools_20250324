@@ -36,7 +36,8 @@ DB2_PACKAGE="v11.5.8_linuxx64_server_dec.tar.gz"
 
 # 创建必要目录
 print_message "创建目录结构..."
-mkdir -p ${DB2_HOME}/{instance,data,backup,log}
+mkdir -p ${DB2_HOME}/{instance,data,backup,log,bin}
+chmod -R 755 ${DB2_HOME}
 
 # 检查安装包
 if [ ! -f "${DB2_PACKAGE}" ]; then
@@ -46,8 +47,28 @@ fi
 
 # 解压安装包
 print_message "解压安装包..."
-tar -xzf ${DB2_PACKAGE} -C ${DB2_HOME}
-cd ${DB2_HOME}/server_dec
+tar -xzf ${DB2_PACKAGE} -C /tmp
+cd /tmp/server_dec
+
+# 安装 DB2
+print_message "安装 DB2..."
+./db2_install -b ${DB2_HOME} -p SERVER -l ${DB2_HOME}/log/install.log
+
+# 等待安装完成
+sleep 10
+
+# 验证安装目录
+if [ ! -d "${DB2_HOME}/instance" ]; then
+    print_error "DB2 安装目录结构不完整，请检查安装日志"
+    exit 1
+fi
+
+# 创建实例前检查
+print_message "检查实例创建环境..."
+if [ ! -f "${DB2_HOME}/instance/db2icrt" ]; then
+    print_error "找不到 db2icrt 工具，安装可能不完整"
+    exit 1
+fi
 
 # 创建用户组
 print_message "创建用户组..."
@@ -56,21 +77,27 @@ groupadd -g 998 db2fadm1 2>/dev/null || print_warning "用户组 db2fadm1 已存
 
 # 创建用户
 print_message "创建用户..."
-useradd -g db2iadm1 -m -d ${DB2_HOME}/instance/${DB2_INSTANCE} ${DB2_INSTANCE} 2>/dev/null || print_warning "用户 ${DB2_INSTANCE} 已存在"
-useradd -g db2fadm1 -m -d ${DB2_HOME}/instance/${DB2_FENCED} ${DB2_FENCED} 2>/dev/null || print_warning "用户 ${DB2_FENCED} 已存在"
+useradd -g db2iadm1 -m -d /home/${DB2_INSTANCE} ${DB2_INSTANCE} 2>/dev/null || print_warning "用户 ${DB2_INSTANCE} 已存在"
+useradd -g db2fadm1 -m -d /home/${DB2_FENCED} ${DB2_FENCED} 2>/dev/null || print_warning "用户 ${DB2_FENCED} 已存在"
 
 # 设置密码
 print_message "设置用户密码..."
 echo "${DB2_PASSWORD}" | passwd --stdin ${DB2_INSTANCE}
 echo "${DB2_PASSWORD}" | passwd --stdin ${DB2_FENCED}
 
-# 安装 DB2
-print_message "安装 DB2..."
-./db2_install -b ${DB2_HOME} -p SERVER -l ${DB2_HOME}/log/install.log
-
 # 创建实例
 print_message "创建 DB2 实例..."
 ${DB2_HOME}/instance/db2icrt -u ${DB2_FENCED} ${DB2_INSTANCE}
+
+# 验证实例创建
+if ! id ${DB2_INSTANCE} >/dev/null 2>&1; then
+    print_error "实例用户创建失败"
+    exit 1
+fi
+
+# 创建管理脚本目录
+mkdir -p ${DB2_HOME}/bin
+chmod 755 ${DB2_HOME}/bin
 
 # 配置环境变量
 print_message "配置环境变量..."
@@ -98,7 +125,23 @@ db2sampl
 
 # 验证安装
 db2 connect to sample
-db2 list tables
+
+# 创建管理员用户
+db2 "GRANT DBADM,CREATETAB,BINDADD,CONNECT,CREATE_NOT_FENCED,IMPLICIT_SCHEMA,LOAD ON DATABASE TO USER admin"
+db2 "GRANT SYSADM,SYSCTRL,SYSMAINT,SYSMON TO USER admin"
+db2 "CREATE USER admin USING Secsmart#612"
+db2 "GRANT EXECUTE ON PACKAGE NULLID.SQLC2H50 TO admin"
+db2 "GRANT EXECUTE ON PACKAGE NULLID.SQLC2H51 TO admin"
+db2 "GRANT EXECUTE ON PACKAGE NULLID.SQLC2H52 TO admin"
+db2 "GRANT EXECUTE ON PACKAGE NULLID.SQLC2H53 TO admin"
+db2 "GRANT EXECUTE ON PACKAGE NULLID.SQLC2H54 TO admin"
+
+# 更新数据库管理器配置以允许远程连接
+db2 update dbm cfg using SVCENAME ${DB2_PORT}
+db2set DB2COMM=TCPIP
+db2 update dbm cfg using TCP_KEEPALIVE YES
+db2 update dbm cfg using AUTHENTICATION SERVER
+
 db2 terminate
 EOF
 
@@ -131,3 +174,9 @@ print_message "启动数据库: ${DB2_HOME}/bin/db2_start.sh"
 print_message "停止数据库: ${DB2_HOME}/bin/db2_stop.sh"
 print_message "查看状态: ${DB2_HOME}/bin/db2_status.sh"
 print_message "连接数据库: db2 connect to sample user ${DB2_INSTANCE} using ${DB2_PASSWORD}"
+
+# 在最后的提示信息中添加新用户信息
+print_message "管理员用户信息："
+print_message "用户名: admin"
+print_message "密码: Secsmart#612"
+print_message "远程连接命令: db2 connect to sample user admin using Secsmart#612"
