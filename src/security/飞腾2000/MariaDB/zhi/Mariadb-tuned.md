@@ -85,10 +85,7 @@
 - 配置服务控制命令
 - 配置快捷连接命令
 ## 8. 运维命令
-- 启动：systemctl start mariadb
-- 停止：systemctl stop mariadb
-- 重启：systemctl restart mariadb
-- 状态：systemctl status mariadb
 - 连接：mysql -uadmin -p'Secsmart#612'
 
+注意，不要将mariadb作为系统服务进行配置，而是单独设置启动关闭脚本，便于调试和问题排查。
 帮我生成一键安装脚本，方便以后使用,并提供启动数据库，关闭数据库，连接数据库的完整命令
