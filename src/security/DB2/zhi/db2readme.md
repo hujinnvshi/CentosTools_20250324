@@ -3,3 +3,6 @@
 数据库安装在/data/db2
 
 请提供完整的意见安装bash脚本
+
+db2 connect to sample user db2115i1 using Secsmart#612
+DB2V11.5-172.16.48.169-50000-SAMPLE-db2115i1-Secsmart#612

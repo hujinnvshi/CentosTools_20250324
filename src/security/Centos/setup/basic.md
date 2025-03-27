@@ -10,3 +10,10 @@ SELINUX=enforcing 改为 SELINUX=disabled
 
 帮我生成一个一键执行bash脚本
 
+touch bash.sh
+chmod +x bash.sh
+vim bash.sh
+
+History：
+    On 172.16.48.191 2023-05-03 09:09:01
+    On 172.16.48.182,183,184 2023-05-03 17:42:01

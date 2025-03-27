@@ -51,10 +51,10 @@ echo "内存大小：${TOTAL_MEM}GB"
 print_message "正在优化系统参数..."
 cat > /etc/sysctl.conf << EOF
 # 系统级别的最大文件句柄数
-fs.file-max = $(($TOTAL_MEM * 1048576))
+fs.file-max = $(($TOTAL_MEM * 10048576))
 
 # 进程级别的最大文件句柄数
-fs.nr_open = $(($TOTAL_MEM * 1048576))
+fs.nr_open = $(($TOTAL_MEM * 10048576))
 
 # 内核参数优化
 net.core.somaxconn = 65535
@@ -92,8 +92,8 @@ fi
 cat > /etc/security/limits.conf << EOF
 * soft nofile $(($TOTAL_MEM * 524288))
 * hard nofile $(($TOTAL_MEM * 524288))
-* soft nproc $(($CPU_CORES * 2048))
-* hard nproc $(($CPU_CORES * 2048))
+* soft nproc $(($CPU_CORES * 204800))
+* hard nproc $(($CPU_CORES * 204800))
 * soft stack 16384
 * hard stack 16384
 EOF
@@ -106,15 +106,6 @@ if [ $? -eq 0 ]; then
     print_message "SELinux 已设置为 disabled"
 else
     print_error "SELinux 配置修改失败"
-fi
-
-# 修改主机名
-print_message "正在修改主机名..."
-hostnamectl set-hostname aihelp
-if [ $? -eq 0 ]; then
-    print_message "主机名已修改为 aihelp"
-else
-    print_error "主机名修改失败"
 fi
 
 # 设置 PS1 环境变量（更美观的配色）

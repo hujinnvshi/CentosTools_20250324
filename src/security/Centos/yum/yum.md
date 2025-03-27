@@ -7,7 +7,7 @@
 touch yum.sh
 chmod +x yum.sh
 vi yum.sh
-./yum.sh
 
 History：
     On 172.16.48.191 2023-05-03 09:09:01
+    On 172.16.48.182，183,184,169 2023-05-03 17:10:59

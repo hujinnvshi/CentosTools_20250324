@@ -41,5 +41,9 @@ mysqladmin -u root -p shutdown
 -- 创建测试数据库和用户
 CREATE DATABASE hive20250324 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'hive20250324'@'%' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON testdb.* TO 'hive20250324'@'%';
+GRANT ALL PRIVILEGES ON *.* TO 'hive20250324'@'%';
 FLUSH PRIVILEGES;
+
+mysql -uadmin -p'Secsmart#612' -h 172.16.61.225
+mysql -uhive20250324 -p'Secsmart#612' -h 172.16.61.225
+mysql -uhive20250324 -p'Secsmart#612' -h 172.16.61.225 -D hive20250324

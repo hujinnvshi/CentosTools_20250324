@@ -227,3 +227,21 @@ print_message "Root 密码：${MYSQL_ROOT_PASSWORD}"
 print_message "测试用户：testuser"
 print_message "测试密码：Test#123456"
 print_message "测试数据库：testdb"
+
+# 配置环境变量
+print_message "配置环境变量..."
+cat > /etc/profile.d/mysql.sh << EOF
+# MySQL 环境变量
+export MYSQL_HOME=${MYSQL_BASE}/base
+export PATH=\$MYSQL_HOME/bin:\$PATH
+EOF
+
+# 设置正确的权限
+chmod 644 /etc/profile.d/mysql.sh
+chown root:root /etc/profile.d/mysql.sh
+
+# 立即生效环境变量
+source /etc/profile.d/mysql.sh
+
+print_message "环境变量已配置，已自动生效"
+print_message "如果环境变量未生效，请执行：source /etc/profile"

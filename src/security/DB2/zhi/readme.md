@@ -11,8 +11,8 @@ chmod -R 777 /data/${SoftwareUser}
 # 安装数据库
 $ cd /data/IB1150V1/soft/server_dec
 $ export DB2HOME=/data/IB1150V1/base
-$ ./db2_install   -b ${DB2HOME} -p EXP -l install.log
-$ ./db2_install   -b ${DB2HOME} -l install.log
+$ ./db2_install   -b ${DB2HOME} -p EXP -l install.log(无)
+$ ./db2_install   -b ${DB2HOME} -l install.log(这个)
 $ ./db2_deinstall -b ${DB2HOME} -a
 # SERVER，否
 ########################################
@@ -35,7 +35,6 @@ db2 list db directory
 $ db2 connect to sample
 $ echo Secsmart#612 | passwd --stdin db2115i1
 $ db2 connect to sample user db2115i1 using Secsmart#612
-
 db2 list tablespaces
 db2 get dbm cfg
 ########################################
@@ -49,8 +48,10 @@ export DB2USER=db2115i1
 su - ${DB2USER}
 export DB2USER=db2115i1
 db2 update dbm cfg using svcename ${DB2USER}
+db2 update dbm cfg using SVCENAME 50000
 db2set -all
 db2set db2comm=tcpip
 db2 get dbm cfg | grep ${DB2USER}
+cat /etc/services | grep -i ${DB2USER}
 ########################################
 ```
