@@ -27,7 +27,7 @@ fi
 
 # 设置变量
 # 修改 Hive 安装路径变量
-HIVE_VERSION="3.1.2"
+HIVE_VERSION="3.1.3"
 HIVE_HOME="/data/hive"  # 已正确
 HIVE_CONF_DIR="${HIVE_HOME}/conf"
 HIVE_LOG_DIR="${HIVE_HOME}/logs"  # 调整到 /data/hive/logs
@@ -420,6 +420,7 @@ su - hive -c "hive -e 'show databases;'" || {
     exit 1
 }
 
+HIVE_HOME="/data/hive"  # 已正确
 # 完成安装
 cat > ${HIVE_HOME}/bin/start-hive.sh << EOF
 #!/bin/bash
