@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+<!-- 保留原有数据库配置 -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://172.16.48.28:6003/HIVE2_1_0?createDatabaseIfNotExist=true&amp;useSSL=false&amp;serverTimezone=UTC</value>
+        <description>JDBC connect string for a JDBC metastore</description>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.jdbc.Driver</value>
+        <description>Driver class name for a JDBC metastore</description>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>HIVE2_1_0</value>
+        <description>username to use against metastore database</description>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>Secsmart#612</value>
+        <description>password to use against metastore database</description>
+    </property>
+
+    <!-- 性能优化配置 -->
+    <property>
+        <name>hive.exec.parallel</name>
+        <value>true</value>
+        <description>是否并行执行任务</description>
+    </property>
+    <property>
+        <name>hive.exec.parallel.thread.number</name>
+        <value>32</value>
+        <description>并行执行任务的线程数</description>
+    </property>
+    <property>
+        <name>hive.exec.reducers.bytes.per.reducer</name>
+        <value>268435456</value>
+        <description>每个reducer处理的数据量</description>
+    </property>
+    <property>
+        <name>hive.auto.convert.join</name>
+        <value>true</value>
+        <description>自动转换MapJoin</description>
+    </property>
+    <property>
+        <name>hive.mapjoin.smalltable.filesize</name>
+        <value>25000000</value>
+        <description>小表阈值</description>
+    </property>
+    <property>
+        <name>hive.optimize.reducededuplication</name>
+        <value>true</value>
+        <description>优化reduce阶段去重</description>
+    </property>
+    <property>
+        <name>hive.optimize.skewjoin</name>
+        <value>true</value>
+        <description>优化数据倾斜</description>
+    </property>
+    <property>
+        <name>hive.server2.thrift.port</name>
+        <value>10000</value>
+        <description>HiveServer2端口</description>
+    </property>
+    <property>
+        <name>hive.server2.thrift.min.worker.threads</name>
+        <value>16</value>
+        <description>最小工作线程数</description>
+    </property>
+    <property>
+        <name>hive.server2.thrift.max.worker.threads</name>
+        <value>32</value>
+        <description>最大工作线程数</description>
+    </property>
+
+    <!-- 保留原有配置 -->
+    <property>
+        <name>hive.execution.engine</name>
+        <value>spark</value>
+    </property>
+    <property>
+        <name>spark.master</name>
+        <value>spark://hpn5:7077</value>
+    </property>
+    <property>
+        <name>spark.eventLog.enabled</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>spark.eventLog.dir</name>
+        <value>hdfs:///spark-logs</value>
+    </property>
+    <property>
+        <name>spark.executor.memory</name>
+        <value>2g</value>
+    </property>
+    <property>
+        <name>spark.driver.memory</name>
+        <value>1g</value>
+    </property>
+</configuration>
