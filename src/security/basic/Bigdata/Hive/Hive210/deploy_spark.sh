@@ -7,6 +7,31 @@ INSTALL_DIR="/data2/Hive210/base"
 SPARK_VERSION="3.2.4"
 SPARK_HADOOP_VERSION="2.7"
 SPARK_HOME="${INSTALL_DIR}/spark-${SPARK_VERSION}-bin-hadoop${SPARK_HADOOP_VERSION}"
+# 添加Scala版本定义
+SCALA_VERSION="2.12.18"
+SCALA_HOME="${INSTALL_DIR}/scala-${SCALA_VERSION}"
+
+# 修改install_scala函数
+install_scala() {
+    log "开始安装Scala..."
+    cd ${INSTALL_DIR} || error "无法进入安装目录"
+    # 使用清华镜像源下载
+    if [ ! -f "scala-${SCALA_VERSION}.tgz" ]; then
+        wget "https://mirrors.tuna.tsinghua.edu.cn/scala/scala-${SCALA_VERSION}.tgz" || \
+        wget "https://downloads.typesafe.com/scala/${SCALA_VERSION}/scala-${SCALA_VERSION}.tgz" || \
+        error "Scala下载失败"
+    fi
+    tar -xzf "scala-${SCALA_VERSION}.tgz" || error "Scala解压失败"    
+    # 配置Scala环境变量
+    cat > /etc/profile.d/scala.sh << EOF
+export SCALA_HOME=${SCALA_HOME}
+export PATH=\$PATH:\$SCALA_HOME/bin
+EOF
+    source /etc/profile.d/scala.sh
+    # 验证安装
+    scala -version || error "Scala安装失败"
+    log "Scala安装完成"
+}
 
 # 颜色定义
 GREEN='\033[0;32m'
@@ -26,22 +51,21 @@ error() {
 # 下载并安装Spark
 install_spark() {
     log "开始安装Spark..."
-    
-    cd ${INSTALL_DIR} || error "无法进入安装目录"
-    
+    cd ${INSTALL_DIR} || error "无法进入安装目录"    
     if [ ! -f "spark-${SPARK_VERSION}-bin-hadoop${SPARK_HADOOP_VERSION}.tgz" ]; then
-        wget "https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${SPARK_HADOOP_VERSION}.tgz" || error "Spark下载失败"
+        # 使用清华镜像源作为主源，阿里云作为备用源
+        wget "https://mirrors.tuna.tsinghua.edu.cn/apache/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${SPARK_HADOOP_VERSION}.tgz" || \
+        wget "https://mirrors.aliyun.com/apache/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${SPARK_HADOOP_VERSION}.tgz" || \
+        wget "https://mirrors.huaweicloud.com/apache/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${SPARK_HADOOP_VERSION}.tgz" || \
+        error "Spark下载失败"
     fi
-    
     tar -xzf "spark-${SPARK_VERSION}-bin-hadoop${SPARK_HADOOP_VERSION}.tgz" || error "Spark解压失败"
-    
     log "Spark安装完成"
 }
 
 # 配置Spark环境
 configure_spark() {
-    log "配置Spark环境..."
-    
+    log "配置Spark环境..."    
     # 配置spark-env.sh
     cp ${SPARK_HOME}/conf/spark-env.sh.template ${SPARK_HOME}/conf/spark-env.sh
     cat >> ${SPARK_HOME}/conf/spark-env.sh << EOF
@@ -54,7 +78,6 @@ export SPARK_WORKER_CORES=$(nproc)
 export SPARK_WORKER_MEMORY=$(($(free -g | awk '/^Mem:/{print $2}') * 80 / 100))g
 export SPARK_DAEMON_MEMORY=1g
 EOF
-
     # 配置spark-defaults.conf
     cp ${SPARK_HOME}/conf/spark-defaults.conf.template ${SPARK_HOME}/conf/spark-defaults.conf
     cat >> ${SPARK_HOME}/conf/spark-defaults.conf << EOF
@@ -65,10 +88,8 @@ spark.history.fs.logDirectory   hdfs:///spark-logs
 spark.executor.memory           2g
 spark.driver.memory             1g
 EOF
-
     # 配置workers
     echo $(hostname) > ${SPARK_HOME}/conf/workers
-    
     log "Spark配置完成"
 }
 
@@ -127,8 +148,7 @@ start_spark() {
 
 # 测试Spark性能
 test_spark() {
-    log "测试Spark性能..."
-    
+    log "测试Spark性能..."    
     # 运行SparkPi示例
     ${SPARK_HOME}/bin/spark-submit \
         --class org.apache.spark.examples.SparkPi \
@@ -136,37 +156,11 @@ test_spark() {
         --executor-memory 1G \
         --total-executor-cores 2 \
         ${SPARK_HOME}/examples/jars/spark-examples*.jar \
-        100
-        
+        100        
     log "Spark测试完成"
 }
 
 # 主函数
-install_scala() {
-    log "开始安装Scala..."
-    
-    cd ${INSTALL_DIR} || error "无法进入安装目录"
-    
-    if [ ! -f "scala-${SCALA_VERSION}.tgz" ]; then
-        wget "https://downloads.lightbend.com/scala/${SCALA_VERSION}/scala-${SCALA_VERSION}.tgz" || error "Scala下载失败"
-    fi
-    
-    tar -xzf "scala-${SCALA_VERSION}.tgz" || error "Scala解压失败"
-    
-    # 配置Scala环境变量
-    cat > /etc/profile.d/scala.sh << EOF
-export SCALA_HOME=${SCALA_HOME}
-export PATH=\$PATH:\$SCALA_HOME/bin
-EOF
-    
-    source /etc/profile.d/scala.sh
-    
-    # 验证安装
-    scala -version || error "Scala安装失败"
-    
-    log "Scala安装完成"
-}
-
 main() {
     log "开始部署Spark集群..."
     
