@@ -98,11 +98,29 @@ install_kafka() {
         exit 1
     }
     
-    # 生成集群ID
-    CLUSTER_ID=$(${KAFKA_HOME}/bin/kafka-storage.sh random-uuid)
+    # 确保kafka目录存在
+    mkdir -p ${KAFKA_CONF}/kafka
+    
+    # 设置所有权和权限（先设置目录权限）
+    find ${KAFKA_HOME} -type d -exec chmod 755 {} \;
+    find ${KAFKA_HOME} -type f -exec chmod 644 {} \;
+    chmod -R 775 ${KAFKA_DATA} ${KAFKA_LOGS}
+    chmod +x ${KAFKA_HOME}/bin/*
+    chown -R kafka:kafka ${KAFKA_HOME}
+    chmod 777 -R ${KAFKA_HOME}
+    
+    # 设置环境变量
+    export KAFKA_HOME=${KAFKA_HOME}
+    # 生成集群ID（使用su命令执行）
+    print_message "生成集群ID..."
+    CLUSTER_ID=$(su kafka -c "cd ~ && ${KAFKA_HOME}/bin/kafka-storage.sh random-uuid")
+    if [ $? -ne 0 ]; then
+        print_error "生成集群ID失败"
+        exit 1
+    fi
     
     # 创建配置文件
-    cat > ${KAFKA_CONF}/kraft/server.properties << EOF
+    cat > ${KAFKA_CONF}/kafka/server.properties << EOF
 # Kafka Broker 配置
 node.id=1
 process.roles=broker,controller
@@ -145,8 +163,18 @@ EOF
     chown -R kafka:kafka ${KAFKA_HOME}
     chmod -R 755 ${KAFKA_HOME}
     
+    # 格式化存储目录前再次确认权限
+    chown -R kafka:kafka ${KAFKA_CONF}/kafka
+    chmod 755 ${KAFKA_CONF}/kafka
+    chmod 644 ${KAFKA_CONF}/kafka/server.properties
+    
     # 格式化存储目录
-    su - kafka -c "${KAFKA_HOME}/bin/kafka-storage.sh format -t ${CLUSTER_ID} -c ${KAFKA_CONF}/kraft/server.properties"
+    print_message "格式化存储目录..."
+    su kafka -c "cd ~ && ${KAFKA_HOME}/bin/kafka-storage.sh format -t ${CLUSTER_ID} -c ${KAFKA_CONF}/kafka/server.properties"
+    if [ $? -ne 0 ]; then
+        print_error "格式化存储目录失败"
+        exit 1
+    fi
 }
 
 # 创建服务管理脚本
@@ -165,7 +193,7 @@ User=kafka
 Group=kafka
 Environment="JAVA_HOME=${JAVA_HOME}"
 Environment="KAFKA_HEAP_OPTS=-Xmx${KAFKA_HEAP_SIZE}g -Xms${KAFKA_HEAP_SIZE}g"
-ExecStart=${KAFKA_HOME}/bin/kafka-server-start.sh ${KAFKA_CONF}/kraft/server.properties
+ExecStart=${KAFKA_HOME}/bin/kafka-server-start.sh ${KAFKA_CONF}/kafka/server.properties
 ExecStop=${KAFKA_HOME}/bin/kafka-server-stop.sh
 Restart=on-failure
 
@@ -231,7 +259,7 @@ main() {
     print_message "安装目录: ${KAFKA_HOME}"
     print_message "数据目录: ${KAFKA_DATA}"
     print_message "日志目录: ${KAFKA_LOGS}"
-    print_message "配置文件: ${KAFKA_CONF}/kraft/server.properties"
+    print_message "配置文件: ${KAFKA_CONF}/kafka/server.properties"
     print_message ""
     print_message "使用以下命令管理服务："
     print_message "启动: ${KAFKA_HOME}/bin/kafka_control.sh start"
