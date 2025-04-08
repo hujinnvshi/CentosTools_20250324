@@ -76,14 +76,13 @@ export HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop
 export SPARK_LOCAL_IP=127.0.0.1
 export SPARK_MASTER_HOST=127.0.0.1
 export SPARK_MASTER_PORT=7077
-export SPARK_MASTER_WEBUI_PORT=8080
+export SPARK_MASTER_WEBUI_PORT=8082  # 修改为8082
 export SPARK_WORKER_CORES=$(nproc)
 export SPARK_WORKER_MEMORY=$(($(free -g | awk '/^Mem:/{print $2}') * 60 / 100))g
 export SPARK_DAEMON_MEMORY=1g
 EOF
 
-    # 配置spark-defaults.conf
-    cp ${SPARK_HOME}/conf/spark-defaults.conf.template ${SPARK_HOME}/conf/spark-defaults.conf
+    # 修改spark-defaults.conf配置
     cat >> ${SPARK_HOME}/conf/spark-defaults.conf << EOF
 spark.master                     spark://127.0.0.1:7077
 spark.eventLog.enabled           true
@@ -91,9 +90,8 @@ spark.eventLog.dir              hdfs:///spark-logs
 spark.history.fs.logDirectory   hdfs:///spark-logs
 spark.executor.memory           2g
 spark.driver.memory             1g
-# 添加重试和端口配置
+spark.ui.port                   8082  # 添加此行
 spark.port.maxRetries           32
-spark.ui.port                   8080
 EOF
 }
 
