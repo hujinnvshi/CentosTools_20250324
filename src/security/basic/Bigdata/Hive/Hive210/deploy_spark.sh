@@ -72,32 +72,38 @@ configure_spark() {
 export JAVA_HOME=/data2/JDK8u251/jdk1.8.0_251
 export HADOOP_HOME=${HADOOP_HOME}
 export HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop
-export SPARK_MASTER_HOST=$(hostname)
+# 修改主机地址配置
+export SPARK_LOCAL_IP=127.0.0.1
+export SPARK_MASTER_HOST=127.0.0.1
 export SPARK_MASTER_PORT=7077
+export SPARK_MASTER_WEBUI_PORT=8080
 export SPARK_WORKER_CORES=$(nproc)
-export SPARK_WORKER_MEMORY=$(($(free -g | awk '/^Mem:/{print $2}') * 80 / 100))g
+export SPARK_WORKER_MEMORY=$(($(free -g | awk '/^Mem:/{print $2}') * 60 / 100))g
 export SPARK_DAEMON_MEMORY=1g
 EOF
+
     # 配置spark-defaults.conf
     cp ${SPARK_HOME}/conf/spark-defaults.conf.template ${SPARK_HOME}/conf/spark-defaults.conf
     cat >> ${SPARK_HOME}/conf/spark-defaults.conf << EOF
-spark.master                     spark://$(hostname):7077
+spark.master                     spark://127.0.0.1:7077
 spark.eventLog.enabled           true
 spark.eventLog.dir              hdfs:///spark-logs
 spark.history.fs.logDirectory   hdfs:///spark-logs
 spark.executor.memory           2g
 spark.driver.memory             1g
+# 添加重试和端口配置
+spark.port.maxRetries           32
+spark.ui.port                   8080
 EOF
-    # 配置workers
-    echo $(hostname) > ${SPARK_HOME}/conf/workers
-    log "Spark配置完成"
 }
 
 # 配置Hive使用Spark
 configure_hive_spark() {
     log "配置Hive使用Spark引擎..."
-    # 需要备份原有配置
-    cp ${HIVE_HOME}/conf/hive-site.xml ${HIVE_HOME}/conf/hive-site.xml.bak
+    # 需要备份原有配置,添加时间戳
+    BACKUP_TIME=$(date +%Y%m%d_%H%M%S)
+    cp ${HIVE_HOME}/conf/hive-site.xml ${HIVE_HOME}/conf/hive-site.xml.bak_${BACKUP_TIME}
+
     # 修改hive-site.xml
     cat > ${HIVE_HOME}/conf/hive-site.xml << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
