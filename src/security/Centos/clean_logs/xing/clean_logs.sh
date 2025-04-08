@@ -40,22 +40,8 @@ clean_logs() {
     log_message "清理前磁盘使用情况："
     df -h /var/log | tee -a "${LOG_FILE}"
     
-    # 先处理压缩文件
-    find /var/log -type f -mmin +10 \( -name "*.gz" -o -name "*.bz2" \) -print0 | while IFS= read -r -d '' file; do
-        if [ -w "$file" ]; then
-            rm -f "$file" 2>/dev/null
-            if [ $? -eq 0 ]; then
-                log_message "${GREEN}成功删除压缩文件: $file${NC}"
-            else
-                log_message "${RED}删除压缩文件失败: $file${NC}"
-            fi
-        else
-            log_message "${YELLOW}文件无写入权限: $file${NC}"
-        fi
-    done
-
-    # 处理普通文件
-    find /var/log -type f -mmin +10 ! -name "*.gz" ! -name "*.bz2" -print0 | while IFS= read -r -d '' file; do
+    # 处理所有文件（包括压缩文件和普通文件）
+    find /var/log -type f -mmin +10 -print0 | while IFS= read -r -d '' file; do
         # 跳过排除文件
         if grep -q "^$file$" "${EXCLUDE_FILE}"; then
             log_message "${YELLOW}跳过排除文件: $file${NC}"
@@ -68,16 +54,27 @@ clean_logs() {
                 # 备份文件权限
                 local perms=$(stat -c %a "$file")
                 local owner=$(stat -c %U:%G "$file")
-            
-                # 使用 cat 而不是 echo 来清空文件
-                cat /dev/null > "$file" 2>/dev/null
-                if [ $? -eq 0 ]; then
-                    # 恢复文件权限
-                    chmod "$perms" "$file"
-                    chown "$owner" "$file"
-                    log_message "${GREEN}成功清理文件: $file${NC}"
+                
+                # 根据文件类型处理
+                if [[ "$file" =~ \.(gz|bz2)$ ]]; then
+                    # 删除压缩文件
+                    rm -f "$file" 2>/dev/null
+                    if [ $? -eq 0 ]; then
+                        log_message "${GREEN}成功删除压缩文件: $file${NC}"
+                    else
+                        log_message "${RED}删除压缩文件失败: $file${NC}"
+                    fi
                 else
-                    log_message "${RED}清理文件失败: $file${NC}"
+                    # 尝试清空文件内容
+                    truncate -s 0 "$file" 2>/dev/null || cat /dev/null > "$file" 2>/dev/null
+                    if [ $? -eq 0 ]; then
+                        # 恢复文件权限
+                        chmod "$perms" "$file"
+                        chown "$owner" "$file"
+                        log_message "${GREEN}成功清理文件: $file${NC}"
+                    else
+                        log_message "${YELLOW}无法清空文件(已跳过): $file${NC}"
+                    fi
                 fi
             else
                 log_message "${YELLOW}跳过软链接: $file${NC}"
