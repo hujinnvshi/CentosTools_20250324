@@ -113,7 +113,7 @@ optimize_hive_site() {
     </property>
     <property>
         <name>hive.execution.engine</name>
-        <value>tez</value>
+        <value>mr</value>
         <description>mr</description>
     </property>
     <property>
