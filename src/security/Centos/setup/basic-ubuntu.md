@@ -68,23 +68,19 @@ log() { echo -e "${GREEN}[INFO]${NC} $1" | tee -a "$LOG_FILE"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1" | tee -a "$LOG_FILE"; }
 error() { echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"; exit 1; }
 
-# 备份函数
-backup_file() {
-    local file=$1
-    if [ -f "$file" ]; then
-        mkdir -p "$BACKUP_DIR"
-        cp "$file" "${BACKUP_DIR}/$(basename ${file}).bak"
-        log "已备份: $file"
-    fi
-}
-
 # 检查root权限
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         error "请使用root权限运行此脚本"
     fi
 }
-
+# 检查系统版本
+check_system_version() {
+    log "检查系统版本..."
+    if ! lsb_release -a 2>/dev/null | grep -q "Ubuntu 24.04"; then
+        error "此脚本仅支持 Ubuntu 24.04 系统"
+    fi
+}
 # 系统安全配置
 configure_security() {
     log "配置系统安全..."
@@ -207,6 +203,42 @@ rollback() {
         done
     fi
 }
+# 备份函数
+backup_file() {
+    local file=$1
+    if [ -f "$file" ]; then
+        mkdir -p "$BACKUP_DIR"
+        cp -p "$file" "${BACKUP_DIR}/$(basename ${file}).bak" || error "备份 $file 失败"
+        log "已备份: $file"
+    else
+        warn "文件不存在，跳过备份: $file"
+    fi
+}
+
+# 回滚函数
+rollback() {
+    if [ -d "$BACKUP_DIR" ]; then
+        log "开始回滚..."
+        for file in "$BACKUP_DIR"/*; do
+            if [ -f "$file" ]; then
+                cp -p "$file" "/${file#$BACKUP_DIR/}" || warn "回滚 ${file#$BACKUP_DIR/} 失败"
+                log "已恢复: ${file#$BACKUP_DIR/}"
+            fi
+        done
+        log "回滚完成"
+    else
+        warn "未找到备份目录，无法回滚"
+    fi
+}
+# 检查必要命令
+check_commands() {
+    local cmds=("hostnamectl" "sysctl" "lsb_release" "free" "nproc")
+    for cmd in "${cmds[@]}"; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            error "未找到必要命令: $cmd"
+        fi
+    done
+}
 
 # 主函数
 main() {
@@ -216,6 +248,8 @@ main() {
     
     # 检查root权限
     check_root
+    check_system_version    # 添加版本检查
+    check_commands    # 添加命令检查
     
     # 执行配置
     configure_security
