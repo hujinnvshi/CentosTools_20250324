@@ -20,7 +20,7 @@ print_error() {
 }
 
 # 设置变量
-ZK_VERSION="3.7.1"
+ZK_VERSION="3.8.1"
 ZK_HOME="/data/zookeeper"
 ZK_DATA="${ZK_HOME}/data"
 ZK_LOGS="${ZK_HOME}/logs"

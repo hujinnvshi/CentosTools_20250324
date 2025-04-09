@@ -154,13 +154,12 @@ start_spark() {
 test_spark() {
     log "测试Spark性能..."    
     # 运行SparkPi示例
-    ${SPARK_HOME}/bin/spark-submit \
-        --class org.apache.spark.examples.SparkPi \
-        --master spark://$(hostname):7077 \
-        --executor-memory 1G \
-        --total-executor-cores 2 \
-        ${SPARK_HOME}/examples/jars/spark-examples*.jar \
-        100        
+    $SPARK_HOME/bin/spark-submit \
+    --class org.apache.spark.examples.SparkPi \
+    --master yarn \
+    --deploy-mode cluster \
+    $SPARK_HOME/examples/jars/spark-examples_*.jar \
+    10        
     log "Spark测试完成"
 }
 
