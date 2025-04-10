@@ -6,9 +6,10 @@
 # 生成HTML格式的目录树
 generate_html_tree() {
     local html_file="/var/www/html/index.html"
+    local current_time=$(date '+%Y-%m-%d %H:%M:%S')
     
     # 创建HTML头部
-    cat > $html_file << 'HTML_HEAD'
+    cat > $html_file << HTML_HEAD
 <!DOCTYPE html>
 <html>
 <head>
@@ -43,7 +44,7 @@ generate_html_tree() {
 </head>
 <body>
     <h1>目录结构: /var/www/html/</h1>
-    <div class="timestamp">最后更新时间: $(date '+%Y-%m-%d %H:%M:%S')</div>
+    <div class="timestamp">最后更新时间: ${current_time}</div>
     <pre>
 HTML_HEAD
     
