@@ -25,7 +25,7 @@ JAVA_VERSION="8u371"
 JAVA_BUILD="b11"
 JAVA_HOME="/data/java/jdk1.8.0_251"
 
-# 使用阿里云镜像源
+# 使用阿里云镜像源(从百度网盘手工下载)
 DOWNLOAD_URL="https://mirrors.aliyun.com/adoptopenjdk/8/jdk/x64/linux/OpenJDK8U-jdk_x64_linux_hotspot_8u372b07.tar.gz"
 JAVA_FILE="jdk-8u251-linux-x64.tar.gz"
 

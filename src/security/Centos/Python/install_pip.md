@@ -4,10 +4,8 @@
 给我一个一键执行的的bash脚本
 
 我来帮你创建一个自动安装 pip 的脚本：
-
-```bash:/Users/www.redelego.cn/CentosTools_20250324/src/security/Centos/Python/install_pip.sh
+```
 #!/bin/bash
-
 # 设置颜色输出
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -118,6 +116,8 @@ main
 
 使用方法：
 ```bash
+touch install_pip.sh
+vim install_pip.sh
 chmod +x install_pip.sh
 sudo ./install_pip.sh
 ```
