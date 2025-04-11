@@ -24,16 +24,23 @@ fi
 MYSQL_VERSION="5.7.39"
 MYSQL_ROOT_PASSWORD="Secsmart#612"
 MYSQL_BASE="/data/mysql"
-SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print $2}')
-INNODB_BUFFER_POOL_SIZE=$(($SYSTEM_MEMORY * 70 / 100))G
+# 修正内存计算逻辑
+SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print int($2)}')
+INNODB_BUFFER_POOL_SIZE="$((SYSTEM_MEMORY * 70 / 100))G"
 
 # 创建目录结构
 print_message "创建目录结构..."
 mkdir -p ${MYSQL_BASE}/{base,data,log/binlog,tmp}
 
-# 安装依赖
+# 安装依赖（修改部分）
 print_message "安装依赖包..."
-yum install -y wget libaio numactl-libs perl net-tools
+apt-get update && apt-get install -y \
+    wget \
+    libaio1 \
+    numactl \
+    perl \
+    net-tools \
+    libjemalloc2
 
 # 下载并安装 MySQL
 print_message "准备 MySQL 安装包..."
@@ -53,8 +60,12 @@ mv mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64/* ${MYSQL_BASE}/base/
 
 # 创建 mysql 用户和组
 print_message "创建 mysql 用户..."
-groupadd mysql
-useradd -r -g mysql -s /bin/false mysql
+if ! getent group mysql >/dev/null; then
+    groupadd --system mysql
+fi
+if ! getent passwd mysql >/dev/null; then
+    useradd --system --no-create-home --gid mysql --shell /bin/false mysql
+fi
 
 # 设置目录权限
 print_message "设置目录权限..."
@@ -126,7 +137,8 @@ ${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
 
 # 创建服务文件
 print_message "创建 MySQL 服务..."
-cat > /usr/lib/systemd/system/mysqld.service << EOF
+// 修正后（Ubuntu标准路径）
+cat > /etc/systemd/system/mysqld.service << EOF
 [Unit]
 Description=MySQL Server
 After=network.target
@@ -151,12 +163,12 @@ cat >> ${MYSQL_BASE}/my.cnf << EOF
 [mysqld_safe]
 log-error = ${MYSQL_BASE}/log/error.log
 pid-file = ${MYSQL_BASE}/mysql.pid
-malloc-lib = /usr/lib64/libjemalloc.so.1
+malloc-lib = /usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 EOF
 
-# 安装 jemalloc 以提升性能
+# 安装 jemalloc 以提升性能,修正后
 print_message "安装 jemalloc..."
-yum install -y jemalloc
+apt-get install -y libjemalloc2
 
 # 启动 MySQL
 print_message "启动 MySQL 服务..."

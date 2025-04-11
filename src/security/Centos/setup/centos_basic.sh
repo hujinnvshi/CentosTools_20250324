@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# 建议添加在脚本开头
+set -o errexit   # 遇到错误立即退出
+set -o nounset   # 使用未定义变量时退出
+set -o pipefail  # 管道命令中任意失败则整体失败
+
 # 设置颜色变量
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -42,7 +47,10 @@ fi
 
 # 获取系统信息
 CPU_CORES=$(nproc)
-TOTAL_MEM=$(free -g | awk '/^Mem:/{print $2}')
+TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
+fs.file-max = $((TOTAL_MEM_KB * 1024))  # 更精确的内存字节计算
+
 print_message "系统信息："
 echo "CPU 核心数：$CPU_CORES"
 echo "内存大小：${TOTAL_MEM}GB"
@@ -92,10 +100,10 @@ fi
 cat > /etc/security/limits.conf << EOF
 * soft nofile $(($TOTAL_MEM * 524288))
 * hard nofile $(($TOTAL_MEM * 524288))
-* soft nproc $(($CPU_CORES * 204800))
-* hard nproc $(($CPU_CORES * 204800))
-* soft stack 16384
-* hard stack 16384
+* soft nproc  $(($CPU_CORES * 204800))
+* hard nproc  $(($CPU_CORES * 204800))
+* soft stack  163840
+* hard stack  163840
 EOF
 
 # 关闭 SELinux
@@ -113,8 +121,8 @@ print_message "正在设置 PS1 环境变量..."
 PS1_CONFIG='export PS1="\[\e[38;5;39m\][\t]\[\e[m\] \[\e[38;5;82m\]\u\[\e[m\]@\[\e[38;5;198m\]\h\[\e[m\] \[\e[38;5;226m\]\w\[\e[m\]\n\[\e[38;5;198m\]➜\[\e[m\] "'
 
 # 为当前用户和 root 用户设置 PS1
-echo "$PS1_CONFIG" >> ~/.bashrc
-echo "$PS1_CONFIG" >> /root/.bashrc
+echo "$PS1_CONFIG" > /etc/profile.d/custom_ps1.sh
+chmod +x /etc/profile.d/custom_ps1.sh
 
 if [ $? -eq 0 ]; then
     print_message "PS1 环境变量设置完成"
@@ -144,7 +152,17 @@ mkdir -p ${BACKUP_DIR} || {
 
 # 备份原始配置
 print_message "备份原始配置..."
-cp /etc/sysctl.conf ${BACKUP_DIR}/ 2>/dev/null || true
+backup_files=(
+    "/etc/sysctl.conf"
+    "/etc/security/limits.conf"
+    "/etc/selinux/config"
+    "/etc/ssh/sshd_config"
+    "/etc/resolv.conf"
+)
+for file in "${backup_files[@]}"; do
+    [ -f "$file" ] && cp -v "$file" "${BACKUP_DIR}/"
+done
+
 cp /etc/security/limits.conf ${BACKUP_DIR}/ 2>/dev/null || true
 cp /etc/selinux/config ${BACKUP_DIR}/ 2>/dev/null || true
 cp /etc/ssh/sshd_config ${BACKUP_DIR}/ 2>/dev/null || true
@@ -180,7 +198,14 @@ ClientAliveInterval 60
 ClientAliveCountMax 3
 UseDNS no
 EOF
-systemctl restart sshd
+
+# 建议修改
+if sshd -t; then
+    systemctl restart sshd
+else
+    print_error "SSH 配置测试失败，保持原配置"
+    cp ${BACKUP_DIR}/sshd_config.bak /etc/ssh/sshd_config
+fi
 
 # 系统参数优化（在原有基础上添加）
 print_message "优化系统参数..."
@@ -253,7 +278,7 @@ fi
 
 # 优化磁盘调度算法
 print_message "优化磁盘调度算法..."
-for disk in $(lsblk -d -o name | grep -v NAME); do
+for disk in $(lsblk -d -o name -n | grep -Ev '(sr0|loop)'); do
     if [ -f "/sys/block/$disk/queue/scheduler" ]; then
         echo deadline > "/sys/block/$disk/queue/scheduler"
         print_message "设置 $disk 的调度算法为 deadline"
