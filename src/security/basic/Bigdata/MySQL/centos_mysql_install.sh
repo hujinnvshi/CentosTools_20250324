@@ -196,11 +196,12 @@ FLUSH PRIVILEGES;
 -- 创建测试数据库和用户
 CREATE DATABASE hive20250324 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'hive20250324'@'%' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON testdb.* TO 'hive20250324'@'%';
+GRANT ALL PRIVILEGES ON *.* TO 'hive20250324'@'%';
 
 CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Test#123456';
 GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'localhost';
+FLUSH PRIVILEGES;
 
 -- 创建测试表和数据
 USE testdb;

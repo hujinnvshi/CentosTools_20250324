@@ -1,0 +1,1 @@
+Centos 创建用户usera,使用密码Secsmart#612,允许登陆，使用/bin/bash, 属于组hadoop, 如果没有则创建组，创建工作路径为/data/usera,配置免密登录。将一键创建的bash脚本给我，封装为一个完整的方法。

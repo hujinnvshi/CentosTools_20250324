@@ -155,7 +155,68 @@ EOF
     done
 }
 
-# 主函数
+# 添加PS1配置函数
+configure_ps1() {
+    print_message "配置PS1环境变量..."
+    cat > /etc/profile.d/custom_ps1.sh << 'EOF'
+# 自定义PS1配置
+export PS1="\[\e[38;5;39m\][\t]\[\e[m\] \[\e[38;5;82m\]\u\[\e[m\]@\[\e[38;5;198m\]\h\[\e[m\] \[\e[38;5;226m\]\w\[\e[m\]\n\[\e[38;5;198m\]➜\[\e[m\] "
+EOF
+    chmod +x /etc/profile.d/custom_ps1.sh
+    source /etc/profile.d/custom_ps1.sh
+}
+
+# 优化系统检查函数
+check_system() {
+    print_message "检查系统环境..."
+    [[ $EUID -ne 0 ]] && print_error "请使用root用户执行此脚本"
+    
+    # 检查系统版本
+    if ! grep -q "CentOS Linux release 7" /etc/redhat-release; then
+        print_warning "当前系统不是CentOS 7，可能存在兼容性问题"
+        read -p "是否继续？(y/n) " -n 1 -r
+        echo
+        [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
+    fi
+    
+    # 检查必要工具
+    local tools=("curl" "wget" "net-tools")
+    for tool in "${tools[@]}"; do
+        if ! command -v "$tool" &>/dev/null; then
+            print_warning "安装必要工具: $tool"
+            yum install -y "$tool" || print_error "安装 $tool 失败"
+        fi
+    done
+}
+
+# 优化备份函数
+backup_configs() {
+    print_message "备份系统配置..."
+    mkdir -p "${BACKUP_DIR}" || print_error "创建备份目录失败"
+    
+    local backup_files=(
+        "/etc/sysctl.conf"
+        "/etc/security/limits.conf"
+        "/etc/selinux/config"
+        "/etc/resolv.conf"
+        "/etc/profile"
+    )
+    
+    for file in "${backup_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            cp -v "$file" "${BACKUP_DIR}/" || print_warning "备份 $file 失败"
+        fi
+    done
+    
+    # 创建备份信息文件
+    {
+        echo "备份时间: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "系统版本: $(cat /etc/redhat-release)"
+        echo "内核版本: $(uname -r)"
+    } > "${BACKUP_DIR}/backup_info.txt"
+}
+
+# 在主函数中添加PS1配置
 main() {
     check_system
     get_system_info
@@ -166,11 +227,12 @@ main() {
     configure_selinux
     optimize_basic
     optimize_performance
-    
+    configure_ps1    # 新增PS1配置
     print_message "系统优化完成！配置备份位置：${BACKUP_DIR}"
+    print_message "请执行 source /etc/profile 使PS1配置生效"
     print_warning "建议重启系统以使所有更改生效"
 }
 
 # 执行主函数
 main "$@"
-# 业已核验之次数： ⭐️ 
+# 业已核验之次数： ⭐️ ⭐️

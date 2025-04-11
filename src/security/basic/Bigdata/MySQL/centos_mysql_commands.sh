@@ -13,6 +13,8 @@ systemctl restart mysqld
 # 查看 MySQL 服务状态
 systemctl status mysqld
 
+ln -s /data/mysql/mysql.sock /tmp/mysql.sock
+
 ## 2. 数据库连接命令
 # 使用 root 用户连接（本地）
 mysql -u root -pSecsmart#612

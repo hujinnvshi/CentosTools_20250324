@@ -6,7 +6,7 @@ configure_ssh() {
     yum install -y openssh-server
 
     # 修改 SSH 端口
-    SSH_PORT=2222  # 设置新的 SSH 端口
+    SSH_PORT=22  # 设置新的 SSH 端口
     sed -i "s/#Port 22/Port ${SSH_PORT}/" /etc/ssh/sshd_config
     
     # 配置防火墙允许新端口
