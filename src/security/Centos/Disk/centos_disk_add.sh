@@ -149,3 +149,5 @@ print_message "磁盘调度器信息："
 cat "/sys/block/${NEW_DISK##*/}/queue/scheduler"
 
 print_message "全部配置已完成，日志保存在 $LOG_FILE"
+
+# 业已核验之次数： ⭐️ ⭐️ 

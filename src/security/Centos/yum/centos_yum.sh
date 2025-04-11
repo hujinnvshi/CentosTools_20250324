@@ -39,7 +39,7 @@ check_environment() {
     fi
     
     # 检查必要工具
-    for tool in curl wget sed; do
+    for tool in curl sed; do
         if ! command -v ${tool} &> /dev/null; then
             print_warning "未找到 ${tool}，正在安装..."
             yum install -y ${tool}
@@ -123,7 +123,7 @@ configure_repos() {
 
 # 安装基础软件包
 install_packages() {
-    print_message "安装基础软件包..."
+    print_message "安装基础软件包..."    
     
     # 基础工具包列表
     BASIC_PACKAGES="vim wget curl net-tools lsof telnet tcpdump"
@@ -152,7 +152,7 @@ verify_config() {
 # 主函数
 main() {
     print_message "开始配置 YUM..."
-    
+
     # 检查 root 权限
     if [ "$EUID" -ne 0 ]; then
         print_error "请使用 root 用户执行此脚本"
@@ -180,3 +180,5 @@ main() {
 
 # 执行主函数
 main
+
+# 业已核验之次数： ⭐️ 
