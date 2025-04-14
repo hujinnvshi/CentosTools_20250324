@@ -40,6 +40,7 @@ cleanup() {
     fi
     exit $exit_code
 }
+
 # trap cleanup ERR
 
 # 检查安装包
@@ -131,13 +132,15 @@ collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
 default-time-zone = '+8:00'
 
+# 认证插件配置
+default_authentication_plugin = mysql_native_password
+
 # 性能配置
 innodb_buffer_pool_size = ${BUFFER_POOL_SIZE}G
-innodb_log_file_size = 1G
+innodb_redo_log_capacity = 1G
 innodb_log_buffer_size = 16M
-query_cache_size = 0
-max_connections = 1000
-thread_cache_size = 1000
+max_connections = 214
+thread_cache_size = 214
 tmp_table_size = 16M
 sort_buffer_size = 2M
 
@@ -148,7 +151,6 @@ slow_query_log_file = ${PERCONA_HOME}/log/slow.log
 long_query_time = 2
 log_queries_not_using_indexes = 1
 log-bin = ${PERCONA_HOME}/log/binlog/Percona-bin
-binlog_format = ROW
 binlog_expire_logs_seconds = 604800
 binlog_cache_size = 1M
 sync_binlog = 1
@@ -156,13 +158,12 @@ sync_binlog = 1
 # 安全配置
 local_infile = 0
 max_allowed_packet = 16M
-ssl = OFF
 require_secure_transport = OFF
-validate_password.policy = STRONG
+validate_password.policy = LOW
 bind-address = 0.0.0.0
 
 # 其他优化
-thread_handling = pool-of-threads
+thread_handling = one-thread-per-connection
 lower_case_table_names = 1
 skip-name-resolve
 event_scheduler = ON
@@ -193,7 +194,13 @@ chown -R ${PERCONA_USER}:${PERCONA_GROUP} ${PERCONA_HOME}
 
 # 初始化数据库
 print_message "初始化数据库..."
-${PERCONA_HOME}/base/bin/mysqld --defaults-file=${PERCONA_HOME}/my.cnf --initialize-insecure --user=mysql
+rm -rf ${PERCONA_HOME}/data/*
+${PERCONA_HOME}/base/bin/mysqld --defaults-file=${PERCONA_HOME}/my.cnf --initialize --user=mysql
+# 获取临时密码
+TEMP_PASSWORD=$(grep 'temporary password' ${PERCONA_HOME}/log/error.log | awk '{print $NF}')
+if [ -z "${TEMP_PASSWORD}" ]; then
+    print_error "无法获取临时密码，初始化可能失败"
+fi
 
 # 创建服务文件
 print_message "创建系统服务..."
@@ -207,10 +214,10 @@ Type=forking
 User=${PERCONA_USER}
 Group=${PERCONA_GROUP}
 ExecStart=${PERCONA_HOME}/base/bin/mysqld_safe --defaults-file=${PERCONA_HOME}/my.cnf &
-ExecStop=${PERCONA_HOME}/base/bin/mysqladmin --defaults-file=${PERCONA_HOME}/my.cnf -u root -p${PERCONA_PASSWORD} shutdown
+ExecStop=/bin/kill \$MAINPID
 PIDFile=${PERCONA_HOME}/tmp/mysql.pid
-Restart=on-failure  # 添加自动重启
-RestartSec=5s      # 重启间隔
+Restart=on-failure
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
@@ -238,18 +245,10 @@ sleep 10
 
 # 设置root密码
 print_message "设置root密码..."
-RETRY_COUNT=0
-MAX_RETRIES=3
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if ${PERCONA_HOME}/base/bin/mysqladmin -u root password "${PERCONA_PASSWORD}"; then
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    sleep 5
-    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-        print_error "设置root密码失败"
-    fi
-done
+${PERCONA_HOME}/base/bin/mysql --connect-expired-password -uroot -p"${TEMP_PASSWORD}" << EOF
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${PERCONA_PASSWORD}';
+FLUSH PRIVILEGES;
+EOF
 
 # 4. 执行安全配置
 ${PERCONA_HOME}/base/bin/mysql_secure_installation << EOF
@@ -266,12 +265,12 @@ EOF
 print_message "创建测试数据..."
 cat > /tmp/init.sql << EOF
 CREATE DATABASE test_db;
-CREATE USER 'test_user'@'localhost' IDENTIFIED BY 'Test@123';
+CREATE USER 'test_user'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Test@123';
 GRANT ALL PRIVILEGES ON test_db.* TO 'test_user'@'localhost';
 FLUSH PRIVILEGES;
 
 CREATE DATABASE admin;
-CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
+CREATE USER 'admin'@'%' IDENTIFIED WITH mysql_native_password BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
 FLUSH PRIVILEGES;
 
