@@ -22,11 +22,11 @@ fi
 
 # 设置变量
 export PERCONA_VERSION="8.4.0-1"
-export PERCONA_HOME="/data/Percona"
-PERCONA_USER="mysql"
-PERCONA_GROUP="mysql"
-PERCONA_PORT="3307"
-PERCONA_PASSWORD="Secsmart#612"
+export PERCONA_HOME="/data/percona_8.4.0"
+export PERCONA_USER="percona"
+export PERCONA_GROUP="perconagrp"
+export PERCONA_PORT="3308"
+export PERCONA_PASSWORD="Secsmart#612"
 
 # 添加清理函数
 cleanup() {
@@ -40,7 +40,6 @@ cleanup() {
     fi
     exit $exit_code
 }
-
 # trap cleanup ERR
 
 # 检查安装包
@@ -60,7 +59,6 @@ for pkg in $DEPS; do
     fi
 done
 
-
 # 检查端口占用
 if netstat -tuln | grep ":${PERCONA_PORT}" >/dev/null; then
     print_error "端口 ${PERCONA_PORT} 已被占用"
@@ -70,7 +68,7 @@ fi
 if [ -d "${PERCONA_HOME}" ]; then
     BACKUP_TIME=$(date +%Y%m%d_%H%M%S)
     print_message "备份已存在的Percona目录..."
-    tar czf ${PERCONA_HOME}_backup_${BACKUP_TIME}.tar.gz ${PERCONA_HOME} || print_error "备份失败"
+    # tar czf ${PERCONA_HOME}_backup_${BACKUP_TIME}.tar.gz ${PERCONA_HOME} || print_error "备份失败"
 fi
 
 # 创建目录结构
@@ -80,7 +78,7 @@ touch ${PERCONA_HOME}/log/error.log
 touch ${PERCONA_HOME}/log/slow.log
 
 # 创建用户和组
-print_message "创建mysql用户和组..."
+print_message "创建percona用户和组..."
 groupadd ${PERCONA_GROUP} 2>/dev/null || true
 useradd -r -m -s /bin/bash -g ${PERCONA_GROUP} ${PERCONA_USER} 2>/dev/null || true
 
@@ -97,6 +95,7 @@ tar zxf Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz -C "${TE
 
 # 查找实际的Percona目录并复制文件
 PERCONA_EXTRACT_DIR=$(find "${TEMP_DIR}" -maxdepth 1 -type d -name "Percona-Server-*" | head -n 1)
+echo "Percona提取目录: ${PERCONA_EXTRACT_DIR}"
 if [ -n "${PERCONA_EXTRACT_DIR}" ] && [ -d "${PERCONA_EXTRACT_DIR}" ]; then
     cp -r "${PERCONA_EXTRACT_DIR}/"* ${PERCONA_HOME}/base/ || print_error "复制文件失败"
 else
@@ -119,9 +118,9 @@ if [ "$BUFFER_POOL_SIZE" -eq 0 ]; then
 fi
 
 cat > ${PERCONA_HOME}/my.cnf << EOF
+# my.cnf中的用户配置应该与实际用户一致
 [mysqld]
-# 基础配置
-user = mysql
+user = ${PERCONA_USER}  # 改为变量，而不是固定的mysql
 port = ${PERCONA_PORT}
 basedir = ${PERCONA_HOME}/base
 datadir = ${PERCONA_HOME}/data
@@ -131,9 +130,8 @@ character-set-server = utf8mb4
 collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
 default-time-zone = '+8:00'
-
-# 认证插件配置
-default_authentication_plugin = mysql_native_password
+mysqlx_socket = ${PERCONA_HOME}/tmp/mysqlx.sock
+secure-log-path = ${PERCONA_HOME}/log
 
 # 性能配置
 innodb_buffer_pool_size = ${BUFFER_POOL_SIZE}G
@@ -159,7 +157,6 @@ sync_binlog = 1
 local_infile = 0
 max_allowed_packet = 16M
 require_secure_transport = OFF
-validate_password.policy = LOW
 bind-address = 0.0.0.0
 
 # 其他优化
@@ -170,8 +167,6 @@ event_scheduler = ON
 
 # 监控配置
 performance_schema = ON
-audit_log_format = JSON
-audit_log_file = ${PERCONA_HOME}/log/audit.log
 
 [client]
 port = ${PERCONA_PORT}
@@ -184,6 +179,8 @@ EOF
 
 # 设置权限
 print_message "设置权限..."
+rm -rf ${PERCONA_HOME}/data
+mkdir -p ${PERCONA_HOME}/data
 chmod 750 ${PERCONA_HOME}
 chmod 700 ${PERCONA_HOME}/data
 chmod 700 ${PERCONA_HOME}/log
@@ -192,15 +189,42 @@ chmod 755 ${PERCONA_HOME}/base
 chmod 644 ${PERCONA_HOME}/my.cnf
 chown -R ${PERCONA_USER}:${PERCONA_GROUP} ${PERCONA_HOME}
 
+# 检查端口占用并清理
+print_message "检查端口占用..."
+if netstat -tuln | grep ":${PERCONA_PORT}" >/dev/null; then
+    print_message "端口 ${PERCONA_PORT} 被占用，尝试清理..."
+    pid=$(lsof -t -i:${PERCONA_PORT})
+    if [ -n "$pid" ]; then
+        kill -9 $pid
+        sleep 2
+    fi
+fi
+
 # 初始化数据库
 print_message "初始化数据库..."
 rm -rf ${PERCONA_HOME}/data/*
-${PERCONA_HOME}/base/bin/mysqld --defaults-file=${PERCONA_HOME}/my.cnf --initialize --user=mysql
+mkdir -p ${PERCONA_HOME}/data
+chown ${PERCONA_USER}:${PERCONA_GROUP} ${PERCONA_HOME}/data
+
+# 使用su命令执行初始化
+su - ${PERCONA_USER} -c "
+    ${PERCONA_HOME}/base/bin/mysqld \
+    --defaults-file=${PERCONA_HOME}/my.cnf \
+    --initialize \
+    --user=${PERCONA_USER} \
+    --datadir=${PERCONA_HOME}/data
+"
+
+# 显示错误日志中的ERROR信息
+print_message "显示错误日志中的ERROR信息..."
+grep -i "error" ${PERCONA_HOME}/log/error.log || true
+
 # 获取临时密码
 TEMP_PASSWORD=$(grep 'temporary password' ${PERCONA_HOME}/log/error.log | awk '{print $NF}')
 if [ -z "${TEMP_PASSWORD}" ]; then
     print_error "无法获取临时密码，初始化可能失败"
 fi
+echo "临时密码: ${TEMP_PASSWORD}"
 
 # 创建服务文件
 print_message "创建系统服务..."
@@ -213,7 +237,7 @@ After=network.target
 Type=forking
 User=${PERCONA_USER}
 Group=${PERCONA_GROUP}
-ExecStart=${PERCONA_HOME}/base/bin/mysqld_safe --defaults-file=${PERCONA_HOME}/my.cnf &
+ExecStart=${PERCONA_HOME}/base/bin/mysqld_safe --defaults-file=${PERCONA_HOME}/my.cnf
 ExecStop=/bin/kill \$MAINPID
 PIDFile=${PERCONA_HOME}/tmp/mysql.pid
 Restart=on-failure
@@ -235,9 +259,23 @@ source /etc/profile.d/percona.sh || print_error "加载环境变量失败"
 print_message "启动Percona服务..."
 systemctl daemon-reload
 systemctl start percona
+
+# 增加启动检查重试
+RETRY_COUNT=0
+MAX_RETRIES=3
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if systemctl is-active percona >/dev/null 2>&1; then
+        break
+    fi
+    print_message "等待服务启动... (${RETRY_COUNT}/${MAX_RETRIES})"
+    sleep 5
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+done
+
 if ! systemctl is-active percona >/dev/null 2>&1; then
     print_error "Percona服务启动失败，请检查日志：${PERCONA_HOME}/log/error.log"
 fi
+
 systemctl enable percona
 
 # 等待服务启动
