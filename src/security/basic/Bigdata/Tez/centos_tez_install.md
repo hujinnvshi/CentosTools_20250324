@@ -156,3 +156,4 @@ set hive.execution.engine;
 3. 首次执行任务可能会较慢，因为需要下载相关依赖
 4. 建议在测试环境验证后再在生产环境部署
 ```
+# https://blog.csdn.net/lz6363/article/details/87475064
