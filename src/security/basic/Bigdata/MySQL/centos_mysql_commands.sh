@@ -54,3 +54,18 @@ tail -f /data/mysql/log/slow.log
 
 # 查看二进制日志
 ls -l /data/mysql/log/binlog/
+
+
+
+# 1. 确保MySQL未运行
+systemctl stop mysqld
+
+# 2. 使用mysqld_safe启动MySQL
+/data/mysql/base/bin/mysqld_safe --defaults-file=/data/mysql/my.cnf &
+
+# 3. 检查MySQL是否启动成功
+ps -ef | grep mysql
+netstat -nltp | grep 3306
+
+# 4. 停止MySQL
+kill -TERM `cat /data/mysql/mysql.pid`

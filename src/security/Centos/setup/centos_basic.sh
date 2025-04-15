@@ -25,15 +25,17 @@ get_system_info() {
     readonly CPU_CORES=$(nproc)
     readonly TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
     readonly TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
-    
     print_message "系统信息："
-    echo "CPU核心数：$CPU_CORES"
+    echo "CPU核心数：${CPU_CORES}"
     echo "内存大小：${TOTAL_MEM_MB}MB"
 }
 
 # 防火墙配置
 configure_firewall() {
     print_message "配置防火墙..."
+    # 保留SSH端口
+    firewall-cmd --permanent --add-service=ssh
+    firewall-cmd --reload
     systemctl stop firewalld
     systemctl disable firewalld
 }
@@ -41,6 +43,9 @@ configure_firewall() {
 # 系统参数优化
 optimize_sysctl() {
     print_message "优化系统参数..."
+    # 重新获取内存信息确保变量可用
+    local TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    local FILE_MAX=$((TOTAL_MEM_KB * 1024))
     cat > /etc/sysctl.conf << EOF
 # 文件句柄和进程数限制
 fs.file-max = $((TOTAL_MEM_KB * 1024))
@@ -75,18 +80,21 @@ EOF
 
 # 资源限制优化
 configure_limits() {
+    readonly CPU_CORES=$(nproc)
+    readonly TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    readonly TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
     print_message "配置资源限制..."
     cat > /etc/security/limits.conf << EOF
-* soft nofile $((TOTAL_MEM_MB * 5242))
-* hard nofile $((TOTAL_MEM_MB * 5242))
-* soft nproc  $((CPU_CORES * 204800))
-* hard nproc  $((CPU_CORES * 204800))
-* soft stack  163840
-* hard stack  163840
+* soft nofile  $((TOTAL_MEM_MB * 5242))
+* hard nofile  $((TOTAL_MEM_MB * 5242))
+* soft nproc   $((CPU_CORES * 204800))
+* hard nproc   $((CPU_CORES * 204800))
+* soft stack   163840
+* hard stack   163840
 * soft memlock unlimited
 * hard memlock unlimited
-* soft core unlimited
-* hard core unlimited
+* soft core    unlimited
+* hard core    unlimited
 EOF
 }
 
@@ -227,7 +235,7 @@ main() {
     configure_selinux
     optimize_basic
     optimize_performance
-    configure_ps1    # 新增PS1配置
+    configure_ps1    # 新增PS1配置    
     print_message "系统优化完成！配置备份位置：${BACKUP_DIR}"
     print_message "请执行 source /etc/profile 使PS1配置生效"
     print_warning "建议重启系统以使所有更改生效"

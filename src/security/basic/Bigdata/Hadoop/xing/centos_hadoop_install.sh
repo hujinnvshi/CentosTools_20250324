@@ -432,3 +432,6 @@ if [ -f "./verify_hadoop.sh" ]; then
 else
     print_error "未找到验证脚本 verify_hadoop.sh"
 fi
+
+# 业已核验之次数： 
+# ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27

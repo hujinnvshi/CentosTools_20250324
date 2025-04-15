@@ -181,10 +181,10 @@ EOF
 print_message "设置权限..."
 rm -rf ${PERCONA_HOME}/data
 mkdir -p ${PERCONA_HOME}/data
-chmod 750 ${PERCONA_HOME}
-chmod 700 ${PERCONA_HOME}/data
-chmod 700 ${PERCONA_HOME}/log
-chmod 700 ${PERCONA_HOME}/tmp
+chmod 755 ${PERCONA_HOME}
+chmod 755 ${PERCONA_HOME}/data
+chmod 777 ${PERCONA_HOME}/log
+chmod 777 ${PERCONA_HOME}/tmp
 chmod 755 ${PERCONA_HOME}/base
 chmod 644 ${PERCONA_HOME}/my.cnf
 chown -R ${PERCONA_USER}:${PERCONA_GROUP} ${PERCONA_HOME}
@@ -224,7 +224,7 @@ TEMP_PASSWORD=$(grep 'temporary password' ${PERCONA_HOME}/log/error.log | awk '{
 if [ -z "${TEMP_PASSWORD}" ]; then
     print_error "无法获取临时密码，初始化可能失败"
 fi
-echo "临时密码: ${TEMP_PASSWORD}"
+echo "临时密码: << ${TEMP_PASSWORD} >>"
 
 # 创建服务文件
 print_message "创建系统服务..."
@@ -232,16 +232,26 @@ cat > /usr/lib/systemd/system/percona.service << EOF
 [Unit]
 Description=Percona Server
 After=network.target
+After=syslog.target
 
 [Service]
 Type=forking
 User=${PERCONA_USER}
 Group=${PERCONA_GROUP}
 ExecStart=${PERCONA_HOME}/base/bin/mysqld_safe --defaults-file=${PERCONA_HOME}/my.cnf
-ExecStop=/bin/kill \$MAINPID
+ExecStop=${PERCONA_HOME}/base/bin/mysqladmin --defaults-file=${PERCONA_HOME}/my.cnf shutdown
 PIDFile=${PERCONA_HOME}/tmp/mysql.pid
+ExecStartPost=/bin/sh -c 'while ! ${PERCONA_HOME}/base/bin/mysqladmin ping --silent; do sleep 1; done'
+TimeoutSec=30
 Restart=on-failure
 RestartSec=5s
+LimitNOFILE=10000
+PrivateTmp=false
+RemainAfterExit=no
+KillMode=mixed
+
+# 确保工作目录存在
+WorkingDirectory=${PERCONA_HOME}
 
 [Install]
 WantedBy=multi-user.target
@@ -262,8 +272,8 @@ systemctl start percona
 
 # 增加启动检查重试
 RETRY_COUNT=0
-MAX_RETRIES=3
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+MAX_RETRIE=1
+while [ $RETRY_COUNT -lt $MAX_RETRIE ]; do
     if systemctl is-active percona >/dev/null 2>&1; then
         break
     fi
@@ -303,12 +313,12 @@ EOF
 print_message "创建测试数据..."
 cat > /tmp/init.sql << EOF
 CREATE DATABASE test_db;
-CREATE USER 'test_user'@'localhost' IDENTIFIED WITH mysql_native_password BY 'Test@123';
+CREATE USER 'test_user'@'localhost' IDENTIFIED BY 'Test@123';
 GRANT ALL PRIVILEGES ON test_db.* TO 'test_user'@'localhost';
 FLUSH PRIVILEGES;
 
 CREATE DATABASE admin;
-CREATE USER 'admin'@'%' IDENTIFIED WITH mysql_native_password BY 'Secsmart#612';
+CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
 FLUSH PRIVILEGES;
 

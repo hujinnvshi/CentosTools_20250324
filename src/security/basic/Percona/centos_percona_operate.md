@@ -15,7 +15,7 @@ mysql -utest_user -p'Test@123' -P3308 test_db
 2. 密码修改：
 ```bash
 # 登录后修改当前用户密码
-ALTER USER USER() IDENTIFIED BY 'new_password';
+ALTER USER USER() IDENTIFIED BY 'Secsmart#612';
 
 # 修改指定用户密码
 ALTER USER 'username'@'host' IDENTIFIED BY 'new_password';

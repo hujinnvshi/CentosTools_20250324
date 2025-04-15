@@ -154,7 +154,7 @@ pid-file = ${MYSQL_BASE}/mysql.pid
 malloc-lib = /usr/lib64/libjemalloc.so.1
 EOF
 
-# 安装 jemalloc 以提升性能
+# 安装 jemalloc 以提升性能(需要先配置好yum 源)
 print_message "安装 jemalloc..."
 yum install -y jemalloc
 
@@ -196,10 +196,10 @@ FLUSH PRIVILEGES;
 -- 创建测试数据库和用户
 CREATE DATABASE hive20250324 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'hive20250324'@'%' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON *.* TO 'hive20250324'@'%';
+GRANT ALL PRIVILEGES ON hive20250324.* TO 'hive20250324'@'%';
 
 CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Test#123456';
+CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'localhost';
 FLUSH PRIVILEGES;
 
@@ -244,5 +244,9 @@ chown root:root /etc/profile.d/mysql.sh
 # 立即生效环境变量
 source /etc/profile.d/mysql.sh
 
+ln -s /data/mysql/mysql.sock /tmp/mysql.sock
+
 print_message "环境变量已配置，已自动生效"
 print_message "如果环境变量未生效，请执行：source /etc/profile"
+
+# ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27

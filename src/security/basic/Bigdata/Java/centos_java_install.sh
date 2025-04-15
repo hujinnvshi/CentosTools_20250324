@@ -119,3 +119,6 @@ echo "JVM 堆内存：${HEAP_SIZE}G"
 
 print_message "Java 环境安装完成！"
 print_message "请执行 'source /etc/profile' 使环境变量生效"
+
+# 业已核验之次数： 
+# ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27
