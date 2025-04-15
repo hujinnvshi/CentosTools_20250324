@@ -27,7 +27,7 @@ fi
 
 # 设置变量
 # 修改 Hive 安装路径变量
-HIVE_VERSION="3.1.3"
+HIVE_VERSION="2.1.0"
 HIVE_HOME="/data/hive"  # 已正确
 HIVE_CONF_DIR="${HIVE_HOME}/conf"
 HIVE_LOG_DIR="${HIVE_HOME}/logs"  # 调整到 /data/hive/logs
@@ -438,6 +438,7 @@ EOF
 
 chmod +x ${HIVE_HOME}/bin/start-hive.sh
 chmod +x ${HIVE_HOME}/bin/stop-hive.sh
+
 chown hive:hadoop ${HIVE_HOME}/bin/start-hive.sh
 chown hive:hadoop ${HIVE_HOME}/bin/stop-hive.sh
 
@@ -449,3 +450,6 @@ print_message "Web UI: http://localhost:10002"
 # 显示服务状态
 print_message "当前服务状态:"
 systemctl status hive
+
+# 业已核验之次数： 
+# ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27
