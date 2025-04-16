@@ -2,8 +2,15 @@
 
 1. 登录相关：
 ```bash
+# 本地登录
+export PERCONA_PASSWORD='Virkce/Ko7Pf'
+./mysql -uroot -p -P3308  -S /data/percona_8.4.0/tmp/mysql.sock 
+ALTER USER USER() IDENTIFIED BY 'Secsmart#612';
+FLUSH PRIVILEGES;
+
 # 使用root用户登录
-mysql -uroot -p${PERCONA_PASSWORD} -P3308 -h127.0.0.1
+
+./mysql -uroot -p${PERCONA_PASSWORD} -P3308 -h127.0.0.1
 
 # 使用admin用户登录（允许远程访问）
 mysql -uadmin -p'Secsmart#612' -P3308 -h127.0.0.1
