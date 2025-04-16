@@ -1,3 +1,6 @@
+create database rdb2;
+use rdb2;
+
 -- 创建内部表
 CREATE TABLE percona1 (
     emp_id INT COMMENT '员工ID',

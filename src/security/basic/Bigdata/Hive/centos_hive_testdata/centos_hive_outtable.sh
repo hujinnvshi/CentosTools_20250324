@@ -18,8 +18,9 @@ print_error() {
 # 设置变量
 HIVE_CMD="/data/hive/bin/beeline -u jdbc:hive2://172.16.48.171:10000 -n hive"
 TEST_DIR="/tmp/hive_test"
-HDFS_DIR="/user/hive/warehouse/test_db.db/employees_external"
-CSV_FILE="${TEST_DIR}/test.csv"
+HDFS_HOST="tempvm"
+HDFS_DIR="hdfs://${HDFS_HOST}:8020/user/hive/warehouse/test_db.db/employees1"
+CSV_FILE="${TEST_DIR}/test1.csv"
 
 # 创建测试目录
 print_message "创建测试目录..."
@@ -48,10 +49,10 @@ CREATE DATABASE IF NOT EXISTS test_db;
 USE test_db;
 
 -- 删除已存在的表
-DROP TABLE IF EXISTS employees_external;
+DROP TABLE IF EXISTS employees1;
 
 -- 创建外部表
-CREATE EXTERNAL TABLE employees_external (
+CREATE EXTERNAL TABLE employees1 (
     id INT,
     name STRING,
     age INT,
@@ -65,7 +66,7 @@ STORED AS TEXTFILE
 LOCATION '${HDFS_DIR}';
 
 -- 查询数据验证
-SELECT * FROM employees_external;
+SELECT * FROM employees1;
 
 -- 统计信息
 SELECT 
@@ -74,7 +75,7 @@ SELECT
     AVG(salary) as avg_salary,
     MIN(salary) as min_salary,
     MAX(salary) as max_salary
-FROM employees_external
+FROM employees1
 GROUP BY department;
 EOF
 
@@ -87,7 +88,7 @@ if [ $? -eq 0 ]; then
     print_message "测试完成！外部表创建和数据导入成功。"
     print_message "测试数据位置: ${CSV_FILE}"
     print_message "可以使用以下命令查看数据:"
-    echo "${HIVE_CMD} -e 'SELECT * FROM test_db.employees_external;'"
+    echo "${HIVE_CMD} -e 'SELECT * FROM test_db.employees1;'"
 else
     print_error "测试失败，请检查错误信息。"
 fi
