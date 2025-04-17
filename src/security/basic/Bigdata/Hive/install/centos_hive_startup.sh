@@ -10,6 +10,19 @@ HIVE_HOME="/data2/Hive210/base/apache-hive-2.1.0-bin"
 LOG_DIR="${HIVE_HOME}/logs"
 DATE=$(date +%Y%m%d_%H%M%S)
 
+# Hadoop环境变量
+export HADOOP_HOME="/data2/Hive210/base/hadoop-2.10.2"
+export HADOOP_CLASSPATH=${HADOOP_HOME}/share/hadoop/common/lib/*:${HADOOP_HOME}/share/hadoop/common/*:${HADOOP_HOME}/share/hadoop/hdfs/*:${HADOOP_HOME}/share/hadoop/hdfs/lib/*
+
+# Tez环境变量
+export TEZ_HOME="/data2/Hive210/base/apache-tez-0.9.1-bin"
+export TEZ_CONF_DIR=${TEZ_HOME}/conf
+export TEZ_JARS=${TEZ_HOME}
+export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${TEZ_JARS}/*:${TEZ_JARS}/lib/*
+
+# 设置最终CLASSPATH
+export CLASSPATH=$CLASSPATH:${HADOOP_CLASSPATH}
+
 # 创建日志目录
 mkdir -p ${LOG_DIR}
 
