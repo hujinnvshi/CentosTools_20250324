@@ -1,6 +1,23 @@
 #!/bin/bash
 
-# ... (保留颜色和输出函数) ...
+# 设置颜色变量
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# 输出函数
+print_message() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
 
 # 设置变量
 KAFKA_VERSION="3.9.0"
