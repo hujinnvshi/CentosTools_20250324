@@ -184,3 +184,5 @@ anode "docker ps -a"
 anode "docker images | grep none"
 anode "docker images | grep none | awk '{print $3}' | xargs docker rmi"
 anode "df -h | grep /dev/sd"
+
+anode "docker images | grep -v 'kubesphere\|other-keyword'"
