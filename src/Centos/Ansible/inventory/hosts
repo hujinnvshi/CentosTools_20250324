@@ -1,0 +1,16 @@
+[centos_nodes]
+node1 ansible_host=172.16.48.21
+node2 ansible_host=172.16.48.22
+node3 ansible_host=172.16.48.23
+node4 ansible_host=172.16.48.24
+node5 ansible_host=172.16.48.25
+node6 ansible_host=172.16.48.26
+node7 ansible_host=172.16.48.27
+node8 ansible_host=172.16.48.28
+
+[all:vars]
+ansible_user=root
+ansible_password=Rede@612@Mixed
+ansible_connection=ssh
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_python_interpreter=/bin/python
