@@ -15,10 +15,20 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# 获取本机IP地址
+get_local_ip() {
+    # 优先获取非回环IP地址
+    LOCAL_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '^127' | head -n 1)
+    if [ -z "$LOCAL_IP" ]; then
+        print_error "无法获取本机IP地址"
+        exit 1
+    fi
+    print_message "本机IP地址: ${LOCAL_IP}"
+}
+
 # Kafka 相关变量(注意修改为你的实际配置)
 KAFKA_HOME="/data/kafka_cluster/broker1"
 KAFKA_BIN="${KAFKA_HOME}/bin"
-BOOTSTRAP_SERVER="localhost:9092"
 
 # 测试主题名称
 TEST_TOPIC="test-topic"
@@ -26,7 +36,7 @@ MULTI_PARTITION_TOPIC="multi-partition-topic"
 
 # 测试连接
 test_connection() {
-    print_message "测试 Kafka 连接..."
+    print_message "测试 Kafka 连接... ${BOOTSTRAP_SERVER}"
     ${KAFKA_BIN}/kafka-topics.sh --bootstrap-server ${BOOTSTRAP_SERVER} --list >/dev/null 2>&1
     if [ $? -ne 0 ]; then
         print_error "连接 Kafka 失败"
@@ -34,6 +44,7 @@ test_connection() {
     fi
     print_message "连接成功"
 }
+
 
 # 创建测试主题
 create_test_topics() {
@@ -127,15 +138,17 @@ cleanup() {
 # 主函数
 main() {
     print_message "开始 Kafka 功能测试..."
-    
+    # 获取本机IP
+    get_local_ip
+    # 定义 BOOTSTRAP_SERVER
+    BOOTSTRAP_SERVER="$LOCAL_IP:9092"
     # 执行测试
     test_connection
     create_test_topics
     test_produce_consume
     test_multi_partition
     test_performance
-    cleanup
-    
+    cleanup    
     print_message "测试完成"
 }
 

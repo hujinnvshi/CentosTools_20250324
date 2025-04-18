@@ -19,11 +19,18 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 设置变量
+# 设置变量部分的修改
 KAFKA_VERSION="3.9.0"
 KAFKA_BASE="/data/kafka_cluster"
 KAFKA_PACKAGE="kafka_2.13-${KAFKA_VERSION}.tgz"
-KAFKA_DOWNLOAD_URL="https://downloads.apache.org/kafka/${KAFKA_VERSION}/${KAFKA_PACKAGE}"
+# 使用阿里云镜像源
+KAFKA_DOWNLOAD_URL="https://mirrors.aliyun.com/apache/kafka/${KAFKA_VERSION}/${KAFKA_PACKAGE}"
+# 备用镜像源（如果阿里云下载失败可以尝试）
+KAFKA_MIRROR_URLS=(
+    "https://mirrors.aliyun.com/apache/kafka/${KAFKA_VERSION}/${KAFKA_PACKAGE}"
+    "https://mirrors.tuna.tsinghua.edu.cn/apache/kafka/${KAFKA_VERSION}/${KAFKA_PACKAGE}"
+    "https://mirrors.huaweicloud.com/apache/kafka/${KAFKA_VERSION}/${KAFKA_PACKAGE}"
+)
 
 # Broker 配置
 declare -A BROKER_PORTS=(
@@ -70,10 +77,23 @@ download_package() {
     print_message "检查安装包..."
     if [ ! -f "/tmp/${KAFKA_PACKAGE}" ]; then
         print_message "下载 Kafka 安装包..."
-        wget -P /tmp ${KAFKA_DOWNLOAD_URL} || {
-            print_error "下载失败，请检查网络连接或手动下载安装包到 /tmp 目录"
+        
+        # 尝试从多个镜像源下载
+        for mirror in "${KAFKA_MIRROR_URLS[@]}"; do
+            print_message "尝试从 ${mirror} 下载..."
+            if wget -P /tmp "${mirror}"; then
+                print_message "下载成功"
+                break
+            else
+                print_warning "从 ${mirror} 下载失败，尝试下一个镜像源"
+            fi
+        done
+        
+        # 检查是否下载成功
+        if [ ! -f "/tmp/${KAFKA_PACKAGE}" ]; then
+            print_error "所有镜像源下载均失败，请检查网络连接或手动下载安装包到 /tmp 目录"
             exit 1
-        }
+        fi
     else
         print_message "安装包已存在，验证文件完整性..."
         if ! tar -tzf "/tmp/${KAFKA_PACKAGE}" >/dev/null 2>&1; then
@@ -81,6 +101,17 @@ download_package() {
             exit 1
         fi
     fi
+}
+
+# 获取本机IP地址
+get_local_ip() {
+    # 优先获取非回环IP地址
+    LOCAL_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '^127' | head -n 1)
+    if [ -z "$LOCAL_IP" ]; then
+        print_error "无法获取本机IP地址"
+        exit 1
+    fi
+    print_message "本机IP地址: ${LOCAL_IP}"
 }
 
 # 安装 Kafka
@@ -117,6 +148,12 @@ install_kafka() {
         
         # 创建目录结构
         mkdir -p ${BROKER_DATA} ${BROKER_LOGS} ${BROKER_CONF}/kafka
+        # 清理旧的数据目录
+        if [ -d "${BROKER_DATA}" ]; then
+            print_message "清理旧的数据目录: ${BROKER_DATA}"
+            rm -rf "${BROKER_DATA}"
+            mkdir -p "${BROKER_DATA}"
+        fi
         
         # 解压安装包
         tar -xzf /tmp/${KAFKA_PACKAGE} -C ${BROKER_HOME} --strip-components=1
@@ -129,10 +166,11 @@ install_kafka() {
 # Broker 配置
 node.id=${broker#broker}
 process.roles=broker,controller
-listeners=PLAINTEXT://localhost:${CLIENT_PORT},CONTROLLER://localhost:${CONTROLLER_PORT}
-advertised.listeners=PLAINTEXT://localhost:${CLIENT_PORT}
+listeners=PLAINTEXT://0.0.0.0:${CLIENT_PORT},CONTROLLER://${LOCAL_IP}:${CONTROLLER_PORT}
+advertised.listeners=PLAINTEXT://${LOCAL_IP}:${CLIENT_PORT}
 controller.listener.names=CONTROLLER
-controller.quorum.voters=1@localhost:9093,2@localhost:9095,3@localhost:9097
+controller.quorum.voters=1@${LOCAL_IP}:9093,2@${LOCAL_IP}:9095,3@${LOCAL_IP}:9097
+
 
 # 基础配置
 num.network.threads=${CPU_CORES}
@@ -232,7 +270,8 @@ main() {
         print_error "未设置 JAVA_HOME 环境变量"
         exit 1
     fi
-    
+    # 获取本机IP
+    get_local_ip
     # 执行安装
     check_system
     create_user
