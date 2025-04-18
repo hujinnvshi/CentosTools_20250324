@@ -1,50 +1,93 @@
 #!/bin/bash
 
-# 设置颜色变量
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-# 设置日志文件
-SCRIPT_DIR="/data/scripts/clean_logs"
-LOG_FILE="${SCRIPT_DIR}/clean_logs.log"
-EXCLUDE_FILE="${SCRIPT_DIR}/exclude_files.txt"
+# 常量定义
+readonly GREEN='\033[0;32m'
+readonly RED='\033[0;31m'
+readonly YELLOW='\033[1;33m'
+readonly NC='\033[0m'
+readonly SCRIPT_DIR="/data/centos_logs_clean/logs_clean"
+readonly LOG_FILE="${SCRIPT_DIR}/logs_clean_$(date +%Y%m%d_%H%M%S).log"
+readonly WHITELIST_FILE="${SCRIPT_DIR}/whitelist.txt"
+readonly BLACKLIST_FILE="${SCRIPT_DIR}/blacklist.txt"
 
 # 创建必要的目录和文件
 mkdir -p "${SCRIPT_DIR}"
-touch "${LOG_FILE}"
+touch "${LOG_FILE}" "${WHITELIST_FILE}" "${BLACKLIST_FILE}"
 
-# 输出函数
-log_message() {
+# 日志函数
+log() {
     echo -e "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "${LOG_FILE}"
 }
 
 # 检查root权限
 if [ "$EUID" -ne 0 ]; then
-    log_message "${RED}请使用root用户执行此脚本${NC}"
+    log "${RED}请使用root用户执行此脚本${NC}"
     exit 1
 fi
 
-# 创建排除文件列表
-cat > "${EXCLUDE_FILE}" << EOF
-/var/log/boot.log
+# 初始化白名单和黑名单
+cat > "${WHITELIST_FILE}" << EOF
+/var/log/lastlog
 EOF
 
+cat > "${BLACKLIST_FILE}" << EOF
+/var/log/boot.log-.*
+/var/log/btmp-.*
+/var/log/cron-.*
+/var/log/maillog-.*
+/var/log/messages-.*
+/var/log/secure-.*
+/var/log/spooler-.*
+/var/log/utmp-.*
+/var/log/wtmp-.*
+/var/log/yum.*
+/var/log/vmware-.*
+/var/log/Xorg..*
+/var/log/firewall-.*
+EOF
+
+# 检查文件是否在白名单
+is_whitelisted() {
+    while read -r pattern; do
+        if [[ $1 =~ $pattern ]]; then
+            return 0
+        fi
+    done < "${WHITELIST_FILE}"
+    return 1
+}
+
+# 检查文件是否在黑名单
+is_blacklisted() {
+    while read -r pattern; do
+        if [[ $1 =~ $pattern ]]; then
+            return 0
+        fi
+    done < "${BLACKLIST_FILE}"
+    return 1
+}
+
 # 清理日志函数
-clean_logs() {
+logs_clean() {
     local start_time=$(date '+%Y-%m-%d %H:%M:%S')
-    log_message "${GREEN}开始清理日志文件${NC}"
+    log "${GREEN}开始清理日志文件${NC}"
     
     # 记录清理前状态
-    log_message "清理前磁盘使用情况："
-    df -h /var/log | tee -a "${LOG_FILE}"
+    log "清理前磁盘使用情况："
+    ll -h /var/log | tee -a "${LOG_FILE}"
     
-    # 处理所有文件（包括压缩文件和普通文件）
-    find /var/log -type f -mmin +10 -print0 | while IFS= read -r -d '' file; do
-        # 跳过排除文件
-        if grep -q "^$file$" "${EXCLUDE_FILE}"; then
-            log_message "${YELLOW}跳过排除文件: $file${NC}"
+    # 处理所有文件
+    find /var/log -type f -mmin +1 -print0 | while IFS= read -r -d '' file; do
+        
+        # 跳过白名单文件
+        if is_whitelisted "$file"; then
+            log "${YELLOW}跳过白名单文件: $file${NC}"
+            continue
+        fi
+        
+        # 处理黑名单文件
+        if is_blacklisted "$file"; then
+            log "${RED}删除黑名单文件: $file${NC}"
+            rm -f "$file"
             continue
         fi
         
@@ -60,9 +103,9 @@ clean_logs() {
                     # 删除压缩文件
                     rm -f "$file" 2>/dev/null
                     if [ $? -eq 0 ]; then
-                        log_message "${GREEN}成功删除压缩文件: $file${NC}"
+                        log "${GREEN}成功删除压缩文件: $file${NC}"
                     else
-                        log_message "${RED}删除压缩文件失败: $file${NC}"
+                        log "${RED}删除压缩文件失败: $file${NC}"
                     fi
                 else
                     # 尝试清空文件内容
@@ -71,28 +114,45 @@ clean_logs() {
                         # 恢复文件权限
                         chmod "$perms" "$file"
                         chown "$owner" "$file"
-                        log_message "${GREEN}成功清理文件: $file${NC}"
+                        log "${GREEN}成功清理文件: $file${NC}"
                     else
-                        log_message "${YELLOW}无法清空文件(已跳过): $file${NC}"
+                        log "${YELLOW}无法清空文件(已跳过): $file${NC}"
                     fi
                 fi
             else
-                log_message "${YELLOW}跳过软链接: $file${NC}"
+                log "${YELLOW}跳过软链接: $file${NC}"
             fi
         else
-            log_message "${YELLOW}文件无写入权限: $file${NC}"
+            log "${YELLOW}文件无写入权限: $file${NC}"
         fi
     done
     
     # 记录清理后状态
-    log_message "清理后磁盘使用情况："
-    df -h /var/log | tee -a "${LOG_FILE}"
+    log "清理后磁盘使用情况："
+    ls /var/log | tee -a "${LOG_FILE}"
     
     local end_time=$(date '+%Y-%m-%d %H:%M:%S')
-    log_message "${GREEN}日志清理完成${NC}"
-    log_message "开始时间: $start_time"
-    log_message "结束时间: $end_time"
+    log "${GREEN}日志清理完成${NC}"
+    log "开始时间: $start_time"
+    log "结束时间: $end_time"
 }
 
-# 执行清理
-clean_logs
+# 配置定时任务
+setup_cron() {
+    local cron_job="*/30 * * * * /root/centos_log_clean.sh"
+    if ! crontab -l | grep -q "$cron_job"; then
+        (crontab -l 2>/dev/null; echo "$cron_job") | crontab -
+        log "${GREEN}定时任务配置成功${NC}"
+    else
+        log "${YELLOW}定时任务已存在${NC}"
+    fi
+}
+
+# 主函数
+main() {
+    logs_clean
+    setup_cron
+}
+
+# 执行主函数
+main
