@@ -1,0 +1,11 @@
+---
+- name: 在所有节点执行 YUM 配置脚本
+  hosts: all
+  tasks:
+    - name: 执行 YUM 配置脚本
+      shell: /root/centos_yum_install.sh
+      register: script_output
+
+    - name: 显示脚本执行结果
+      debug:
+        var: script_output.stdout_lines
