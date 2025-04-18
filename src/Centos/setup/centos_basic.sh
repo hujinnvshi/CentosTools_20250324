@@ -20,11 +20,11 @@ check_system() {
     grep -q "CentOS Linux release 7" /etc/redhat-release || print_warning "当前系统不是CentOS 7，可能存在兼容性问题"
 }
 
-# 系统信息获取
+# 优化 get_system_info 函数
 get_system_info() {
-    readonly CPU_CORES=$(nproc)
-    readonly TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-    readonly TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
+    CPU_CORES=$(nproc)
+    TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
     print_message "系统信息："
     echo "CPU核心数：${CPU_CORES}"
     echo "内存大小：${TOTAL_MEM_MB}MB"
@@ -32,12 +32,18 @@ get_system_info() {
 
 # 防火墙配置
 configure_firewall() {
-    print_message "配置防火墙..."
-    # 保留SSH端口
-    firewall-cmd --permanent --add-service=ssh
-    firewall-cmd --reload
-    systemctl stop firewalld
-    systemctl disable firewalld
+    print_message "配置防火墙..."    
+    # 检查防火墙是否开启
+    if systemctl is-active --quiet firewalld; then
+        # 保留SSH端口
+        firewall-cmd --permanent --add-service=ssh
+        firewall-cmd --reload
+        systemctl stop firewalld
+        systemctl disable firewalld
+    else
+        systemctl disable firewalld
+        print_message "防火墙未开启，跳过配置"
+    fi
 }
 
 # 系统参数优化
