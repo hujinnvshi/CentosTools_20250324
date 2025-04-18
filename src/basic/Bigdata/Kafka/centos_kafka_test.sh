@@ -15,8 +15,8 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Kafka 相关变量
-KAFKA_HOME="/data/kafka"
+# Kafka 相关变量(注意修改为你的实际配置)
+KAFKA_HOME="/data/kafka_cluster/broker1"
 KAFKA_BIN="${KAFKA_HOME}/bin"
 BOOTSTRAP_SERVER="localhost:9092"
 

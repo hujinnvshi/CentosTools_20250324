@@ -32,22 +32,81 @@ declare -A BROKER_PORTS=(
     ["broker3"]="9096,9097"
 )
 
-# ... (保留 check_system 和 create_user 函数) ...
+# 检查系统资源
+check_system() {
+    print_message "检查系统资源..."
+    
+    # 检查是否安装必要工具
+    # command -v nproc >/dev/null 2>&1 || yum install -y coreutils
+    # command -v wget >/dev/null 2>&1 || yum install -y wget
+    
+    # CPU 信息
+    CPU_CORES=$(nproc)
+    print_message "CPU 核心数: ${CPU_CORES}"
+    
+    # 内存信息
+    TOTAL_MEM=$(free -g | awk '/^Mem:/{print $2}')
+    if [ -z "$TOTAL_MEM" ] || [ "$TOTAL_MEM" -eq 0 ]; then
+        TOTAL_MEM=1
+        print_warning "无法获取准确的内存信息，使用默认值 1GB"
+    fi
+    print_message "系统总内存: ${TOTAL_MEM}GB"
+    
+    # 计算 Kafka 建议内存
+    KAFKA_HEAP_SIZE="$(($TOTAL_MEM / 2))"
+    [ $KAFKA_HEAP_SIZE -gt 8 ] && KAFKA_HEAP_SIZE=8
+    [ $KAFKA_HEAP_SIZE -lt 1 ] && KAFKA_HEAP_SIZE=1
+}
+
+# 创建用户和组
+create_user() {
+    print_message "创建用户和组..."
+    groupadd kafka 2>/dev/null || print_warning "组 kafka 已存在"
+    useradd -g kafka -m -d /home/kafka kafka 2>/dev/null || print_warning "用户 kafka 已存在"
+}
+
+# 下载安装包
+download_package() {
+    print_message "检查安装包..."
+    if [ ! -f "/tmp/${KAFKA_PACKAGE}" ]; then
+        print_message "下载 Kafka 安装包..."
+        wget -P /tmp ${KAFKA_DOWNLOAD_URL} || {
+            print_error "下载失败，请检查网络连接或手动下载安装包到 /tmp 目录"
+            exit 1
+        }
+    else
+        print_message "安装包已存在，验证文件完整性..."
+        if ! tar -tzf "/tmp/${KAFKA_PACKAGE}" >/dev/null 2>&1; then
+            print_error "安装包可能损坏，请删除后重新下载"
+            exit 1
+        fi
+    fi
+}
 
 # 安装 Kafka
 install_kafka() {
     print_message "安装 Kafka 集群..."
     
     # 创建基础目录
-    mkdir -p ${KAFKA_BASE}
+    mkdir -p "${KAFKA_BASE}" || {
+        print_error "创建基础目录失败"
+        exit 1
+    }
     
     # 下载并解压安装包
     if [ ! -f "/tmp/${KAFKA_PACKAGE}" ]; then
-        wget -P /tmp ${KAFKA_DOWNLOAD_URL}
+        wget -P /tmp "${KAFKA_DOWNLOAD_URL}" || {
+            print_error "下载失败"
+            exit 1
+        }
     fi
     
+    # 为第一个 broker 解压安装包
+    mkdir -p ${KAFKA_BASE}/broker1
+    tar -xzf /tmp/${KAFKA_PACKAGE} -C ${KAFKA_BASE}/broker1 --strip-components=1
+
     # 生成集群ID
-    CLUSTER_ID=$(${KAFKA_BASE}/broker1/bin/kafka-storage.sh random-uuid)
+    CLUSTER_ID=$(su kafka -c "cd ~ && ${KAFKA_BASE}/broker1/bin/kafka-storage.sh random-uuid")
     
     # 为每个 broker 创建独立目录和配置
     for broker in "${!BROKER_PORTS[@]}"; do
@@ -159,7 +218,6 @@ EOF
     chown kafka:kafka ${KAFKA_BASE}/kafka_cluster_control.sh
 }
 
-# ... (保留其他辅助函数) ...
 
 main() {
     print_message "开始安装 Kafka 集群..."
