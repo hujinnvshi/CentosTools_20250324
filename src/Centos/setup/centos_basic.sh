@@ -169,15 +169,28 @@ EOF
     done
 }
 
-# 添加PS1配置函数
 configure_ps1() {
     print_message "配置PS1环境变量..."
+    
+    # 检查写入权限
+    if [[ ! -w /etc/profile.d/ ]]; then
+        print_error "无法写入 /etc/profile.d/ 目录，请以 root 用户运行此脚本"
+    fi
+    
+    # 自定义PS1配置
     cat > /etc/profile.d/custom_ps1.sh << 'EOF'
 # 自定义PS1配置
-export PS1="\[\e[38;5;39m\][\t]\[\e[m\] \[\e[38;5;82m\]\u\[\e[m\]@\[\e[38;5;198m\]\h\[\e[m\] \[\e[38;5;226m\]\w\[\e[m\]\n\[\e[38;5;198m\]➜\[\e[m\] "
+export PS1="\[\e[1;32m\][\t]\[\e[m\] \[\e[1;34m\]\u\[\e[m\]@\[\e[1;31m\]\h\[\e[m\] \[\e[1;33m\]\w\[\e[m\]\n\[\e[1;31m\]➜\[\e[m\] "
 EOF
+    
+    # 设置文件权限
     chmod +x /etc/profile.d/custom_ps1.sh
-    source /etc/profile.d/custom_ps1.sh
+    
+    # 提示用户
+    print_message "PS1 配置已写入 /etc/profile.d/custom_ps1.sh"
+    print_message "请执行以下命令使配置生效："
+    print_message "  source /etc/profile"
+    print_message "或重新登录系统。"
 }
 
 # 优化系统检查函数

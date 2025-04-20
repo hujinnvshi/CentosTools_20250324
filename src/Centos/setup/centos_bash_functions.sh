@@ -1,4 +1,3 @@
-# 一个命令行工具，用于创建和编辑文件。
 createf() {
     if [ -z "$1" ]; then
         echo "Usage: createf <filename>"
