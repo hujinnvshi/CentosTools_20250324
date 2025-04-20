@@ -114,14 +114,6 @@ main() {
 main
 ```
 
-使用方法：
-```bash
-touch install_pip.sh
-vim install_pip.sh
-chmod +x install_pip.sh
-sudo ./install_pip.sh
-```
-
 脚本特点：
 1. 自动检测系统中的 Python 版本
 2. 支持 Python2 和 Python3
