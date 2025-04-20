@@ -18,6 +18,7 @@ ln -s /data/mysql/mysql.sock /tmp/mysql.sock
 ## 2. 数据库连接命令
 # 使用 root 用户连接（本地）
 mysql -u root -pSecsmart#612
+mysql -h 192.168.0.40 -P 3306 -u root -pSecsmart#612 testdb
 
 # 使用测试用户连接测试数据库
 mysql -u testuser -pTest#123456 testdb

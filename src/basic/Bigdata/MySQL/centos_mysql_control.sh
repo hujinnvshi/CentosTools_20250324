@@ -46,5 +46,8 @@ FLUSH PRIVILEGES;
 
 mysql -uadmin -p'Secsmart#612' -h 172.16.61.225
 mysql -uadmin -p'Secsmart#612' -h 172.16.48.171
+
+mysql -h 192.168.0.40 -P 3306 -uadmin -p'Secsmart#612'
+
 mysql -uhive20250324 -p'Secsmart#612' -h 172.16.61.225
 mysql -uhive20250324 -p'Secsmart#612' -h 172.16.61.225 -D hive20250324
