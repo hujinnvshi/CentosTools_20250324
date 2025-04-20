@@ -49,13 +49,34 @@ configure_firewall() {
 # 系统参数优化
 optimize_sysctl() {
     print_message "优化系统参数..."
+    
     # 重新获取内存信息确保变量可用
     local TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    if [[ -z "$TOTAL_MEM_KB" || "$TOTAL_MEM_KB" -le 0 ]]; then
+        print_error "无法获取有效的内存总量"
+        return 1
+    fi
+    
+    # 计算文件句柄和进程数限制
     local FILE_MAX=$((TOTAL_MEM_KB * 1024))
+    local MAX_FILE_LIMIT=1048576  # 最大文件句柄限制
+    if [[ "$FILE_MAX" -gt "$MAX_FILE_LIMIT" ]]; then
+        FILE_MAX="$MAX_FILE_LIMIT"
+    fi
+    
+    print_message "文件句柄和进程数限制：${FILE_MAX}"
+    print_message "内存总量：${TOTAL_MEM_KB} KB"
+    
+    # 备份原有配置
+    if [[ -f /etc/sysctl.conf ]]; then
+        cp /etc/sysctl.conf /etc/sysctl.conf.backup.$(date +%Y%m%d_%H%M%S)
+    fi
+    
+    # 写入新的配置
     cat > /etc/sysctl.conf << EOF
 # 文件句柄和进程数限制
-fs.file-max = $((TOTAL_MEM_KB * 1024))
-fs.nr_open = $((TOTAL_MEM_KB * 1024))
+fs.file-max = ${FILE_MAX}
+fs.nr_open = ${FILE_MAX}
 
 # 网络参数优化
 net.core.somaxconn = 65535
@@ -81,7 +102,15 @@ vm.dirty_background_ratio = 10
 kernel.core_pattern = /var/crash/core-%e-%s-%u-%g-%p-%t
 kernel.core_uses_pid = 1
 EOF
-    sysctl -p
+    
+    # 应用配置
+    if ! sysctl -p; then
+        print_error "应用 sysctl 配置失败，已恢复备份"
+        mv /etc/sysctl.conf.backup.$(date +%Y%m%d_%H%M%S) /etc/sysctl.conf
+        return 1
+    fi
+    
+    print_message "系统参数优化完成"
 }
 
 # 资源限制优化
@@ -89,19 +118,37 @@ configure_limits() {
     readonly CPU_CORES=$(nproc)
     readonly TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
     readonly TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
-    print_message "配置资源限制..."
+    print_message "配置资源限制...  ${CPU_CORES}核，${TOTAL_MEM_MB}MB"
+    
+    # 动态计算资源限制
+    local NOFILE_LIMIT=$((TOTAL_MEM_MB * 1024))  # 文件描述符限制
+    local NPROC_LIMIT=$((CPU_CORES * 2048))      # 进程数限制
+    local STACK_LIMIT=65536                      # 栈内存限制（单位：KB）
+    local MEMLOCK_LIMIT=1048576                  # 内存锁定限制（单位：KB）
+    
+    # 限制最大值
+    NOFILE_LIMIT=$((NOFILE_LIMIT > 1048576 ? 1048576 : NOFILE_LIMIT))
+    NPROC_LIMIT=$((NPROC_LIMIT > 65535 ? 65535 : NPROC_LIMIT))
+    
+    print_message "文件描述符限制：${NOFILE_LIMIT}"
+    print_message "进程数限制：${NPROC_LIMIT}"
+    print_message "栈内存限制：${STACK_LIMIT} KB"
+    print_message "内存锁定限制：${MEMLOCK_LIMIT} KB"
+    
     cat > /etc/security/limits.conf << EOF
-* soft nofile  $((TOTAL_MEM_MB * 5242))
-* hard nofile  $((TOTAL_MEM_MB * 5242))
-* soft nproc   $((CPU_CORES * 204800))
-* hard nproc   $((CPU_CORES * 204800))
-* soft stack   163840
-* hard stack   163840
-* soft memlock unlimited
-* hard memlock unlimited
+* soft nofile  ${NOFILE_LIMIT}
+* hard nofile  ${NOFILE_LIMIT}
+* soft nproc   ${NPROC_LIMIT}
+* hard nproc   ${NPROC_LIMIT}
+* soft stack   ${STACK_LIMIT}
+* hard stack   ${STACK_LIMIT}
+* soft memlock ${MEMLOCK_LIMIT}
+* hard memlock ${MEMLOCK_LIMIT}
 * soft core    unlimited
 * hard core    unlimited
 EOF
+    
+    print_message "资源限制配置完成，已写入 /etc/security/limits.conf"
 }
 
 # SELinux配置

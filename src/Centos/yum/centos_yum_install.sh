@@ -80,8 +80,12 @@ EOF
 backup_config() {
     print_message "备份现有配置..."
     BACKUP_DIR="/etc/yum.repos.d/backup_$(date +%Y%m%d_%H%M%S)"
-    mkdir -p ${BACKUP_DIR}
-    cp -f /etc/yum.repos.d/*.repo ${BACKUP_DIR}/ 2>/dev/null || true
+    mkdir -p ${BACKUP_DIR}    
+    # 备份所有 .repo 文件，排除 LocalYum.repo
+    for repo_file in /etc/yum.repos.d/*.repo; do
+        cp -f "$repo_file" ${BACKUP_DIR}/ 2>/dev/null || true
+    done    
+    # 备份 yum.conf
     cp -f /etc/yum.conf ${BACKUP_DIR}/ 2>/dev/null || true
 }
 
@@ -89,8 +93,12 @@ backup_config() {
 configure_repos() {
     print_message "配置软件源..."
     
-    # 清理现有源
-    rm -f /etc/yum.repos.d/*.repo
+    # 清理现有源，保留 LocalYum.repo
+    for repo_file in /etc/yum.repos.d/*.repo; do
+        if [[ $(basename "$repo_file") != "LocalYum.repo" ]]; then
+            rm -f "$repo_file"
+        fi
+    done
     
     # 下载阿里云源
     curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo
@@ -126,7 +134,7 @@ install_packages() {
     print_message "安装基础软件包..."    
     
     # 基础工具包列表
-    BASIC_PACKAGES="vim wget curl net-tools lsof telnet tcpdump"
+    BASIC_PACKAGES="vim wget curl net-tools lsof telnet tcpdump htop"
     
     yum install -y ${BASIC_PACKAGES}
 }

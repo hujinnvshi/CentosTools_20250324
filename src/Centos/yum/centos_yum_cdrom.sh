@@ -65,6 +65,13 @@ configure_fstab() {
 configure_local_yum() {
     print_message "配置本地YUM源..."
     
+    # 清理现有 YUM 源文件，保留 LocalYum.repo
+    for repo_file in /etc/yum.repos.d/*.repo; do
+        if [[ $(basename "$repo_file") != "LocalYum.repo" ]]; then
+            rm -f "$repo_file"
+        fi
+    done
+    
     # 检查LocalYum是否已存在
     if [ -f /etc/yum.repos.d/LocalYum.repo ]; then
         print_message "LocalYum源已存在，跳过配置"
