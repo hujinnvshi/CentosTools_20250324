@@ -1,9 +1,19 @@
 ---
-- name: 在所有节点执行 YUM 配置脚本
+- name: 在所有节点执行自定义Bash脚本
   hosts: all
+  vars:
+    script_name: "docker_images_export.sh"  # 定义变量
   tasks:
-    - name: 执行 YUM 配置脚本
-      shell: /root/centos_yum_install.sh
+    - name: 复制脚本到远程主机
+      copy:
+        src: "/root/{{ script_name }}"  # 使用变量
+        dest: "/root/{{ script_name }}"  # 使用变量
+        mode: '0755'
+        owner: root
+        group: root
+      
+    - name: 执行自定义Bash脚本
+      shell: "/root/{{ script_name }}"  # 使用变量
       register: script_output
 
     - name: 显示脚本执行结果

@@ -29,6 +29,10 @@ fi
 log "开始导出 Docker 镜像..."
 for IMAGE in $IMAGES; do
     FILENAME=$(echo "$IMAGE" | tr '/' '_' | tr ':' '_').tar.gz
+    if [ -f "$BACKUP_DIR/$FILENAME" ]; then
+        log "镜像 $IMAGE 已存在，跳过导出: $BACKUP_DIR/$FILENAME"
+        continue
+    fi
     log "正在导出镜像: $IMAGE -> $BACKUP_DIR/$FILENAME"
     docker save "$IMAGE" | gzip > "$BACKUP_DIR/$FILENAME" || error "导出镜像 $IMAGE 失败"
 done
@@ -36,7 +40,7 @@ done
 # 拷贝到远程服务器
 REMOTE_IP="172.16.48.191"
 REMOTE_USER="root"
-REMOTE_PASSWORD="Secsmart#612"
+REMOTE_PASSWORD="Rede@612@Mixed"
 
 log "正在将镜像拷贝到远程服务器: $REMOTE_IP..."
 scp -r "$BACKUP_DIR" "$REMOTE_USER@$REMOTE_IP:/data/docker/" || error "拷贝镜像到远程服务器失败"

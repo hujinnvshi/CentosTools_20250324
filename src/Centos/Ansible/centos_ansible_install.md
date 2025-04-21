@@ -50,17 +50,18 @@ mkdir -p /etc/ansible/inventory
 # 创建主机清单文件
 cat > /etc/ansible/inventory/hosts << 'EOF'
 [nodes]
-node1 ansible_host=172.16.48.21
-node2 ansible_host=172.16.48.22
-node3 ansible_host=172.16.48.23
-node4 ansible_host=172.16.48.24
-node5 ansible_host=172.16.48.25
-node6 ansible_host=172.16.48.26
-node7 ansible_host=172.16.48.28
+node21 ansible_host=172.16.48.21
+node22 ansible_host=172.16.48.22
+node23 ansible_host=172.16.48.23
+node24 ansible_host=172.16.48.24
+node25 ansible_host=172.16.48.25
+node26 ansible_host=172.16.48.26
+node27 ansible_host=172.16.48.27
+node28 ansible_host=172.16.48.28
 
 [all:vars]
 ansible_user=root
-ansible_password=Secsmart#612
+ansible_password=Rede@612@Mixed
 ansible_connection=ssh
 ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 ansible_python_interpreter=/usr/bin/python
@@ -71,7 +72,7 @@ cat > /etc/ansible/ansible.cfg << 'EOF'
 [defaults]
 inventory = /etc/ansible/inventory/hosts
 host_key_checking = False
-timeout = 30
+timeout = 300
 deprecation_warnings = False
 command_warnings = False
 forks = 8
@@ -137,6 +138,7 @@ ansible all -m shell -a "free -h"
 ```bash
 ansible-playbook /etc/ansible/playbooks/system_check.yml
 ansible-playbook /etc/ansible/playbooks/copy_script.yml
+ansible-playbook /etc/ansible/playbooks/playbook_execsh.yaml
 ansible-playbook /etc/ansible/playbooks/playbook_execsh.yaml
 ```
 
