@@ -44,8 +44,9 @@ CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
 FLUSH PRIVILEGES;
 
+
 mysql -uadmin -p'Secsmart#612' -h 172.16.61.225
-mysql -uadmin -p'Secsmart#612' -h 172.16.48.171
+mysql -uadmin -p'Secsmart#612' -h 172.16.48.171 -S /data/mysql/mysql.sock
 
 mysql -h 192.168.0.40 -P 3306 -uadmin -p'Secsmart#612'
 

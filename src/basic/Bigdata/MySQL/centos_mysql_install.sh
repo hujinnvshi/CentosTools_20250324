@@ -68,7 +68,7 @@ cat > ${MYSQL_BASE}/my.cnf << EOF
 [mysqld]
 # 基础配置
 user = mysql
-port = 3306
+port = 3010
 basedir = ${MYSQL_BASE}/base
 datadir = ${MYSQL_BASE}/data
 socket = ${MYSQL_BASE}/mysql.sock
@@ -126,7 +126,7 @@ ${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
 
 # 创建服务文件
 print_message "创建 MySQL 服务..."
-cat > /usr/lib/systemd/system/mysqld.service << EOF
+cat > /usr/lib/systemd/system/mysqldv1.service << EOF
 [Unit]
 Description=MySQL Server
 After=network.target
@@ -161,8 +161,8 @@ yum install -y jemalloc
 # 启动 MySQL
 print_message "启动 MySQL 服务..."
 systemctl daemon-reload
-systemctl start mysqld
-systemctl enable mysqld
+systemctl start mysqldv1
+systemctl enable mysqldv1
 
 # 等待 MySQL 启动
 sleep 10
@@ -194,9 +194,9 @@ DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
 FLUSH PRIVILEGES;
 
 -- 创建测试数据库和用户
-CREATE DATABASE hive20250324 CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE USER 'hive20250324'@'%' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON hive20250324.* TO 'hive20250324'@'%';
+CREATE DATABASE admin CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
 
 CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Secsmart#612';
