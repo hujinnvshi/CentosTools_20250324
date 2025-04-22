@@ -128,7 +128,7 @@ ansible all -m shell -a "free -h"
     - name: 检查 Python 版本
       shell: python -V
       register: python_version
-      
+            
     - name: 显示 Python 版本
       debug:
         var: python_version.stdout

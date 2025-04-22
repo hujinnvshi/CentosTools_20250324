@@ -2,10 +2,17 @@
 - name: 复制脚本文件
   hosts: all
   tasks:
+    - name: 复制 centos_yum_cdrom.sh 到远程主机
+      copy:
+        src: /root/centos_yum_cdrom.sh
+        dest: /root/centos_yum_cdrom.sh
+        mode: '0755'
+        owner: root
+        group: root
     - name: 复制 centos_yum_install.sh 到远程主机
       copy:
         src: /root/centos_yum_install.sh
         dest: /root/centos_yum_install.sh
         mode: '0755'
         owner: root
-        group: root
+        group: root    
