@@ -21,9 +21,9 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 设置变量
-MYSQL_VERSION="5.7.39"
+MYSQL_VERSION="5.7.38"
 MYSQL_ROOT_PASSWORD="Secsmart#612"
-MYSQL_BASE="/data/mysql"
+MYSQL_BASE="/data/mysql_${MYSQL_VERSION}_v1"
 SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print $2}')
 INNODB_BUFFER_POOL_SIZE=$(($SYSTEM_MEMORY * 70 / 100))G
 
@@ -128,7 +128,7 @@ ${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
 
 # 创建服务文件
 print_message "创建 MySQL 服务..."
-cat > /usr/lib/systemd/system/mysqldv1.service << EOF
+cat > /usr/lib/systemd/system/mysql_${MYSQL_VERSION}_v1.service << EOF
 [Unit]
 Description=MySQL Server
 After=network.target
