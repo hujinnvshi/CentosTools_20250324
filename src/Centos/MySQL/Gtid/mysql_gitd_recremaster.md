@@ -31,15 +31,20 @@ mysql> show master status \G;
 Executed_Gtid_Set: 71570446-c179-11ee-ac58-005056aa559b:1-26
 1 row in set (0.00 sec)
 
+CREATE USER 'repl'@'%' IDENTIFIED BY 'Secsmart#612';
+GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+FLUSH PRIVILEGES;
+
 
 ### **3. 配置新的 Master 信息**
 配置 Slave 连接到新的 Master 节点：
 ```sql
 CHANGE MASTER TO
 MASTER_HOST='172.16.48.166',
+MASTER_PORT=3010,
 MASTER_USER='admin',
 MASTER_PASSWORD='Secsmart#612',
-MASTER_AUTO_POSITION=1077;
+MASTER_AUTO_POSITION=154;
 ```
 
 - **`MASTER_HOST`**：新 Master 的 IP 地址。

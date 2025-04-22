@@ -38,15 +38,16 @@ esac
 # 关闭 MySQL
 mysqladmin -u root -p shutdown
 
--- 创建测试数据库和用户
-
+-- 创建管理用户
 CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
 FLUSH PRIVILEGES;
 
+mysql -h 172.16.61.225 -uadmin -p'Secsmart#612'
+mysql -h 172.16.48.171 -uadmin -p'Secsmart#612' 
 
-mysql -uadmin -p'Secsmart#612' -h 172.16.61.225
-mysql -uadmin -p'Secsmart#612' -h 172.16.48.171 -S /data/mysql/mysql.sock
+mysql -h 172.16.48.166 -P 3010 -uadmin -p'Secsmart#612'
+mysql -h 172.16.48.167 -P 3010 -uadmin -p'Secsmart#612'
 
 mysql -h 192.168.0.40 -P 3306 -uadmin -p'Secsmart#612'
 

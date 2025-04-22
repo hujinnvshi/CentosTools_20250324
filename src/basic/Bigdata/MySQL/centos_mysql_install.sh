@@ -77,6 +77,8 @@ character-set-server = utf8mb4
 collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
 server-id = 10086
+gtid_mode=ON
+enforce_gtid_consistency=ON
 
 # 性能配置
 innodb_buffer_pool_size = ${INNODB_BUFFER_POOL_SIZE}

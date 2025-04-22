@@ -24,7 +24,8 @@ mysql -h 192.168.0.40 -P 3306 -u root -pSecsmart#612 testdb
 mysql -u testuser -pTest#123456 testdb
 
 # 使用 socket 文件连接
-mysql -u root -pSecsmart#612 --socket=/data/mysql/mysql.sock
+mysql --socket=/data/mysql/mysql.sock -u root -pSecsmart#612 
+mysql --socket=/data/mysql/mysql.sock -u root
 
 # 使用主机名连接
 mysql -h localhost -u root -pSecsmart#612
