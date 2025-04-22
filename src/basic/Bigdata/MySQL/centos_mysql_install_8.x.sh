@@ -40,7 +40,7 @@ cleanup() {
     fi
     exit $exit_code
 }
-trap cleanup ERR
+# trap cleanup ERR
 
 # 检查安装包
 # https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.28-linux-glibc2.12-x86_64.tar.xz
@@ -95,8 +95,12 @@ else
 fi
 
 print_message "解压 MySQL..."
-tar xJf mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz
-mv mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64/* ${MYSQL_BASE}/base/
+if [ ! -d "/tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64" ]; then
+    tar xJf mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz
+else
+    print_message "文件夹 /tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64 已存在，跳过解压"
+fi
+cp -avf mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64/* ${PERCONA_HOME}/base/
 
 # 配置my.cnf
 print_message "配置my.cnf..."
@@ -122,15 +126,13 @@ character-set-server = utf8mb4
 collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
 default-time-zone = '+8:00'
-mysqlx_socket = ${PERCONA_HOME}/tmp/mysqlx.sock
-secure-log-path = ${PERCONA_HOME}/log
 server-id = 10116
 gtid_mode = ON
 enforce_gtid_consistency = ON
 
 # 性能配置
 innodb_buffer_pool_size = ${BUFFER_POOL_SIZE}G
-innodb_redo_log_capacity = 1G
+innodb_log_file_size = 1G
 innodb_log_buffer_size = 16M
 max_connections = 214
 thread_cache_size = 214
@@ -155,7 +157,6 @@ require_secure_transport = OFF
 bind-address = 0.0.0.0
 
 # 其他优化
-thread_handling = one-thread-per-connection
 lower_case_table_names = 1
 skip-name-resolve
 event_scheduler = ON
