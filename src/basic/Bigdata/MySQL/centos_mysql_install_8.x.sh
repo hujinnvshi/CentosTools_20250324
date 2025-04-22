@@ -3,238 +3,361 @@
 # 设置颜色变量
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# 输出带颜色的信息函数
+# 输出函数
 print_message() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+    exit 1
 }
 
-# 检查是否为 root 用户
+# 检查root权限
 if [ "$EUID" -ne 0 ]; then
-    print_error "请使用 root 用户执行此脚本"
-    exit 1
+    print_error "请使用root用户执行此脚本"
 fi
 
 # 设置变量
-MYSQL_VERSION="8.0.33"  # MySQL 8.x 版本
-MYSQL_ROOT_PASSWORD="Secsmart#612"
-MYSQL_BASE="/data/mysql_${MYSQL_VERSION}_v1"
-SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print $2}')
-INNODB_BUFFER_POOL_SIZE=$(($SYSTEM_MEMORY * 70 / 100))G
+export PERCONA_VERSION="8.4.0-1"
+export PERCONA_HOME="/data/percona_8.4.0"
+export PERCONA_USER="percona"
+export PERCONA_GROUP="perconagrp"
+export PERCONA_PORT="3312"
+export PERCONA_PASSWORD="Secsmart#612"
+
+# 添加清理函数
+cleanup() {
+    local exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        print_message "安装失败，开始清理..."  # 改用print_message，因为print_error会导致递归退出
+        systemctl stop percona 2>/dev/null || true  # 添加错误处理
+        rm -rf ${PERCONA_HOME} 2>/dev/null || true
+        rm -f /usr/lib/systemd/system/percona.service 2>/dev/null || true
+        rm -f /etc/profile.d/percona.sh 2>/dev/null || true
+    fi
+    exit $exit_code
+}
+trap cleanup ERR
+
+# 检查安装包
+if [ ! -f "/tmp/Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz" ]; then
+    print_error "安装包不存在：/tmp/Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz"
+fi
+
+# 检查并安装依赖包
+print_message "检查并安装依赖包..."
+DEPS="libaio numactl net-tools"
+for pkg in $DEPS; do
+    if ! rpm -q $pkg &>/dev/null; then
+        print_message "正在安装 ${pkg}..."
+        yum install -y $pkg || print_error "安装 ${pkg} 失败"
+    else
+        print_message "${pkg} 已安装"
+    fi
+done
+
+# 检查端口占用
+if netstat -tuln | grep ":${PERCONA_PORT}" >/dev/null; then
+    print_error "端口 ${PERCONA_PORT} 已被占用"
+fi
+
+# 添加备份功能
+if [ -d "${PERCONA_HOME}" ]; then
+    BACKUP_TIME=$(date +%Y%m%d_%H%M%S)
+    print_message "备份已存在的Percona目录..."
+    # tar czf ${PERCONA_HOME}_backup_${BACKUP_TIME}.tar.gz ${PERCONA_HOME} || print_error "备份失败"
+fi
 
 # 创建目录结构
 print_message "创建目录结构..."
-mkdir -p ${MYSQL_BASE}/{base,data,log/binlog,tmp}
+mkdir -p ${PERCONA_HOME}/{base,data,log/binlog,tmp}
+touch ${PERCONA_HOME}/log/error.log
+touch ${PERCONA_HOME}/log/slow.log
 
-# 安装依赖
-print_message "安装依赖包..."
-yum install -y wget libaio numactl-libs perl net-tools
+# 创建用户和组
+print_message "创建percona用户和组..."
+groupadd ${PERCONA_GROUP} 2>/dev/null || true
+useradd -r -m -s /bin/bash -g ${PERCONA_GROUP} ${PERCONA_USER} 2>/dev/null || true
 
-# 下载并安装 MySQL
-print_message "准备 MySQL 安装包..."
-cd /tmp
-MYSQL_FILE="mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.xz"  # MySQL 8.x 使用 .tar.xz 格式
+# 解压安装包
+print_message "解压安装包..."
+cd /tmp || print_error "无法进入/tmp目录"
 
-if [ -f "${MYSQL_FILE}" ]; then
-    print_message "MySQL 安装包已存在，跳过下载"
+# 定义临时目录
+TEMP_DIR="/tmp/percona_${PERCONA_VERSION}_$(date +%s)"
+mkdir -p "${TEMP_DIR}" || print_error "创建临时目录失败"
+
+# 解压文件
+tar zxf Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz -C "${TEMP_DIR}" || print_error "解压安装包失败"
+
+# 查找实际的Percona目录并复制文件
+PERCONA_EXTRACT_DIR=$(find "${TEMP_DIR}" -maxdepth 1 -type d -name "Percona-Server-*" | head -n 1)
+print_message "Percona提取目录: ${PERCONA_EXTRACT_DIR}"
+if [ -n "${PERCONA_EXTRACT_DIR}" ] && [ -d "${PERCONA_EXTRACT_DIR}" ]; then
+    cp -r "${PERCONA_EXTRACT_DIR}/"* ${PERCONA_HOME}/base/ || print_error "复制文件失败"
 else
-    print_message "下载 MySQL 安装包..."
-    wget https://dev.mysql.com/get/Downloads/MySQL-8.0/${MYSQL_FILE}
+    print_error "无法找到解压后的Percona目录"
 fi
 
-print_message "解压 MySQL..."
-tar xJf mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.xz  # 使用 xJf 解压 .tar.xz 文件
-mv mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64/* ${MYSQL_BASE}/base/
+# 清理临时文件
+rm -rf "${TEMP_DIR}"
 
-# 创建 mysql 用户和组
-print_message "创建 mysql 用户..."
-groupadd mysql
-useradd -r -g mysql -s /bin/false mysql
+# 配置my.cnf
+print_message "配置my.cnf..."
+# 计算InnoDB缓冲池大小（系统内存的20%）
+TOTAL_MEM=$(free -g | awk '/^Mem:/{print $2}')
+if [ -z "$TOTAL_MEM" ] || [ "$TOTAL_MEM" -eq 0 ]; then
+    print_error "无法获取系统内存大小"
+fi
+BUFFER_POOL_SIZE=$(($TOTAL_MEM * 20 / 100))
+if [ "$BUFFER_POOL_SIZE" -eq 0 ]; then
+    BUFFER_POOL_SIZE=1  # 至少设置1G
+fi
 
-# 设置目录权限
-print_message "设置目录权限..."
-chown -R mysql:mysql ${MYSQL_BASE}
-chmod -R 755 ${MYSQL_BASE}
-rm -fr ${MYSQL_BASE}/data
-
-# 创建配置文件
-print_message "创建 MySQL 配置文件..."
-cat > ${MYSQL_BASE}/my.cnf << EOF
+cat > ${PERCONA_HOME}/my.cnf << EOF
 [mysqld]
-# 基础配置
-user = mysql
-port = 3010
-basedir = ${MYSQL_BASE}/base
-datadir = ${MYSQL_BASE}/data
-socket = ${MYSQL_BASE}/mysql.sock
-pid-file = ${MYSQL_BASE}/mysql.pid
+user = ${PERCONA_USER}
+port = ${PERCONA_PORT}
+basedir = ${PERCONA_HOME}/base
+datadir = ${PERCONA_HOME}/data
+socket = ${PERCONA_HOME}/tmp/mysql.sock
+pid-file = ${PERCONA_HOME}/tmp/mysql.pid
 character-set-server = utf8mb4
 collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
-server-id = 10086
-gtid_mode=ON
-enforce_gtid_consistency=ON
+default-time-zone = '+8:00'
+mysqlx_socket = ${PERCONA_HOME}/tmp/mysqlx.sock
+secure-log-path = ${PERCONA_HOME}/log
 
 # 性能配置
-innodb_buffer_pool_size = ${INNODB_BUFFER_POOL_SIZE}
-innodb_log_file_size = 1G
+innodb_buffer_pool_size = ${BUFFER_POOL_SIZE}G
+innodb_redo_log_capacity = 1G
 innodb_log_buffer_size = 16M
-query_cache_size = 0  # MySQL 8.x 已移除 query_cache
-query_cache_type = 0  # MySQL 8.x 已移除 query_cache
-max_connections = 10000
-max_user_connections = 10000
+max_connections = 214
+thread_cache_size = 214
 tmp_table_size = 16M
 sort_buffer_size = 2M
 
 # 日志配置
-log-error = ${MYSQL_BASE}/log/error.log
+log-error = ${PERCONA_HOME}/log/error.log
 slow_query_log = 1
-slow_query_log_file = ${MYSQL_BASE}/log/slow.log
+slow_query_log_file = ${PERCONA_HOME}/log/slow.log
 long_query_time = 2
 log_queries_not_using_indexes = 1
-log-bin = ${MYSQL_BASE}/log/binlog/mysql-bin
-binlog_format = ROW
-expire_logs_days = 7
+log-bin = ${PERCONA_HOME}/log/binlog/Percona-bin
+binlog_expire_logs_seconds = 604800
 binlog_cache_size = 1M
 sync_binlog = 1
 
 # 安全配置
-local-infile = 0
+local_infile = 0
 max_allowed_packet = 16M
-ssl = 1
-secure-file-priv = NULL
+require_secure_transport = OFF
+bind-address = 0.0.0.0
 
 # 其他优化
+thread_handling = one-thread-per-connection
 lower_case_table_names = 1
 skip-name-resolve
 event_scheduler = ON
-default-time-zone = '+8:00'
 
 # 监控配置
 performance_schema = ON
+
+[client]
+port = ${PERCONA_PORT}
+socket = ${PERCONA_HOME}/tmp/mysql.sock
+default-character-set = utf8mb4
+
+[mysql]
+default-character-set = utf8mb4
 EOF
 
-# 初始化 MySQL
-print_message "初始化 MySQL..."
-${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
---basedir=${MYSQL_BASE}/base \
---datadir=${MYSQL_BASE}/data \
---log-error=${MYSQL_BASE}/log/error.log
+# 设置权限
+print_message "设置权限..."
+rm -rf ${PERCONA_HOME}/data
+mkdir -p ${PERCONA_HOME}/data
+chmod 755 ${PERCONA_HOME}
+chmod 755 ${PERCONA_HOME}/data
+chmod 777 ${PERCONA_HOME}/log
+chmod 777 ${PERCONA_HOME}/tmp
+chmod 755 ${PERCONA_HOME}/base
+chmod 644 ${PERCONA_HOME}/my.cnf
+chown -R ${PERCONA_USER}:${PERCONA_GROUP} ${PERCONA_HOME}
 
-# 创建服务文件
-print_message "创建 MySQL 服务..."
-cat > /usr/lib/systemd/system/mysql_${MYSQL_VERSION}_v1.service << EOF
+# 检查端口占用并清理
+print_message "检查端口占用..."
+if netstat -tuln | grep ":${PERCONA_PORT}" >/dev/null; then
+    print_message "端口 ${PERCONA_PORT} 被占用，尝试清理..."
+    pid=$(lsof -t -i:${PERCONA_PORT})
+    if [ -n "$pid" ]; then
+        kill -9 $pid
+        sleep 2
+    fi
+fi
+
+# 初始化数据库
+print_message "初始化数据库..."
+rm -rf ${PERCONA_HOME}/data/*
+echo "" > ${PERCONA_HOME}/log/error.log
+mkdir -p ${PERCONA_HOME}/data
+chown ${PERCONA_USER}:${PERCONA_GROUP} ${PERCONA_HOME}/data
+
+# 使用su命令执行初始化
+su - ${PERCONA_USER} -c "
+    ${PERCONA_HOME}/base/bin/mysqld \
+    --defaults-file=${PERCONA_HOME}/my.cnf \
+    --initialize \
+    --user=${PERCONA_USER} \
+    --datadir=${PERCONA_HOME}/data"
+
+# 显示错误日志中的ERROR信息
+print_message "显示错误日志中的ERROR信息..."
+grep -i "error" ${PERCONA_HOME}/log/error.log || true
+
+# 获取临时密码
+TEMP_PASSWORD=$(grep 'temporary password' ${PERCONA_HOME}/log/error.log | awk '{print $NF}')
+if [ -z "${TEMP_PASSWORD}" ]; then
+    print_error "无法获取临时密码，初始化可能失败"
+fi
+echo "临时密码: << ${TEMP_PASSWORD} >>"
+
+# 修改服务文件配置
+print_message "创建系统服务..."
+cat > /usr/lib/systemd/system/percona.service << EOF
 [Unit]
-Description=MySQL Server
+Description=Percona Server
 After=network.target
+After=syslog.target
 
 [Service]
-User=mysql
-Group=mysql
-ExecStart=${MYSQL_BASE}/base/bin/mysqld --defaults-file=${MYSQL_BASE}/my.cnf  # 直接使用 mysqld
-LimitNOFILE=65535
+Type=simple
+User=${PERCONA_USER}
+Group=${PERCONA_GROUP}
+ExecStart=${PERCONA_HOME}/base/bin/mysqld_safe --defaults-file=${PERCONA_HOME}/my.cnf
+ExecStop=${PERCONA_HOME}/base/bin/mysqladmin --defaults-file=${PERCONA_HOME}/my.cnf -uroot -p${PERCONA_PASSWORD} shutdown
+PIDFile=${PERCONA_HOME}/tmp/mysql.pid
+TimeoutStartSec=180
+TimeoutStopSec=60
 Restart=on-failure
-RestartSec=5
-TimeoutSec=600
+RestartSec=5s
+LimitNOFILE=10000
+PrivateTmp=false
+RemainAfterExit=no
+KillMode=mixed
+
+# 确保工作目录存在
+WorkingDirectory=${PERCONA_HOME}
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 启动 MySQL
-print_message "启动 MySQL 服务..."
-systemctl daemon-reload
-systemctl start mysql_${MYSQL_VERSION}_v1
-systemctl enable mysql_${MYSQL_VERSION}_v1
-
-# 等待 MySQL 启动
-sleep 10
-
-# 等待 MySQL 启动并检查状态
-print_message "等待 MySQL 启动..."
-for i in {1..30}; do
-    if [ -S "${MYSQL_BASE}/mysql.sock" ]; then
-        print_message "MySQL 已成功启动"
-        break
-    fi
-    print_message "等待 MySQL 启动中... $i/30"
-    sleep 2
-done
-
-if [ ! -S "${MYSQL_BASE}/mysql.sock" ]; then
-    print_error "MySQL 启动失败，请检查错误日志：${MYSQL_BASE}/log/error.log"
-    exit 1
-fi
-
-# 设置 root 密码和安全配置
-print_message "配置 MySQL root 密码..."
-${MYSQL_BASE}/base/bin/mysql -u root --socket=${MYSQL_BASE}/mysql.sock << EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
-DELETE FROM mysql.user WHERE User='';
-DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1');
-DROP DATABASE IF EXISTS test;
-DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
-FLUSH PRIVILEGES;
-
--- 创建测试数据库和用户
-CREATE DATABASE admin CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
-
-CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'localhost';
-FLUSH PRIVILEGES;
-
--- 创建测试表和数据
-USE testdb;
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL,
-    email VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('active', 'inactive') DEFAULT 'active'
-);
-
-INSERT INTO users (username, email) VALUES ('test_user', 'test@secsmart.net');
-FLUSH PRIVILEGES;
-EOF
-
-# 验证安装
-print_message "验证 MySQL 安装..."
-${MYSQL_BASE}/base/bin/mysql -u root -p${MYSQL_ROOT_PASSWORD} --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT VERSION();"
-${MYSQL_BASE}/base/bin/mysql -u testuser -pTest#123456 testdb --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
-
-print_message "MySQL 安装完成！"
-print_message "MySQL 版本：$(${MYSQL_BASE}/base/bin/mysql -V)"
-print_message "Root 密码：${MYSQL_ROOT_PASSWORD}"
-print_message "测试用户：testuser"
-print_message "测试密码：Test#123456"
-print_message "测试数据库：testdb"
-
 # 配置环境变量
 print_message "配置环境变量..."
-cat > /etc/profile.d/mysql.sh << EOF
-# MySQL 环境变量
-export MYSQL_HOME=${MYSQL_BASE}/base
-export PATH=\$MYSQL_HOME/bin:\$PATH
+cat > /etc/profile.d/percona.sh << EOF
+export PERCONA_HOME=${PERCONA_HOME}
+export PATH=\$PERCONA_HOME/base/bin:\$PATH
+EOF
+source /etc/profile.d/percona.sh || print_error "加载环境变量失败"
+
+# 启动服务
+print_message "启动Percona服务..."
+systemctl daemon-reload
+systemctl start percona
+
+# 增加启动检查重试
+MAX_RETRIES=3
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if ${PERCONA_HOME}/base/bin/mysqladmin ping >/dev/null 2>&1; then
+        print_message "Percona服务已成功启动"
+        break
+    fi
+    print_message "等待服务启动... (${RETRY_COUNT}/${MAX_RETRIES})"
+    sleep 2
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    print_error "Percona服务启动超时，请检查日志：${PERCONA_HOME}/log/error.log"
+fi
+
+# 确保服务已完全启动
+sleep 5
+if ! systemctl is-active percona >/dev/null 2>&1; then
+    print_error "Percona服务状态异常，请检查日志：${PERCONA_HOME}/log/error.log"
+fi
+
+systemctl enable percona
+
+# 等待服务启动
+sleep 10
+
+# 设置root密码
+print_message "设置root密码..."
+${PERCONA_HOME}/base/bin/mysql -P ${PERCONA_PORT} -S ${PERCONA_HOME}/tmp/mysql.sock --connect-expired-password -uroot -p"${TEMP_PASSWORD}" << EOF
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${PERCONA_PASSWORD}';
+FLUSH PRIVILEGES;
 EOF
 
-# 设置正确的权限
-chmod 644 /etc/profile.d/mysql.sh
-chown root:root /etc/profile.d/mysql.sh
+# 执行安全配置
+print_message "执行安全配置..."
+${PERCONA_HOME}/base/bin/mysql_secure_installation -P ${PERCONA_PORT} -S ${PERCONA_HOME}/tmp/mysql.sock -uroot -p"${PERCONA_PASSWORD}" << EOF
+y
+2
+n
+n
+n
+n
+y
+EOF
 
-# 立即生效环境变量
-source /etc/profile.d/mysql.sh
+# 创建测试数据
+print_message "创建测试数据..."
+cat > /tmp/init.sql << EOF
 
-ln -s /data/mysql/mysql.sock /tmp/mysql.sock
+CREATE DATABASE test_db;
+CREATE USER 'test_user'@'localhost' IDENTIFIED BY 'Test@123';
+GRANT ALL PRIVILEGES ON test_db.* TO 'test_user'@'localhost';
+FLUSH PRIVILEGES;
 
-print_message "环境变量已配置，已自动生效"
-print_message "如果环境变量未生效，请执行：source /etc/profile"
+CREATE DATABASE admin;
+CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
+FLUSH PRIVILEGES;
 
-# ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27
+USE test_db;
+CREATE TABLE employees (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    age INT,
+    department VARCHAR(50),
+    salary DECIMAL(10,2),
+    hire_date DATE
+);
+
+INSERT INTO employees (name, age, department, salary, hire_date) VALUES ('张三', 30, '技术部', 15000.00, '2023-01-01');
+EOF
+
+if ! ${PERCONA_HOME}/base/bin/mysql -P ${PERCONA_PORT} -S ${PERCONA_HOME}/tmp/mysql.sock -uroot -p"${PERCONA_PASSWORD}" < /tmp/init.sql; then
+    print_error "创建测试数据失败"
+fi
+
+# 获取本机IP地址
+LOCAL_IP=$(ip route get 1 | awk '{print $7;exit}')
+if [ -z "${LOCAL_IP}" ]; then
+    LOCAL_IP="127.0.0.1"  # 如果获取失败则使用本地回环地址
+fi
+
+print_message "Percona安装完成！"
+print_message "数据库启动命令: systemctl start percona"
+print_message "数据库停止命令: systemctl stop percona"
+print_message "数据库重启命令: systemctl restart percona"
+print_message "数据库状态查看: systemctl status percona"
+print_message "数据库连接命令: mysql -P ${PERCONA_PORT} -S ${PERCONA_HOME}/tmp/mysql.sock -uroot -p${PERCONA_PASSWORD} "
+print_message "测试用户连接命令: mysql -h ${LOCAL_IP} -P ${PERCONA_PORT} -utest_user -pTest@123 test_db"
+print_message "测试用户连接命令: mysql -h ${LOCAL_IP} -P ${PERCONA_PORT} -uadmin -pSecsmart#612 admin"
