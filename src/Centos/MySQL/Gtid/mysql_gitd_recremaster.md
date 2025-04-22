@@ -41,10 +41,10 @@ FLUSH PRIVILEGES;
 ```sql
 CHANGE MASTER TO
 MASTER_HOST='172.16.48.166',
-MASTER_PORT=3010,
+MASTER_PORT=3011,
 MASTER_USER='admin',
 MASTER_PASSWORD='Secsmart#612',
-MASTER_AUTO_POSITION=154;
+MASTER_AUTO_POSITION=746;
 ```
 
 - **`MASTER_HOST`**：新 Master 的 IP 地址。
@@ -64,7 +64,7 @@ START SLAVE;
 ### **5. 检查同步状态**
 检查 Slave 同步状态，确保同步正常：
 ```sql
-SHOW SLAVE STATUS\G
+SHOW SLAVE STATUS\G;
 ```
 
 重点关注以下字段：
@@ -85,6 +85,7 @@ INSERT INTO test_table VALUES (1, 'Test Data');
 
 在 Slave 上查询数据，验证同步是否成功：
 ```sql
+USE test_db;
 SELECT * FROM test_db.test_table;
 ```
 

@@ -46,8 +46,13 @@ FLUSH PRIVILEGES;
 mysql -h 172.16.61.225 -uadmin -p'Secsmart#612'
 mysql -h 172.16.48.171 -uadmin -p'Secsmart#612' 
 
+-- MySQL 5.7.39 集群
 mysql -h 172.16.48.166 -P 3010 -uadmin -p'Secsmart#612'
 mysql -h 172.16.48.167 -P 3010 -uadmin -p'Secsmart#612'
+
+-- MySQL 5.7.38 集群
+mysql -h 172.16.48.166 -P 3011 -uadmin -p'Secsmart#612'
+mysql -h 172.16.48.167 -P 3011 -uadmin -p'Secsmart#612'
 
 mysql -h 192.168.0.40 -P 3306 -uadmin -p'Secsmart#612'
 

@@ -21,7 +21,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 设置变量
-MYSQL_VERSION="5.7.38"
+MYSQL_VERSION="8.0.33"  # MySQL 8.x 版本
 MYSQL_ROOT_PASSWORD="Secsmart#612"
 MYSQL_BASE="/data/mysql_${MYSQL_VERSION}_v1"
 SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print $2}')
@@ -38,17 +38,17 @@ yum install -y wget libaio numactl-libs perl net-tools
 # 下载并安装 MySQL
 print_message "准备 MySQL 安装包..."
 cd /tmp
-MYSQL_FILE="mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.gz"
+MYSQL_FILE="mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.xz"  # MySQL 8.x 使用 .tar.xz 格式
 
 if [ -f "${MYSQL_FILE}" ]; then
     print_message "MySQL 安装包已存在，跳过下载"
 else
     print_message "下载 MySQL 安装包..."
-    wget https://dev.mysql.com/get/Downloads/MySQL-5.7/${MYSQL_FILE}
+    wget https://dev.mysql.com/get/Downloads/MySQL-8.0/${MYSQL_FILE}
 fi
 
 print_message "解压 MySQL..."
-tar xzf mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.gz
+tar xJf mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64.tar.xz  # 使用 xJf 解压 .tar.xz 文件
 mv mysql-${MYSQL_VERSION}-linux-glibc2.12-x86_64/* ${MYSQL_BASE}/base/
 
 # 创建 mysql 用户和组
@@ -84,8 +84,8 @@ enforce_gtid_consistency=ON
 innodb_buffer_pool_size = ${INNODB_BUFFER_POOL_SIZE}
 innodb_log_file_size = 1G
 innodb_log_buffer_size = 16M
-query_cache_size = 0
-query_cache_type = 0
+query_cache_size = 0  # MySQL 8.x 已移除 query_cache
+query_cache_type = 0  # MySQL 8.x 已移除 query_cache
 max_connections = 10000
 max_user_connections = 10000
 tmp_table_size = 16M
@@ -136,7 +136,7 @@ After=network.target
 [Service]
 User=mysql
 Group=mysql
-ExecStart=${MYSQL_BASE}/base/bin/mysqld_safe --defaults-file=${MYSQL_BASE}/my.cnf
+ExecStart=${MYSQL_BASE}/base/bin/mysqld --defaults-file=${MYSQL_BASE}/my.cnf  # 直接使用 mysqld
 LimitNOFILE=65535
 Restart=on-failure
 RestartSec=5
@@ -145,20 +145,6 @@ TimeoutSec=600
 [Install]
 WantedBy=multi-user.target
 EOF
-
-# 创建 mysqld_safe 配置
-print_message "创建 mysqld_safe 配置..."
-cat >> ${MYSQL_BASE}/my.cnf << EOF
-
-[mysqld_safe]
-log-error = ${MYSQL_BASE}/log/error.log
-pid-file = ${MYSQL_BASE}/mysql.pid
-malloc-lib = /usr/lib64/libjemalloc.so.1
-EOF
-
-# 安装 jemalloc 以提升性能(需要先配置好yum 源)
-print_message "安装 jemalloc..."
-yum install -y jemalloc
 
 # 启动 MySQL
 print_message "启动 MySQL 服务..."
