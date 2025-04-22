@@ -21,10 +21,10 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 设置变量
-export PERCONA_VERSION="8.4.0-1"
-export PERCONA_HOME="/data/percona_8.4.0"
-export PERCONA_USER="percona"
-export PERCONA_GROUP="perconagrp"
+export PERCONA_VERSION="8.0.28"
+export PERCONA_HOME="/data/mysql8_8.0.28"
+export PERCONA_USER="mysql8"
+export PERCONA_GROUP="mysql8grp"
 export PERCONA_PORT="3312"
 export PERCONA_PASSWORD="Secsmart#612"
 
@@ -43,7 +43,8 @@ cleanup() {
 trap cleanup ERR
 
 # 检查安装包
-if [ ! -f "/tmp/Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz" ]; then
+# https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.28-linux-glibc2.12-x86_64.tar.xz
+if [ ! -f "/tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz" ]; then
     print_error "安装包不存在：/tmp/Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz"
 fi
 
@@ -82,28 +83,20 @@ print_message "创建percona用户和组..."
 groupadd ${PERCONA_GROUP} 2>/dev/null || true
 useradd -r -m -s /bin/bash -g ${PERCONA_GROUP} ${PERCONA_USER} 2>/dev/null || true
 
-# 解压安装包
-print_message "解压安装包..."
-cd /tmp || print_error "无法进入/tmp目录"
-
-# 定义临时目录
-TEMP_DIR="/tmp/percona_${PERCONA_VERSION}_$(date +%s)"
-mkdir -p "${TEMP_DIR}" || print_error "创建临时目录失败"
-
-# 解压文件
-tar zxf Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz -C "${TEMP_DIR}" || print_error "解压安装包失败"
-
-# 查找实际的Percona目录并复制文件
-PERCONA_EXTRACT_DIR=$(find "${TEMP_DIR}" -maxdepth 1 -type d -name "Percona-Server-*" | head -n 1)
-print_message "Percona提取目录: ${PERCONA_EXTRACT_DIR}"
-if [ -n "${PERCONA_EXTRACT_DIR}" ] && [ -d "${PERCONA_EXTRACT_DIR}" ]; then
-    cp -r "${PERCONA_EXTRACT_DIR}/"* ${PERCONA_HOME}/base/ || print_error "复制文件失败"
+# 下载并安装 MySQL
+print_message "准备 MySQL 安装包..."
+cd /tmp
+MYSQL_FILE="mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz"            
+if [ -f "${MYSQL_FILE}" ]; then
+    print_message "MySQL 安装包已存在，跳过下载"
 else
-    print_error "无法找到解压后的Percona目录"
+    print_message "下载 MySQL 安装包..."
+    wget https://cdn.mysql.com/archives/mysql-8.0/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz
 fi
 
-# 清理临时文件
-rm -rf "${TEMP_DIR}"
+print_message "解压 MySQL..."
+tar xJf mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz
+mv mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64/* ${MYSQL_BASE}/base/
 
 # 配置my.cnf
 print_message "配置my.cnf..."
@@ -131,6 +124,9 @@ explicit_defaults_for_timestamp = 1
 default-time-zone = '+8:00'
 mysqlx_socket = ${PERCONA_HOME}/tmp/mysqlx.sock
 secure-log-path = ${PERCONA_HOME}/log
+server-id = 10116
+gtid_mode = ON
+enforce_gtid_consistency = ON
 
 # 性能配置
 innodb_buffer_pool_size = ${BUFFER_POOL_SIZE}G
