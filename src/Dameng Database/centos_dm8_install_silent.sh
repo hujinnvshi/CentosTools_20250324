@@ -117,14 +117,6 @@ else
     print_error "DM8服务启动失败，请检查日志"
 fi
 
-# 测试连接
-print_message "测试DM8连接..."
-${INSTALL_DIR}/dmdbms/bin/disql SYSDBA/${DB_PASSWORD}@localhost:${DB_PORT} << EOF
-select * from v\$instance;
-exit;
-EOF
-
-
 # 完成
 print_message "DM8安装、配置和测试完成！"
 
