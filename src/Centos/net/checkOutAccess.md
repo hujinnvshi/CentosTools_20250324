@@ -161,9 +161,10 @@ if __name__ == "__main__":
 ```
 
 ### 定时任务设置脚本
-```bash:/Users/www.redelego.cn/CentosTools_20250324/src/security/Centos/net/setup_cron.sh
-#!/bin/bash
+```
+bash:net_cron_scan.sh
 
+#!/bin/bash
 # 设置颜色输出
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -181,7 +182,7 @@ install_deps() {
 # 设置定时任务
 setup_cron() {
     log "配置定时任务..."
-    (crontab -l 2>/dev/null; echo "*/5 * * * * /usr/bin/python2.7 /usr/local/bin/check_out_access.py") | crontab -
+    (crontab -l 2>/dev/null; echo "*/5 * * * * /usr/bin/python2.7 /root/net_access.py") | crontab -
 }
 
 # 主流程
@@ -195,10 +196,10 @@ main() {
     setup_cron
     
     log "定时任务已设置（每5分钟执行一次）"
-    log "最新报告位置: /var/www/html/latest_netout_report.md"
+    log "最新报告位置: /var/www/html/net_access_report.md"
 }
-
 main
+
 ```
 
 使用方法：
@@ -207,11 +208,11 @@ main
 sudo pip2.7 install psutil
 
 # 2. 赋予脚本执行权限
-sudo chmod +x /Users/www.redelego.cn/CentosTools_20250324/src/security/Centos/net/check_out_access.py
-sudo chmod +x /Users/www.redelego.cn/CentosTools_20250324/src/security/Centos/net/setup_cron.sh
+sudo chmod +x /root/check_out_access.py
+sudo chmod +x /root/setup_cron.sh
 
 # 3. 设置定时任务
-sudo /Users/www.redelego.cn/CentosTools_20250324/src/security/Centos/net/setup_cron.sh
+sudo /root/setup_cron.sh
 ```
 
 脚本特点：
