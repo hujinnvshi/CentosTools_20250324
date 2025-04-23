@@ -45,7 +45,7 @@ cleanup() {
 # 检查安装包
 # https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.28-linux-glibc2.12-x86_64.tar.xz
 if [ ! -f "/tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz" ]; then
-    print_error "安装包不存在：/tmp/Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz"
+    print_message "安装包不存在：/tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz"
     wget https://cdn.mysql.com/archives/mysql-8.0/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz
 fi
 

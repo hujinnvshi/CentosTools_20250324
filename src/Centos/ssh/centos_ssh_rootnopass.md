@@ -1,7 +1,7 @@
 我帮你配置root用户的SSH免密登录：
 
 ```
-markdown:/Users/www.redelego.cn/CentosTools_20250324/src/security/basic/Bigdata/Hive/install/centos_hive_operate.md
+
 ## 5. SSH免密配置
 
 ### root用户SSH配置
