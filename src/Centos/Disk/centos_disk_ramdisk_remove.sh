@@ -45,7 +45,7 @@ if [ ! -w /etc/fstab ]; then
     print_error "/etc/fstab 文件不可写"
 fi
 if grep -q "${MOUNT_POINT}" /etc/fstab; then
-    sed -i "/${MOUNT_POINT}/d" /etc/fstab || print_error "清理fstab配置失败"
+    sed -i "\|${MOUNT_POINT}|d" /etc/fstab || print_error "清理fstab配置失败"
 else
     print_message "fstab中未找到 ${MOUNT_POINT} 的配置，跳过清理"
 fi
