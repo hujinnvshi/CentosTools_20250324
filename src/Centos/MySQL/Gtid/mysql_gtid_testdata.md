@@ -18,3 +18,8 @@ INSERT INTO test_table (name) VALUES ('Alice'), ('Bob'), ('Charlie');
 
 -- 查询测试数据
 SELECT * FROM test_table;
+
+
+-- MySQL 8.0.28 主从同步
+mysql -h 172.16.48.166 -P 3312 -uadmin -pSecsmart#612 admin
+mysql -h 172.16.48.167 -P 3312 -uadmin -pSecsmart#612 admin

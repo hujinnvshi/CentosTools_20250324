@@ -21,8 +21,8 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 设置变量
-export PERCONA_VERSION="8.0.28"
-export PERCONA_HOME="/data/mysql8_8.0.28"
+export PERCONA_VERSION="8.0.25"
+export PERCONA_HOME="/data/mysql8_8.0.25"
 export PERCONA_USER="mysql8"
 export PERCONA_GROUP="mysql8grp"
 export PERCONA_PORT="3312"
@@ -46,6 +46,7 @@ cleanup() {
 # https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.28-linux-glibc2.12-x86_64.tar.xz
 if [ ! -f "/tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz" ]; then
     print_error "安装包不存在：/tmp/Percona-Server-${PERCONA_VERSION}-Linux.x86_64.glibc2.17.tar.gz"
+    wget https://cdn.mysql.com/archives/mysql-8.0/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz
 fi
 
 # 检查并安装依赖包
