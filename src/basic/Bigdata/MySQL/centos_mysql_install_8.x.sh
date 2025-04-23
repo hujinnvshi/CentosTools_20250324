@@ -271,12 +271,12 @@ systemctl start percona
 MAX_RETRIES=3
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if ${PERCONA_HOME}/base/bin/mysqladmin ping >/dev/null 2>&1; then
+    if ${PERCONA_HOME}/base/bin/mysqladmin --socket=${PERCONA_HOME}/tmp/mysql.sock ping >/dev/null 2>&1; then
         print_message "Percona服务已成功启动"
         break
     fi
     print_message "等待服务启动... (${RETRY_COUNT}/${MAX_RETRIES})"
-    sleep 2
+    sleep 10
     RETRY_COUNT=$((RETRY_COUNT + 1))
 done
 
