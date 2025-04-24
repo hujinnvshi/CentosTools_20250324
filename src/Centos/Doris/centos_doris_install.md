@@ -23,6 +23,7 @@ CREATE TABLE testdb.table_hash
 COMMENT "my first table"
 DISTRIBUTED BY HASH(k1) BUCKETS 32;
 
+
 -- insert data
 INSERT INTO testdb.table_hash VALUES
 (1, 10.1, 'AAA', 10),
