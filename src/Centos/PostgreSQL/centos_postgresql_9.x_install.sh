@@ -19,7 +19,7 @@ chown -R $PG_USER:$PG_USER $PG_HOME || { echo "修改目录权限失败"; exit 1
 
 # 下载安装包和依赖
 cd $PG_SOFT || { echo "进入目录 $PG_SOFT 失败"; exit 1; }
-sudo yum install gcc bison gcc-c++ readline readline-devel zlib zlib-devel perl perl-devel -y || { echo "安装依赖失败"; exit 1; }
+sudo yum install gcc bison gcc-c++ readline readline-devel zlib zlib-devel perl perl-devel libicu-devel flex -y || { echo "安装依赖失败"; exit 1; }
 
 # 检查文件是否存在，避免重复下载
 if [ ! -f "postgresql-$PG_VERSION.tar.gz" ]; then
