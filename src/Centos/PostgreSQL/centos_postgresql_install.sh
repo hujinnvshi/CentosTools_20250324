@@ -84,17 +84,17 @@ source $PG_ENV_FILE || { echo "加载环境变量失败"; exit 1; }
 su - $PG_USER -c "$PG_BASE/bin/psql -h localhost -p $PG_PORT --dbname postgres -c \"CREATE ROLE admin WITH LOGIN SUPERUSER CREATEDB CREATEROLE INHERIT NOREPLICATION CONNECTION LIMIT -1 PASSWORD 'Secsmart#612';\"" || { echo "创建特权用户失败"; exit 1; }
 
 # 配置自动启动
-if [ -f "/etc/rc.local" ]; then
-    cp "/etc/rc.local" "/etc/rc.local.bak" || { echo "备份自动启动文件失败"; exit 1; }
-fi
-echo "su - $PG_USER -c \"nohup $PG_BASE/bin/pg_ctl restart -D $PG_DATA &\"" >> /etc/rc.local || { echo "配置自动启动失败"; exit 1; }
-echo "PostgreSQL $PG_VERSION 安装完成！"
+# if [ -f "/etc/rc.local" ]; then
+#     cp "/etc/rc.local" "/etc/rc.local.bak" || { echo "备份自动启动文件失败"; exit 1; }
+# fi
+# echo "su - $PG_USER -c \"nohup $PG_BASE/bin/pg_ctl restart -D $PG_DATA &\"" >> /etc/rc.local || { echo "配置自动启动失败"; exit 1; }
+# echo "PostgreSQL $PG_VERSION 安装完成！"
 
 # 配置服务
 echo "配置 PostgreSQL 服务..."
 cat > /etc/systemd/system/postgresql_$PG_VERSION.service << EOF
 [Unit]
-Description=PostgreSQL Database Server
+Description= postgresql_$PG_VERSION
 After=network.target
 
 [Service]
@@ -119,7 +119,7 @@ systemctl daemon-reload || { echo "重新加载 systemd 配置失败"; exit 1; }
 systemctl enable postgresql_$PG_VERSION || { echo "启用 PostgreSQL 服务失败"; exit 1; }
 
 # 启动服务
-systemctl start postgresql_$PG_VERSION || { echo "启动 PostgreSQL 服务失败"; exit 1; }
+# systemctl start postgresql_$PG_VERSION || { echo "启动 PostgreSQL 服务失败"; exit 1; }
 
 # 基本操作命令
 echo "PostgreSQL 基本操作命令："
@@ -130,10 +130,19 @@ echo "查看状态：systemctl status postgresql_$PG_VERSION"
 echo "启用开机启动：systemctl enable postgresql_$PG_VERSION"
 echo "禁用开机启动：systemctl disable postgresql_$PG_VERSION"
 
+# 获取本地 IP 地址
+get_local_ip() {
+    local ip=$(ip route get 1 | awk '{print $NF;exit}')
+    if [ -z "$ip" ]; then
+        ip=$(hostname -I | awk '{print $1}')
+    fi
+    echo "$ip"
+}
+
 # 登录命令
 echo "登录 PostgreSQL 命令："
 echo "本地登录：psql -h localhost -p $PG_PORT -U admin -d postgres"
-echo "远程登录：psql -h <服务器IP> -p $PG_PORT -U admin -d postgres"
+echo "远程登录：psql -h $(get_local_ip) -p $PG_PORT -U admin -d postgres"
 echo "密码：Secsmart#612"
 
 echo "PostgreSQL $PG_VERSION 安装完成！"
