@@ -154,7 +154,7 @@ EOF
 # SELinux配置
 configure_selinux() {
     print_message "配置SELinux..."
-    setenforce 0
+    # setenforce 0
     sed -i 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
 }
 
