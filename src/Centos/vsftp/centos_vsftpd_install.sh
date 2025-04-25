@@ -72,7 +72,7 @@ chmod 755 /home/ftp_user1 || error "修复权限失败"
 # 配置 vsftpd
 log "配置 vsftpd..."
 cat > /etc/vsftpd/vsftpd.conf << EOF
-anonymous_enable=YES
+anonymous_enable=NO
 local_enable=YES
 write_enable=YES
 local_umask=755
