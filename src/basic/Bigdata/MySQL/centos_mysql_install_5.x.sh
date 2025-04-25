@@ -246,7 +246,7 @@ chown root:root /etc/profile.d/mysql.sh
 # 立即生效环境变量
 source /etc/profile.d/mysql.sh
 
-ln -s /data/mysql/mysql.sock /tmp/mysql.sock
+ln -s ${MYSQL_BASE}/mysql.sock /tmp/mysql.sock
 
 print_message "环境变量已配置，已自动生效"
 print_message "如果环境变量未生效，请执行：source /etc/profile"
