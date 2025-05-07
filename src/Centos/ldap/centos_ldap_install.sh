@@ -132,7 +132,7 @@ mkdir -p /etc/openldap/slapd.d
 chown -R ldap:ldap /etc/openldap/slapd.d
 chmod 700 /etc/openldap/slapd.d
 # 使用slaptest生成初始配置（不带-u选项）
-slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d || error "生成初始配置失败"
+slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d
 # 确保配置文件权限正确
 chown ldap:ldap /etc/openldap/slapd.conf
 chmod 700 /etc/openldap/slapd.conf
@@ -142,13 +142,15 @@ chown -R ldap:ldap /etc/openldap/slapd.d
 if [ ! -f "/var/lib/ldap/data.mdb" ]; then
     # 初始化MDB数据库
     mkdir -p /var/lib/ldap
+    slapadd -F /etc/openldap/slapd.d -n 1 -l /dev/null || error "初始化数据库失败"
     chown -R ldap:ldap /var/lib/ldap
     chmod 700 /var/lib/ldap
-    slapadd -F /etc/openldap/slapd.d -n 1 -l /dev/null || error "初始化数据库失败"
 fi
 
 # 启动服务
-slapd -h "ldap:/// ldapi:///" -u ldap -g ldap -F /etc/openldap/slapd.d || error "启动 LDAP 服务失败"
+rm -fr /etc/openldap/slapd.conf
+chown -R ldap:ldap /etc/openldap/slapd.d/
+systemctl start slapd || error "启动 LDAP 服务失败"
 
 # 等待服务完全启动
 sleep 5
@@ -170,7 +172,7 @@ EOF
 
 # 导入基础配置
 log "导入基础配置..."
-ldapadd -Y EXTERNAL -H ldapi:/// -f "$CHROOTPW_LDIF" || error "导入基础配置失败"
+ldapadd -Y EXTERNAL -H ldapi:/// -f "$CHROOTPW_LDIF"
 
 # 导入基本 Schema
 log "导入基本 Schema..."
