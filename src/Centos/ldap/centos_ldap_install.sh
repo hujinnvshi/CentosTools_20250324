@@ -40,7 +40,7 @@ fi
 
 # 创建基础配置文件
 cat > /tmp/chrootpw.ldif << EOF
-dn: olcDatabase={0}config,cn=config
+dn: olcDatabase={2}hdb,cn=config
 changetype: modify
 add: olcRootPW
 olcRootPW: $HASHED_PW
@@ -95,7 +95,7 @@ cat > /tmp/base.ldif << EOF
 dn: $LDAP_SUFFIX
 objectClass: dcObject
 objectClass: organization
-dc: example
+dc: $(echo $LDAP_DOMAIN | cut -d. -f1)
 o: $LDAP_ORGANIZATION
 
 dn: cn=admin,$LDAP_SUFFIX
