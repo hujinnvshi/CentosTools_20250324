@@ -17,7 +17,7 @@ fi
 # 设置 LDAP 基本配置
 LDAP_DOMAIN="example.com"
 LDAP_SUFFIX="dc=example,dc=com"
-LDAP_ROOTPW="admin123"  # 管理员密码
+LDAP_ROOTPW="Secsmart#612"  # 管理员密码
 LDAP_ORGANIZATION="Example Inc"
 
 # 安装必要的软件包
@@ -72,11 +72,6 @@ dn: olcDatabase={2}hdb,cn=config
 changetype: modify
 replace: olcRootDN
 olcRootDN: cn=admin,$LDAP_SUFFIX
-
-dn: olcDatabase={2}hdb,cn=config
-changetype: modify
-add: olcRootPW
-olcRootPW: $HASHED_PW
 
 dn: olcDatabase={2}hdb,cn=config
 changetype: modify
