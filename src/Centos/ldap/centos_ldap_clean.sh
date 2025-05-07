@@ -18,15 +18,22 @@ fi
 log "停止 LDAP 服务..."
 if ps aux | grep slapd | grep -v grep > /dev/null; then
     kill $(ps aux | grep slapd | grep -v grep | awk '{print $2}')
+    sleep 2
 fi
 
 # 删除LDAP数据和配置
 log "删除 LDAP 数据和配置..."
-# 删除数据目录
+
+# 删除数据目录内容
 rm -rf /var/lib/ldap/*
+rm -f /var/lib/ldap/DB_CONFIG
 
 # 删除配置目录
 rm -rf /etc/openldap/slapd.d/*
+rm -f /etc/openldap/slapd.conf
+
+# 删除运行时文件
+rm -rf /var/run/openldap/*
 
 # 如果存在备份，恢复原始配置
 if [ -d "/etc/openldap/slapd.d.bak" ]; then
@@ -41,16 +48,30 @@ rm -f /etc/profile.d/ldap.sh
 
 # 验证清理
 log "验证清理..."
+
+# 检查服务状态
 if ps aux | grep slapd | grep -v grep > /dev/null; then
     error "LDAP 服务仍在运行"
 fi
 
-if [ -n "$(ls -A /var/lib/ldap/)" ]; then
+# 检查端口状态
+if netstat -tuln | grep -q ':389'; then
+    error "端口 389 仍被占用"
+fi
+
+# 检查数据目录
+if [ -n "$(ls -A /var/lib/ldap/ 2>/dev/null)" ]; then
     error "LDAP 数据目录未清空"
 fi
 
-if [ -n "$(ls -A /etc/openldap/slapd.d/)" ]; then
+# 检查配置目录
+if [ -n "$(ls -A /etc/openldap/slapd.d/ 2>/dev/null)" ]; then
     error "LDAP 配置目录未清空"
+fi
+
+# 检查运行时目录
+if [ -n "$(ls -A /var/run/openldap/ 2>/dev/null)" ]; then
+    error "LDAP 运行时目录未清空"
 fi
 
 log "LDAP 环境清理完成！"
@@ -64,7 +85,9 @@ ${GREEN}LDAP 清理完成！${NC}
 1. 停止了 LDAP 服务
 2. 清理了 LDAP 数据目录 (/var/lib/ldap/)
 3. 清理了 LDAP 配置目录 (/etc/openldap/slapd.d/)
-4. 删除了环境变量配置 (/etc/profile.d/ldap.sh)
+4. 删除了 LDAP 配置文件 (/etc/openldap/slapd.conf)
+5. 清理了 LDAP 运行时目录 (/var/run/openldap/)
+6. 删除了环境变量配置 (/etc/profile.d/ldap.sh)
 
 如果要重新安装 LDAP，请执行安装脚本。
 
