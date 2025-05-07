@@ -21,7 +21,7 @@ print_error() {
 
 # 设置变量部分的修改
 KAFKA_VERSION="3.9.0"
-KAFKA_BASE="/data/kafka_cluster"
+KAFKA_BASE="/data/kafka_cluster1"
 KAFKA_PACKAGE="kafka_2.13-${KAFKA_VERSION}.tgz"
 # 使用阿里云镜像源
 KAFKA_DOWNLOAD_URL="https://mirrors.aliyun.com/apache/kafka/${KAFKA_VERSION}/${KAFKA_PACKAGE}"
@@ -105,8 +105,15 @@ download_package() {
 
 # 获取本机IP地址
 get_local_ip() {
-    # 优先获取非回环IP地址
-    LOCAL_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '^127' | head -n 1)
+    # 优先获取 192.168.20.x 网段的非回环IP地址
+    LOCAL_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep '^192\.168\.20\.' | head -n 1)
+    
+    # 如果没有找到 192.168.20.x 网段的IP，则尝试获取其他非回环IP
+    if [ -z "$LOCAL_IP" ]; then
+        print_warning "未找到 192.168.20.x 网段的 IP 地址，尝试获取其他非回环 IP 地址..."
+        LOCAL_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '^127' | head -n 1)
+    fi
+
     if [ -z "$LOCAL_IP" ]; then
         print_error "无法获取本机IP地址"
         exit 1
@@ -133,11 +140,14 @@ install_kafka() {
     fi
     
     # 为第一个 broker 解压安装包
-    mkdir -p ${KAFKA_BASE}/broker1
+    chown kafka:kafka ${KAFKA_BASE}
+    mkdir -p ${KAFKA_BASE}/broker1    
     tar -xzf /tmp/${KAFKA_PACKAGE} -C ${KAFKA_BASE}/broker1 --strip-components=1
 
     # 生成集群ID
     CLUSTER_ID=$(su kafka -c "cd ~ && ${KAFKA_BASE}/broker1/bin/kafka-storage.sh random-uuid")
+    
+    echo "集群ID：${CLUSTER_ID}"
     
     # 为每个 broker 创建独立目录和配置
     for broker in "${!BROKER_PORTS[@]}"; do
@@ -184,7 +194,7 @@ default.replication.factor=3
 # 日志配置
 log.dirs=${BROKER_DATA}
 num.recovery.threads.per.data.dir=1
-log.retention.hours=168
+log.retention.hours=16
 log.segment.bytes=1073741824
 log.retention.check.interval.ms=300000
 
