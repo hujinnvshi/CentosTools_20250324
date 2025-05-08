@@ -48,11 +48,15 @@ rm -rf /var/lib/ldap/*
 
 # 安装必要的软件包
 log "安装 OpenLDAP 及相关工具..."
-yum -y install openldap openldap-servers openldap-clients || error "安装 OpenLDAP 失败"
+# 安装必要的软件包
+log "安装 OpenLDAP 及相关工具..."
+yum -y install openldap compat-openldap openldap-servers openldap-servers-sql openldap-clients openldap-devel migrationtools || error "安装 OpenLDAP 失败"
+systemctl start slapd
 
 # 生成管理员密码
 log "配置管理员密码..."
 HASHED_PW=$(slappasswd -s "$LDAP_ROOTPW")
+echo "$HASHED_PW"
 if [ $? -ne 0 ]; then
     error "生成密码哈希失败"
 fi
@@ -92,6 +96,7 @@ index ou,cn,mail,surname,givenname      eq,pres,sub
 index uidNumber,gidNumber,loginShell    eq,pres
 index uid,memberUid                     eq,pres,sub
 index nisMapName,nisMapEntry            eq,pres,sub
+index entryCSN,entryUUID                eq
 
 access to attrs=userPassword,shadowLastChange
         by self write
@@ -106,7 +111,7 @@ access to *
 EOF
 
 chown ldap:ldap /etc/openldap/slapd.conf
-chmod 700 /etc/openldap/slapd.conf # 更改为700，更安全
+chmod 640 /etc/openldap/slapd.conf # 更改为700，更安全
 
 # 检查配置文件 (slaptest -u, 检查slapd.conf并尝试生成slapd.d的初始结构)
 log "检查配置文件 (slaptest -u)..."
@@ -143,7 +148,7 @@ chmod 700 /etc/openldap/slapd.d
 
 # 使用slaptest生成最终的slapd.d配置（不带-u选项，仅转换slapd.conf到slapd.d）
 log "使用slaptest生成最终的slapd.d配置..."
-slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d || error "配置转换失败 (slaptest -f)"
+slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d
 chown -R ldap:ldap /etc/openldap/slapd.d # 确保slapd.d目录及其内容的所有权
 
 # 启动服务前确保数据库目录已初始化
@@ -153,10 +158,11 @@ if [ ! -f "/var/lib/ldap/data.mdb" ]; then
     slapadd -F /etc/openldap/slapd.d -n 1 -l /dev/null || error "数据库初始化失败 (slapadd)"
     chown -R ldap:ldap /var/lib/ldap/* # 确保slapadd创建的文件权限正确
 fi
+systemctl restart slapd
 
 # 启动服务
-log "启动 LDAP 服务..."
-slapd -h "ldap:/// ldapi:///" -u ldap -g ldap -F /etc/openldap/slapd.d || error "启动 LDAP 服务失败"
+# log "启动 LDAP 服务..."
+# slapd -h "ldap:/// ldapi:///" -u ldap -g ldap -F /etc/openldap/slapd.d || error "启动 LDAP 服务失败"
 
 # 等待服务完全启动
 log "等待服务启动 (5秒)..."
@@ -176,16 +182,24 @@ fi
 log "LDAP 服务已成功启动。"
 
 # 创建基础配置文件: olcRootPW
+log "获取当前MDB数据库DN..."
+CURRENT_MDB_DN=$(slapcat -n0 | grep 'dn: olcDatabase=.*mdb' | awk -F': ' '{print $2}')
+if [ -z "$CURRENT_MDB_DN" ]; then
+    error "无法自动获取MDB数据库DN"
+fi
+
 cat > "$CHROOTPW_LDIF" << EOF
-dn: olcDatabase={2}mdb,cn=config
+dn: $CURRENT_MDB_DN
 changetype: modify
 replace: olcRootPW
 olcRootPW: $HASHED_PW
 EOF
+chmod 777 -R "$CHROOTPW_LDIF"
 
 # 导入基础配置 (olcRootPW)
 log "导入基础配置 (olcRootPW)..."
-ldapmodify -Y EXTERNAL -H ldapi:/// -f "$CHROOTPW_LDIF" || error "导入基础配置 (olcRootPW) 失败"
+echo "$CHROOTPW_LDIF"
+ldapmodify -Y EXTERNAL -H ldapi:/// -f "$CHROOTPW_LDIF" -Q || error "导入基础配置 (olcRootPW) 失败"
 
 # 导入基本 Schema
 log "导入基本 Schema..."
@@ -200,17 +214,17 @@ changetype: modify
 replace: olcAccess
 olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" read by dn.base="cn=admin,$LDAP_SUFFIX" read by * none
 
-dn: olcDatabase={2}mdb,cn=config
+dn: olcDatabase={$CURRENT_MDB_DN}mdb,cn=config
 changetype: modify
 replace: olcSuffix
 olcSuffix: $LDAP_SUFFIX
 
-dn: olcDatabase={2}mdb,cn=config
+dn: olcDatabase={$CURRENT_MDB_DN}mdb,cn=config
 changetype: modify
 replace: olcRootDN
 olcRootDN: cn=admin,$LDAP_SUFFIX
 
-dn: olcDatabase={2}mdb,cn=config
+dn: olcDatabase={$CURRENT_MDB_DN}mdb,cn=config
 changetype: modify
 add: olcAccess
 olcAccess: {0}to attrs=userPassword,shadowLastChange by dn="cn=admin,$LDAP_SUFFIX" write by anonymous auth by self write by * none
