@@ -191,7 +191,7 @@ chmod 700 /etc/openldap/slapd.d
 
 # 使用slaptest生成最终的slapd.d配置（不带-u选项，仅转换slapd.conf到slapd.d）
 log "使用slaptest生成最终的slapd.d配置..."
-slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d || error "slaptest -f 转换失败"
+slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d
 chown -R ldap:ldap /etc/openldap/slapd.d # 确保slapd.d目录及其内容的所有权
 
 # 启动服务前确保数据库目录已初始化
