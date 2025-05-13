@@ -52,7 +52,8 @@ CHROOTPW_LDIF="${TEMP_DIR}/chrootpw.ldif"
 DB_LDIF="${TEMP_DIR}/db.ldif"
 BASE_LDIF="${TEMP_DIR}/base.ldif"
 SSL_LDIF="${TEMP_DIR}/ssl.ldif" # 新增SSL LDIF文件变量
-trap 'rm -rf "${TEMP_DIR}"' EXIT
+# trap 'rm -rf "${TEMP_DIR}"' EXIT
+trap 'echo "清理临时目录: $TEMP_DIR"' EXIT
 
 # 清理现有配置
 log "清理现有配置..."
@@ -145,12 +146,12 @@ access to attrs=userPassword,shadowLastChange
         by self write
         by anonymous auth
         by dn="cn=admin,$LDAP_SUFFIX" write
-        by * none
+        by * write
 
 access to *
         by self write
         by dn="cn=admin,$LDAP_SUFFIX" write
-        by * read
+        by * write
 EOF
 
 chown ldap:ldap /etc/openldap/slapd.conf
@@ -204,8 +205,12 @@ if [ ! -f "/var/lib/ldap/data.mdb" ]; then
     chown -R ldap:ldap /var/lib/ldap/* # 确保slapadd创建的文件权限正确
 fi
 
+# 修改服务启动后的验证逻辑
 log "启动 LDAP 服务 (systemctl restart slapd)..."
-systemctl restart slapd || error "启动 LDAP 服务失败 (systemctl)"
+if ! systemctl restart slapd; then
+    journalctl -u slapd -n 50 --no-pager
+    error "启动 LDAP 服务失败，请检查上述日志"
+fi
 
 # 等待服务完全启动
 log "等待服务启动 (5秒)..."
@@ -240,12 +245,12 @@ olcTLSCertificateFile: $SSL_CERT_FILE
 add: olcTLSCertificateKeyFile
 olcTLSCertificateKeyFile: $SSL_KEY_FILE
 EOF
+
 chmod 600 "$SSL_LDIF"
 
 # 导入SSL配置
 log "导入SSL配置到cn=config..."
-ldapmodify -Y EXTERNAL -H ldapi:/// -f "$SSL_LDIF" || error "导入SSL配置失败"
-
+log "$SSL_LDIF"
 
 # 创建基础配置文件: olcRootPW
 log "获取当前MDB数据库DN..."
@@ -277,6 +282,7 @@ chmod 600 "$CHROOTPW_LDIF" # 修正权限
 
 # 导入基础配置 (olcRootPW)
 log "导入基础配置 (olcRootPW)..."
+log "$CHROOTPW_LDIF"
 ldapmodify -Y EXTERNAL -H ldapi:/// -f "$CHROOTPW_LDIF" -Q || error "导入基础配置 (olcRootPW) 失败"
 
 # 导入基本 Schema (这些通常由slaptest -u从slapd.conf的include指令处理并转换为cn=config下的olcSchemaConfig条目)
@@ -294,7 +300,13 @@ cat > "$DB_LDIF" << EOF
 dn: olcDatabase={0}monitor,cn=config
 changetype: modify
 replace: olcAccess
-olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" read by dn.base="cn=admin,$LDAP_SUFFIX" read by * none
+olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" manage by dn.base="cn=admin,$LDAP_SUFFIX" manage by * read
+
+dn: olcDatabase={0}config,cn=config
+changetype: add
+objectClass: olcDatabaseConfig
+olcDatabase: {0}config
+olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" manage by * none
 
 dn: $CURRENT_MDB_DN
 changetype: modify
@@ -309,7 +321,7 @@ olcRootDN: cn=admin,$LDAP_SUFFIX
 dn: $CURRENT_MDB_DN
 changetype: modify
 add: olcAccess
-olcAccess: {0}to attrs=userPassword,shadowLastChange by dn="cn=admin,$LDAP_SUFFIX" write by anonymous auth by self write by * none
+olcAccess: {0}to attrs=userPassword,shadowLastChange by dn="cn=admin,$LDAP_SUFFIX" write by anonymous auth by self write by * read
 -
 add: olcAccess
 olcAccess: {1}to dn.base="" by * read
@@ -321,7 +333,9 @@ chmod 600 "$DB_LDIF"
 
 # 导入数据库配置
 log "导入/更新数据库配置 (olcSuffix, olcRootDN, olcAccess)..."
+log "$DB_LDIF"
 ldapmodify -Y EXTERNAL -H ldapi:/// -f "$DB_LDIF" || error "导入数据库配置失败"
+ldapmodify -Y EXTERNAL -H ldapi:/// -f "$SSL_LDIF" || error "导入SSL配置失败"
 
 # 创建基本组织结构
 cat > "$BASE_LDIF" << EOF

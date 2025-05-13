@@ -203,6 +203,7 @@ GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
 CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'localhost';
+
 FLUSH PRIVILEGES;
 
 -- 创建测试表和数据
@@ -222,7 +223,7 @@ EOF
 # 验证安装
 print_message "验证 MySQL 安装..."
 ${MYSQL_BASE}/base/bin/mysql -u root -p${MYSQL_ROOT_PASSWORD} --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT VERSION();"
-${MYSQL_BASE}/base/bin/mysql -u testuser -pTest#123456 testdb --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
+${MYSQL_BASE}/base/bin/mysql -u testuser -pSecsmart#612 testdb --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
 
 print_message "MySQL 安装完成！"
 print_message "MySQL 版本：$(${MYSQL_BASE}/base/bin/mysql -V)"
