@@ -128,7 +128,7 @@ ${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
 
 # 创建服务文件
 print_message "创建 MySQL 服务..."
-cat > /usr/lib/systemd/system/mysql_${MYSQL_VERSION}_v1.service << EOF
+cat > cmysql_${MYSQL_VERSION}_v1.service << EOF
 [Unit]
 Description=MySQL Server
 After=network.target
