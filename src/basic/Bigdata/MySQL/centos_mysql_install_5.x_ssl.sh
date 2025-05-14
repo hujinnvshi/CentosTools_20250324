@@ -23,15 +23,16 @@ fi
 # 设置变量
 MYSQL_VERSION="5.7.39"
 MYSQL_ROOT_PASSWORD="Secsmart#612"
-MYSQL_BASE="/data/mysql_ssl_${MYSQL_VERSION}_v1"
-MYSQL_Service="mysql_ssl_${MYSQL_VERSION}_v1"
+MYSQL_BASE="/data/mysql_ssl_${MYSQL_VERSION}_v2"
+MYSQL_Service="mysql_ssl_${MYSQL_VERSION}_v2"
 SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print $2}')
 INNODB_BUFFER_POOL_SIZE=$(($SYSTEM_MEMORY * 70 / 100))G
-MySQL_Port=3013
-MySQL_ServerID=10087
+MySQL_Port=3014
+MySQL_ServerID=10088
 
 # 创建目录结构
 print_message "创建目录结构..."
+rm -fr ${MYSQL_BASE}/log/error.log
 mkdir -p ${MYSQL_BASE}/{base,data,log/binlog,tmp}
 print_message "创建SSL证书目录..."
 mkdir -p ${MYSQL_BASE}/ssl
@@ -142,6 +143,7 @@ ssl-cert = ${MYSQL_BASE}/ssl/server-cert.pem
 ssl-key = ${MYSQL_BASE}/ssl/server-key.pem
 tls_version = TLSv1.2,TLSv1.3
 ssl_cipher = HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK
+require_secure_transport = ON
 
 # 其他优化
 lower_case_table_names = 1
@@ -151,6 +153,7 @@ default-time-zone = '+8:00'
 
 # 监控配置
 performance_schema = ON
+performance_schema_show_processlist = ON
 EOF
 
 # 初始化 MySQL
@@ -204,7 +207,7 @@ systemctl start ${MYSQL_Service}
 systemctl enable ${MYSQL_Service}
 
 # 等待 MySQL 启动
-sleep 10
+sleep 5
 
 # 等待 MySQL 启动并检查状态
 print_message "等待 MySQL 启动..."
@@ -222,20 +225,28 @@ if [ ! -S "${MYSQL_BASE}/mysql.sock" ]; then
     exit 1
 fi
 
+# 在设置root密码前添加临时密码提取（约第240行前）
+temp_password=$(grep 'temporary password' ${MYSQL_BASE}/log/error.log | awk -F'root@localhost: ' '{print $2}')
+if [ -z "$temp_password" ]; then
+    print_error "无法获取临时密码"
+    exit 1
+fi
+
 # 设置 root 密码和安全配置
-print_message "配置 MySQL root 密码..."
-${MYSQL_BASE}/base/bin/mysql -u root --socket=${MYSQL_BASE}/mysql.sock << EOF
+print_message "配置 MySQL root 密码<<${temp_password}>>"
+
+${MYSQL_BASE}/base/bin/mysql -u root --socket=${MYSQL_BASE}/mysql.sock --password="${temp_password}" --connect-expired-password << EOF
+
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
 DELETE FROM mysql.user WHERE User='';
 DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1');
 DROP DATABASE IF EXISTS test;
 DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
-FLUSH PRIVILEGES;
 
 -- 创建测试数据库和用户
 CREATE DATABASE admin CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' REQUIRE SSL;
 
 CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Secsmart#612';
@@ -252,14 +263,15 @@ CREATE TABLE users (
 );
 INSERT INTO users (username, email) VALUES ('test_user', 'test@secsmart.net');
 FLUSH PRIVILEGES;
+
 EOF
 
 # 验证安装
 print_message "验证 MySQL 安装..."
-${MYSQL_BASE}/base/bin/mysql -u root -p${MYSQL_ROOT_PASSWORD} --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT VERSION();"
-${MYSQL_BASE}/base/bin/mysql -u testuser -p${MYSQL_ROOT_PASSWORD} testdb --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
+${MYSQL_BASE}/base/bin/mysql -u admin  -p${MYSQL_ROOT_PASSWORD} -h localhost --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT VERSION();"
+${MYSQL_BASE}/base/bin/mysql -u testuser -p${MYSQL_ROOT_PASSWORD} testdb -h localhost --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
 
-print_message "MySQL 安装完成！"
+print_message "MySQL 安装完成,并创建服务 systemctl status ${MYSQL_Service}"
 print_message "MySQL 版本：$(${MYSQL_BASE}/base/bin/mysql -V)"
 print_message "Root 密码：${MYSQL_ROOT_PASSWORD}"
 print_message "测试用户：testuser"
@@ -281,9 +293,8 @@ chown root:root /etc/profile.d/mysql.sh
 # 立即生效环境变量
 source /etc/profile.d/mysql.sh
 
+rm -fr /tmp/mysql.sock
 ln -s ${MYSQL_BASE}/mysql.sock /tmp/mysql.sock
 
 print_message "环境变量已配置，已自动生效"
 print_message "如果环境变量未生效，请执行：source /etc/profile"
-
-# ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27
