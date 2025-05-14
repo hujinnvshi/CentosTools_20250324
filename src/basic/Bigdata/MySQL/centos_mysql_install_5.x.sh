@@ -21,7 +21,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 设置变量
-MYSQL_VERSION="5.7.38"
+MYSQL_VERSION="5.7.39"
 MYSQL_ROOT_PASSWORD="Secsmart#612"
 MYSQL_BASE="/data/mysql_${MYSQL_VERSION}_v1"
 SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print $2}')
@@ -106,7 +106,7 @@ sync_binlog = 1
 # 安全配置
 local-infile = 0
 max_allowed_packet = 16M
-ssl = 1
+ssl = 0
 secure-file-priv = NULL
 
 # 其他优化
@@ -128,7 +128,7 @@ ${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
 
 # 创建服务文件
 print_message "创建 MySQL 服务..."
-cat > cmysql_${MYSQL_VERSION}_v1.service << EOF
+cat > /usr/lib/systemd/system/mysql_${MYSQL_VERSION}_v1.service << EOF
 [Unit]
 Description=MySQL Server
 After=network.target
