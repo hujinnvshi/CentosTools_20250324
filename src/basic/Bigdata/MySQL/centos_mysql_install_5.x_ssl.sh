@@ -23,17 +23,47 @@ fi
 # 设置变量
 MYSQL_VERSION="5.7.39"
 MYSQL_ROOT_PASSWORD="Secsmart#612"
-MYSQL_BASE="/data/mysql_${MYSQL_VERSION}_v1"
+MYSQL_BASE="/data/mysql_ssl_${MYSQL_VERSION}_v1"
+MYSQL_Service="mysql_ssl_${MYSQL_VERSION}_v1"
 SYSTEM_MEMORY=$(free -g | awk '/^Mem:/{print $2}')
 INNODB_BUFFER_POOL_SIZE=$(($SYSTEM_MEMORY * 70 / 100))G
+MySQL_Port=3013
+MySQL_ServerID=10087
 
 # 创建目录结构
 print_message "创建目录结构..."
 mkdir -p ${MYSQL_BASE}/{base,data,log/binlog,tmp}
+print_message "创建SSL证书目录..."
+mkdir -p ${MYSQL_BASE}/ssl
+chmod 700 ${MYSQL_BASE}/ssl
 
 # 安装依赖
 print_message "安装依赖包..."
 yum install -y wget libaio numactl-libs perl net-tools
+
+# 在安装依赖后添加SSL证书生成（约第65行后）
+print_message "生成SSL证书..."
+# 修改SSL证书生成部分（约第65行）
+print_message "生成SSL证书..."
+
+openssl req -newkey rsa:2048 -days 365 -nodes -x509 \
+    -subj "/C=CN/ST=Beijing/L=Beijing/O=Secsmart/CN=MySQL CA" \
+    -keyout ${MYSQL_BASE}/ssl/ca-key.pem \
+    -out ${MYSQL_BASE}/ssl/ca.pem
+
+openssl req -newkey rsa:2048 -nodes \
+    -subj "/C=CN/ST=Beijing/L=Beijing/O=Secsmart/CN=mysql-server" \
+    -keyout ${MYSQL_BASE}/ssl/server-key.pem \
+    -out ${MYSQL_BASE}/ssl/server-req.pem
+
+openssl x509 -req -in ${MYSQL_BASE}/ssl/server-req.pem \
+    -CA ${MYSQL_BASE}/ssl/ca.pem \
+    -CAkey ${MYSQL_BASE}/ssl/ca-key.pem \
+    -CAcreateserial \
+    -out ${MYSQL_BASE}/ssl/server-cert.pem
+
+chown mysql:mysql ${MYSQL_BASE}/ssl/*
+chmod 600 ${MYSQL_BASE}/ssl/*
 
 # 下载并安装 MySQL
 print_message "准备 MySQL 安装包..."
@@ -68,7 +98,7 @@ cat > ${MYSQL_BASE}/my.cnf << EOF
 [mysqld]
 # 基础配置
 user = mysql
-port = 3010
+port = ${MySQL_Port}
 basedir = ${MYSQL_BASE}/base
 datadir = ${MYSQL_BASE}/data
 socket = ${MYSQL_BASE}/mysql.sock
@@ -76,7 +106,7 @@ pid-file = ${MYSQL_BASE}/mysql.pid
 character-set-server = utf8mb4
 collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
-server-id = 10086
+server-id = ${MySQL_ServerID}
 gtid_mode=ON
 enforce_gtid_consistency=ON
 
@@ -106,8 +136,12 @@ sync_binlog = 1
 # 安全配置
 local-infile = 0
 max_allowed_packet = 16M
-ssl = 0
-secure-file-priv = NULL
+ssl = 1
+ssl-ca = ${MYSQL_BASE}/ssl/ca.pem
+ssl-cert = ${MYSQL_BASE}/ssl/server-cert.pem
+ssl-key = ${MYSQL_BASE}/ssl/server-key.pem
+tls_version = TLSv1.2,TLSv1.3
+ssl_cipher = HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK
 
 # 其他优化
 lower_case_table_names = 1
@@ -121,14 +155,17 @@ EOF
 
 # 初始化 MySQL
 print_message "初始化 MySQL..."
-${MYSQL_BASE}/base/bin/mysqld --initialize-insecure --user=mysql \
---basedir=${MYSQL_BASE}/base \
---datadir=${MYSQL_BASE}/data \
---log-error=${MYSQL_BASE}/log/error.log
+${MYSQL_BASE}/base/bin/mysqld --initialize \
+    --explicit_defaults_for_timestamp=1 \
+    --user=mysql \
+    --basedir=${MYSQL_BASE}/base \
+    --datadir=${MYSQL_BASE}/data \
+    --log-error=${MYSQL_BASE}/log/error.log \
+    --ssl
 
 # 创建服务文件
 print_message "创建 MySQL 服务..."
-cat > /usr/lib/systemd/system/mysql_${MYSQL_VERSION}_v1.service << EOF
+cat > /usr/lib/systemd/system/${MYSQL_Service}.service << EOF
 [Unit]
 Description=MySQL Server
 After=network.target
@@ -163,20 +200,20 @@ yum install -y jemalloc
 # 启动 MySQL
 print_message "启动 MySQL 服务..."
 systemctl daemon-reload
-systemctl start mysql_${MYSQL_VERSION}_v1
-systemctl enable mysql_${MYSQL_VERSION}_v1
+systemctl start ${MYSQL_Service}
+systemctl enable ${MYSQL_Service}
 
 # 等待 MySQL 启动
 sleep 10
 
 # 等待 MySQL 启动并检查状态
 print_message "等待 MySQL 启动..."
-for i in {1..30}; do
+for i in {1..5}; do
     if [ -S "${MYSQL_BASE}/mysql.sock" ]; then
         print_message "MySQL 已成功启动"
         break
     fi
-    print_message "等待 MySQL 启动中... $i/30"
+    print_message "等待 MySQL 启动中... $i/5"
     sleep 2
 done
 
@@ -204,8 +241,6 @@ CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'localhost';
 
-FLUSH PRIVILEGES;
-
 -- 创建测试表和数据
 USE testdb;
 CREATE TABLE users (
@@ -215,7 +250,6 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status ENUM('active', 'inactive') DEFAULT 'active'
 );
-
 INSERT INTO users (username, email) VALUES ('test_user', 'test@secsmart.net');
 FLUSH PRIVILEGES;
 EOF
@@ -223,13 +257,13 @@ EOF
 # 验证安装
 print_message "验证 MySQL 安装..."
 ${MYSQL_BASE}/base/bin/mysql -u root -p${MYSQL_ROOT_PASSWORD} --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT VERSION();"
-${MYSQL_BASE}/base/bin/mysql -u testuser -pSecsmart#612 testdb --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
+${MYSQL_BASE}/base/bin/mysql -u testuser -p${MYSQL_ROOT_PASSWORD} testdb --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
 
 print_message "MySQL 安装完成！"
 print_message "MySQL 版本：$(${MYSQL_BASE}/base/bin/mysql -V)"
 print_message "Root 密码：${MYSQL_ROOT_PASSWORD}"
 print_message "测试用户：testuser"
-print_message "测试密码：Test#123456"
+print_message "测试密码：Secsmart#612"
 print_message "测试数据库：testdb"
 
 # 配置环境变量
