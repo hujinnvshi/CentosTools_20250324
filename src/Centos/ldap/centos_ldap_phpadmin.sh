@@ -28,7 +28,7 @@ fi
 # 设置变量
 LDAP_DOMAIN="node3.com"
 LDAP_ORGANIZATION="node3 Inc"
-LDAP_ADMIN_PASSWORD="Secsmart#612"
+LDAP_ADMIN_PASSWORD="123456"
 LDAP_BASE_DN="dc=node3,dc=com"
 LDAP_ADMIN_DN="cn=admin,${LDAP_BASE_DN}"
 PHPLDAPADMIN_VERSION="1.2.6.3"
@@ -110,13 +110,8 @@ fi
 cp -r phpLDAPadmin-${PHPLDAPADMIN_VERSION}/* ${PHPLDAPADMIN_DIR}/
 cp ${PHPLDAPADMIN_DIR}/config/config.php.example ${PHPLDAPADMIN_DIR}/config/config.php
 
-# 配置phpLDAPadmin
-print_message "配置phpLDAPadmin..."
-sed -i "s|'server','name'.*|'server','name','LDAP Server'),|g" ${PHPLDAPADMIN_DIR}/config/config.php
-sed -i "s|'server','host'.*|'server','host','127.0.0.1'),|g" ${PHPLDAPADMIN_DIR}/config/config.php
-sed -i "s|'server','base'.*|'server','base',array('${LDAP_BASE_DN}')),|g" ${PHPLDAPADMIN_DIR}/config/config.php
-sed -i "s|'login','bind_id'.*|'login','bind_id','${LDAP_ADMIN_DN}'),|g" ${PHPLDAPADMIN_DIR}/config/config.php
-sed -i "s|'appearance','password_hash'.*|'appearance','password_hash','ssha'),|g" ${PHPLDAPADMIN_DIR}/config/config.php
+# 手动配置phpLDAPadmin
+
 
 # 设置Apache配置
 print_message "设置Apache配置..."
