@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 定义变量
-PG_VERSION="9.4.26"
+PG_VERSION="15.9"
 PG_USER="PostgreSQL_${PG_VERSION}_V1"
 PG_HOME="/data/PostgreSQL_${PG_VERSION}_V1"
 PG_PORT="6001"

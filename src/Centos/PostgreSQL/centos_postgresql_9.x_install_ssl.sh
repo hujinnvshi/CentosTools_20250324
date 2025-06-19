@@ -38,19 +38,19 @@ fi
 chown -R $PG_USER:$PG_USER $PG_HOME
 su - $PG_USER -c "cd $PG_SOFT && tar -zxvf postgresql-$PG_VERSION.tar.gz" || { echo "解压安装包失败"; exit 1; }
 
-# 编译和安装
-cd $PG_SOFT/postgresql-$PG_VERSION || { echo "进入源码目录失败"; exit 1; }
+# 安装SSL依赖
+sudo yum install openssl openssl-devel -y || { echo "安装SSL依赖失败"; exit 1; }
 
-# 如果存在 configure 文件，则先运行 configure，再清理旧版本
-if [ -f "configure" ]; then
-    sudo ./configure --prefix=$PG_BASE || { echo "配置失败"; exit 1; }
-    sudo make uninstall || { echo "清理旧版本失败"; exit 1; }
-else
-    echo "未找到 configure 文件，跳过清理旧版本"
-fi
+# 如果存在 configure 文件，则先运行 configure，再清理旧版本 
+if [ -f "configure" ]; then 
+    sudo ./configure --prefix=$PG_BASE --with-openssl || { echo "配置失败"; exit 1; } 
+    sudo make uninstall || { echo "清理旧版本失败"; exit 1; } 
+else 
+    echo "未找到 configure 文件，跳过清理旧版本" 
+fi 
 
-sudo ./configure --prefix=$PG_BASE || { echo "配置失败"; exit 1; }
-sudo make || { echo "编译失败"; exit 1; }
+sudo ./configure --prefix=$PG_BASE --with-openssl || { echo "配置失败"; exit 1; } 
+sudo make || { echo "编译失败"; exit 1; } 
 sudo make install || { echo "安装失败"; exit 1; }
 
 # 初始化数据库
@@ -139,6 +139,7 @@ get_local_ip() {
     fi
     echo "$ip"
 }
+
 # 登录命令
 echo "登录 PostgreSQL 命令："
 echo "本地登录：psql -h localhost -p $PG_PORT -U admin -d postgres"

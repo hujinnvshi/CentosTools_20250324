@@ -143,7 +143,7 @@ ssl-cert = ${MYSQL_BASE}/ssl/server-cert.pem
 ssl-key = ${MYSQL_BASE}/ssl/server-key.pem
 tls_version = TLSv1.2,TLSv1.3
 ssl_cipher = HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK
-require_secure_transport = ON
+require_secure_transport = OFF
 
 # 其他优化
 lower_case_table_names = 1
@@ -207,16 +207,16 @@ systemctl start ${MYSQL_Service}
 systemctl enable ${MYSQL_Service}
 
 # 等待 MySQL 启动
-sleep 5
+sleep 50
 
 # 等待 MySQL 启动并检查状态
 print_message "等待 MySQL 启动..."
-for i in {1..5}; do
+for i in {1..10}; do
     if [ -S "${MYSQL_BASE}/mysql.sock" ]; then
         print_message "MySQL 已成功启动"
         break
     fi
-    print_message "等待 MySQL 启动中... $i/5"
+    print_message "等待 MySQL 启动中... $i/10"
     sleep 2
 done
 
@@ -246,11 +246,13 @@ DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
 -- 创建测试数据库和用户
 CREATE DATABASE admin CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
-GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' REQUIRE SSL;
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
+FLUSH PRIVILEGES;
 
 CREATE DATABASE testdb CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE USER 'testuser'@'localhost' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON testdb.* TO 'testuser'@'localhost';
+FLUSH PRIVILEGES;
 
 -- 创建测试表和数据
 USE testdb;
@@ -268,7 +270,9 @@ EOF
 
 # 验证安装
 print_message "验证 MySQL 安装..."
+
 ${MYSQL_BASE}/base/bin/mysql -u admin  -p${MYSQL_ROOT_PASSWORD} -h localhost --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT VERSION();"
+
 ${MYSQL_BASE}/base/bin/mysql -u testuser -p${MYSQL_ROOT_PASSWORD} testdb -h localhost --socket=${MYSQL_BASE}/mysql.sock  -e "SELECT * FROM users;"
 
 print_message "MySQL 安装完成,并创建服务 systemctl status ${MYSQL_Service}"
