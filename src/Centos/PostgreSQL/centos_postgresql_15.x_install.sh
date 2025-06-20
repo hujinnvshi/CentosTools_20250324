@@ -10,6 +10,20 @@ PG_BASE="$PG_HOME/base"
 PG_SOFT="$PG_HOME/soft"
 PG_CONF="$PG_HOME/conf"
 
+# 检测CPU核心数用于并行编译
+if command -v nproc &> /dev/null; then
+    CPU_CORES=$(nproc)
+elif [ -f /proc/cpuinfo ]; then
+    CPU_CORES=$(grep -c processor /proc/cpuinfo)
+else
+    # 默认使用2个核心
+    CPU_CORES=2
+fi
+# 限制最大并行数，避免系统负载过高
+if [ $CPU_CORES -gt 28 ]; then
+    CPU_CORES=8
+fi
+
 
 # 创建用户和安装路径
 userdel $PG_USER 2>/dev/null
