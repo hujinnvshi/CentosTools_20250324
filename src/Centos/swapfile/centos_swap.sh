@@ -33,7 +33,7 @@ if ! [[ "$SWAP_SIZE" =~ ^[0-9]+$ ]]; then
 fi
 
 # 设置swap文件路径
-SWAP_FILE="/swapfile"
+SWAP_FILE="/old-data/centos_swap/swapfile"
 
 # 检查是否已存在swap文件
 if [ -f "$SWAP_FILE" ]; then
