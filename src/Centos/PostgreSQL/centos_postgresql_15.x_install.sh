@@ -50,7 +50,12 @@ else
 fi
 
 sudo ./configure --prefix=$PG_BASE || { echo "配置失败"; exit 1; }
-sudo make || { echo "编译失败"; exit 1; }
+
+# 使用多核心编译，但限制最大并行数为CPU核心数
+echo "使用 $CPU_CORES 个核心进行并行编译..."
+sudo make -j$CPU_CORES || { echo "编译失败"; exit 1; }
+
+# 安装
 sudo make install || { echo "安装失败"; exit 1; }
 
 # 初始化数据库
