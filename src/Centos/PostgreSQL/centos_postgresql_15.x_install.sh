@@ -4,7 +4,7 @@
 PG_VERSION="15.9"
 PG_USER="PostgreSQL_${PG_VERSION}_V1"
 PG_HOME="/data/PostgreSQL_${PG_VERSION}_V1"
-PG_PORT="6001"
+PG_PORT="6002"
 PG_DATA="$PG_HOME/data"
 PG_BASE="$PG_HOME/base"
 PG_SOFT="$PG_HOME/soft"
@@ -139,6 +139,7 @@ get_local_ip() {
     fi
     echo "$ip"
 }
+
 # 登录命令
 echo "登录 PostgreSQL 命令："
 echo "本地登录：psql -h localhost -p $PG_PORT -U admin -d postgres"
