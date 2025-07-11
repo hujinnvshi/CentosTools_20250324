@@ -21,7 +21,7 @@ else
 fi
 # 限制最大并行数，避免系统负载过高
 if [ $CPU_CORES -gt 28 ]; then
-    CPU_CORES=8
+    CPU_CORES=28
 fi
 
 
