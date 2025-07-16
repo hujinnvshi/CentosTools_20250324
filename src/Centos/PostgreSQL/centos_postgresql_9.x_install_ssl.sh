@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 定义变量（建议使用较新版本，9.4已停止维护）
-PG_VERSION="9.4.26"
+PG_VERSION="9.5.25"
 PG_USER="PostgreSQL_${PG_VERSION}_V1"
 PG_ServiceName="PostgreSQL_${PG_VERSION}_V1"
 PG_HOME="/data/PostgreSQL_${PG_VERSION}_V1"
