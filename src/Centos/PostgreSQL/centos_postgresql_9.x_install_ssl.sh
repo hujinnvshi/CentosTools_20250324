@@ -3,6 +3,7 @@
 # 定义变量（建议使用较新版本，9.4已停止维护）
 PG_VERSION="9.4.26"
 PG_USER="PostgreSQL_${PG_VERSION}_V1"
+PG_ServiceName="PostgreSQL_${PG_VERSION}_V1"
 PG_HOME="/data/PostgreSQL_${PG_VERSION}_V1"
 PG_PORT="6001"
 PG_DATA="$PG_HOME/data"
@@ -91,7 +92,7 @@ su - $PG_USER -c "sed -i.bak -e 's/^#listen_addresses = '\''localhost'\''/listen
 
 # 配置系统服务
 echo "配置系统服务..."
-cat > /etc/systemd/system/postgresql_$PG_VERSION.service << EOF
+cat > /etc/systemd/system/$PG_ServiceName.service << EOF
 [Unit]
 Description=PostgreSQL $PG_VERSION Service
 After=network.target
@@ -113,14 +114,14 @@ EOF
 
 # 启用并启动服务
 systemctl daemon-reload || { echo "重载systemd配置失败"; exit 1; }
-systemctl enable postgresql_$PG_VERSION || { echo "启用服务失败"; exit 1; }
-systemctl start postgresql_$PG_VERSION || { echo "启动服务失败"; exit 1; }
+systemctl enable $PG_ServiceName || { echo "启用服务失败"; exit 1; }
+systemctl start $PG_ServiceName || { echo "启动服务失败"; exit 1; }
 
 # 检查服务状态
 sleep 3
-if ! systemctl is-active --quiet postgresql_$PG_VERSION; then
+if ! systemctl is-active --quiet $PG_ServiceName; then
     echo "服务启动失败，查看日志："
-    journalctl -u postgresql_$PG_VERSION -n 20
+    journalctl -u $PG_ServiceName -n 20
     exit 1
 fi
 
@@ -159,15 +160,15 @@ echo -e "- 数据目录：$PG_DATA" >> $PG_HOME/Readme.md
 echo -e "- 端口：$PG_PORT" >> $PG_HOME/Readme.md
 echo -e "- 管理员用户：admin" >> $PG_HOME/Readme.md
 echo -e "- 管理员密码：Secsmart#612" >> $PG_HOME/Readme.md
-echo -e "- 服务名称：postgresql_$PG_VERSION" >> $PG_HOME/Readme.md
+echo -e "- 服务名称：$PG_ServiceName" >> $PG_HOME/Readme.md
 
 echo -e "\n## 基本操作命令" >> $PG_HOME/Readme.md
-echo -e "- 启动：systemctl start postgresql_$PG_VERSION" >> $PG_HOME/Readme.md
-echo -e "- 停止：systemctl stop postgresql_$PG_VERSION" >> $PG_HOME/Readme.md
-echo -e "- 状态：systemctl status postgresql_$PG_VERSION" >> $PG_HOME/Readme.md
-echo -e "- 重启：systemctl restart postgresql_$PG_VERSION" >> $PG_HOME/Readme.md
-echo -e "- 开机启动：systemctl enable postgresql_$PG_VERSION" >> $PG_HOME/Readme.md
-echo -e "- 禁用开机启动：systemctl disable postgresql_$PG_VERSION" >> $PG_HOME/Readme.md
+echo -e "- 启动：systemctl start $PG_ServiceName" >> $PG_HOME/Readme.md
+echo -e "- 停止：systemctl stop $PG_ServiceName" >> $PG_HOME/Readme.md
+echo -e "- 状态：systemctl status $PG_ServiceName" >> $PG_HOME/Readme.md
+echo -e "- 重启：systemctl restart $PG_ServiceName" >> $PG_HOME/Readme.md
+echo -e "- 开机启动：systemctl enable $PG_ServiceName" >> $PG_HOME/Readme.md
+echo -e "- 禁用开机启动：systemctl disable $PG_ServiceName" >> $PG_HOME/Readme.md
 
 echo -e "\n## 登录命令" >> $PG_HOME/Readme.md
 echo -e "- 本地登录：psql -h localhost -p $PG_PORT -U admin -d postgres" >> $PG_HOME/Readme.md
