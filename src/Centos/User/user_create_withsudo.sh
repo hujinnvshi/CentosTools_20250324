@@ -1,12 +1,13 @@
 #!/bin/bash
 
 # 设置用户名和密码(高性能测试机3用户)
-USERNAME="gxnt3yh"
+USERNAME="gxnt3yh1"
 PASSWORD="Secsmart#612"
+HOMEDIR="/data/$USERNAME"
 
-# 创建用户
-echo "正在创建用户 $USERNAME..."
-useradd $USERNAME
+# 创建用户（指定家目录）
+echo "正在创建用户 $USERNAME，家目录设置为 $HOMEDIR..."
+useradd -d "$HOMEDIR" $USERNAME  # -d 参数指定用户家目录
 if [ $? -ne 0 ]; then
     echo "错误：创建用户失败"
     exit 1
