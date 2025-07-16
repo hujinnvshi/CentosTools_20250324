@@ -14,7 +14,8 @@ fi
 
 # 设置密码
 echo "正在为用户 $USERNAME 设置密码..."
-echo "$USERNAME:$PASSWORD" | chpasswd --encrypted
+# 移除 --encrypted 选项，因为我们提供的是明文密码
+echo "$USERNAME:$PASSWORD" | chpasswd
 if [ $? -ne 0 ]; then
     echo "错误：设置密码失败"
     userdel -r $USERNAME  # 回滚用户创建
