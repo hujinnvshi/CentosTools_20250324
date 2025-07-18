@@ -208,15 +208,6 @@ systemctl enable --now prometheus
 systemctl enable --now node_exporter
 systemctl enable --now grafana-server
 
-# 配置防火墙
-echo "配置防火墙..."
-systemctl enable --now firewalld
-sleep 2  # 等待防火墙服务完全启动
-firewall-cmd --permanent --add-port=9091/tcp
-firewall-cmd --permanent --add-port=9100/tcp
-firewall-cmd --permanent --add-port=3000/tcp
-firewall-cmd --reload
-
 # 导入 Grafana 仪表盘
 echo "导入 Grafana 仪表盘..."
 # 增加等待时间确保 Grafana 完全启动
