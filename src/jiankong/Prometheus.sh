@@ -29,35 +29,35 @@ yum install -y wget tar curl firewalld
 
 # 创建基础目录
 echo "创建目录结构..."
-mkdir -p ${BASE_DIR}
-mkdir -p ${CONFIG_DIR} ${DATA_DIR} ${LOG_DIR}
+mkdir -p "${BASE_DIR}"
+mkdir -p "${CONFIG_DIR}" "${DATA_DIR}" "${LOG_DIR}"
 
 # 创建系统用户
 echo "创建服务用户..."
 if ! id "${SERVICE_USER}" &>/dev/null; then
-  useradd --system --no-create-home --shell /sbin/nologin ${SERVICE_USER}
+  useradd --system --no-create-home --shell /sbin/nologin "${SERVICE_USER}"
 fi
 
 # 设置目录权限
-chown -R ${SERVICE_USER}:${SERVICE_USER} ${BASE_DIR}
-chmod -R 755 ${BASE_DIR}
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "${BASE_DIR}"
+chmod -R 755 "${BASE_DIR}"
 
 # 安装 Prometheus
 echo "下载并安装 Prometheus ${PROMETHEUS_VERSION}..."
 cd /tmp
 # Prometheus 下载地址
-wget -q https://mirrors.aliyun.com/prometheus/${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
-tar xzf prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
-cd prometheus-${PROMETHEUS_VERSION}.linux-amd64
+wget -q "https://mirrors.aliyun.com/prometheus/${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+tar xzf "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+cd "prometheus-${PROMETHEUS_VERSION}.linux-amd64"
 
 install -m 0755 prometheus /usr/local/bin/
 install -m 0755 promtool /usr/local/bin/
-cp -r consoles/ console_libraries/ ${CONFIG_DIR}/
-chown -R ${SERVICE_USER}:${SERVICE_USER} ${CONFIG_DIR}/consoles ${CONFIG_DIR}/console_libraries
+cp -r consoles/ console_libraries/ "${CONFIG_DIR}/"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/consoles" "${CONFIG_DIR}/console_libraries"
 
 # 创建 Prometheus 配置文件
 echo "创建 Prometheus 配置文件..."
-cat > ${CONFIG_DIR}/prometheus.yml <<EOF
+cat > "${CONFIG_DIR}/prometheus.yml" <<EOF
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -65,7 +65,7 @@ global:
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['localhost:9091']
 
   - job_name: 'node'
     static_configs:
@@ -89,7 +89,7 @@ ExecStart=/usr/local/bin/prometheus \\
   --storage.tsdb.path=${DATA_DIR} \\
   --web.console.templates=${CONFIG_DIR}/consoles \\
   --web.console.libraries=${CONFIG_DIR}/console_libraries \\
-  --web.listen-address=0.0.0.0:9090 \\
+  --web.listen-address=0.0.0.0:9091 \\
   --web.enable-lifecycle \\
   --log.level=info \\
   --log.format=json \\
@@ -116,10 +116,10 @@ EOF
 # 安装 Node Exporter
 echo "下载并安装 Node Exporter ${NODE_EXPORTER_VERSION}..."
 cd /tmp
-# Node Exporter 下载地址
-wget -q https://mirrors.aliyun.com/prometheus/node_exporter/${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
-tar xzf node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
-cd node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64
+# Node Exporter 下载地址（修正后的URL）
+wget -q "https://mirrors.aliyun.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+tar xzf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+cd "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64"
 
 install -m 0755 node_exporter /usr/local/bin/
 
@@ -173,11 +173,12 @@ sslverify=1
 sslcacert=/etc/pki/tls/certs/ca-bundle.crt
 EOF
 
-yum install -y grafana-${GRAFANA_VERSION}
+yum install -y "grafana-${GRAFANA_VERSION}"
 
 # 配置 Grafana
 echo "配置 Grafana..."
-sed -i "s/;admin_password = admin/admin_password = ${GRAFANA_ADMIN_PASSWORD}/" /etc/grafana/grafana.ini
+# 更健壮的密码替换
+sed -i "s/^;admin_password\s*=\s*admin/admin_password = ${GRAFANA_ADMIN_PASSWORD}/" /etc/grafana/grafana.ini
 sed -i "s/;disable_gravatar = false/disable_gravatar = true/" /etc/grafana/grafana.ini
 
 # 创建日志轮转配置
@@ -210,33 +211,46 @@ systemctl enable --now grafana-server
 # 配置防火墙
 echo "配置防火墙..."
 systemctl enable --now firewalld
-firewall-cmd --permanent --add-port=9090/tcp
+sleep 2  # 等待防火墙服务完全启动
+firewall-cmd --permanent --add-port=9091/tcp
 firewall-cmd --permanent --add-port=9100/tcp
 firewall-cmd --permanent --add-port=3000/tcp
 firewall-cmd --reload
 
 # 导入 Grafana 仪表盘
 echo "导入 Grafana 仪表盘..."
-sleep 10  # 等待 Grafana 启动
+# 增加等待时间确保 Grafana 完全启动
+sleep 15
 
-curl -X POST -H "Content-Type: application/json" \
-  -d '{
-        "name": "Prometheus",
-        "type": "prometheus",
-        "access": "proxy",
-        "url": "http://localhost:9090",
-        "basicAuth": false
-      }' \
-  http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/datasources
+# 添加重试机制
+for i in {1..3}; do
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{
+          "name": "Prometheus",
+          "type": "prometheus",
+          "access": "proxy",
+          "url": "http://localhost:9091",
+          "basicAuth": false
+        }' \
+    "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/datasources" && break
+  
+  echo "数据源导入失败，重试 ($i/3)..."
+  sleep 5
+done
 
-curl -X POST -H "Content-Type: application/json" \
-  -d '{
-        "dashboard": {
-          "id": 1860,
-          "overwrite": true
-        }
-      }' \
-  http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/import
+for i in {1..3}; do
+  curl -X POST -H "Content-Type: application/json" \
+    -d '{
+          "dashboard": {
+            "id": 1860,
+            "overwrite": true
+          }
+        }' \
+    "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/import" && break
+  
+  echo "仪表盘导入失败，重试 ($i/3)..."
+  sleep 5
+done
 
 # 创建管理脚本
 echo "创建管理脚本..."
@@ -263,9 +277,11 @@ case \$ACTION in
     tail -f ${LOG_DIR}/prometheus.log ${LOG_DIR}/node_exporter.log
     ;;
   backup)
-    BACKUP_FILE="/backup/prometheus-backup-\$(date +%Y%m%d).tar.gz"
-    tar czf \$BACKUP_FILE ${BASE_DIR}
-    echo "备份已创建: \$BACKUP_FILE"
+    BACKUP_DIR="/backup"
+    mkdir -p "\${BACKUP_DIR}"
+    BACKUP_FILE="\${BACKUP_DIR}/prometheus-backup-\$(date +%Y%m%d-%H%M%S).tar.gz"
+    tar czf "\${BACKUP_FILE}" "${BASE_DIR}"
+    echo "备份已创建: \${BACKUP_FILE}"
     ;;
   *)
     echo "用法: \$0 {start|stop|restart|status|logs|backup}"
@@ -289,7 +305,7 @@ echo "  数据目录: ${DATA_DIR}"
 echo "  日志目录: ${LOG_DIR}"
 echo ""
 echo "访问以下服务："
-echo "- Prometheus:  http://${IP_ADDRESS}:9090"
+echo "- Prometheus:  http://${IP_ADDRESS}:9091"
 echo "- Node Exporter: http://${IP_ADDRESS}:9100/metrics"
 echo "- Grafana:     http://${IP_ADDRESS}:3000"
 echo ""
