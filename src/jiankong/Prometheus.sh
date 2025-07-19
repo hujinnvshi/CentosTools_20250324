@@ -54,19 +54,21 @@ chmod -R 755 "${BASE_DIR}"
 # 安装 Prometheus
 echo "下载并安装 Prometheus ${PROMETHEUS_VERSION}..."
 cd /tmp
-# Prometheus 下载地址 - 使用国内镜像源
+# Prometheus 下载地址 - 调整下载顺序，优先使用阿里云镜像
 
-wget https://github.com.cnpmjs.org/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+echo "尝试从阿里云镜像下载 Prometheus..."
+wget https://mirrors.aliyun.com/github-release/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
 
 # 检查下载是否成功
 if [ $? -ne 0 ]; then
-  echo "从国内镜像下载失败，尝试从阿里云镜像下载..."
-  wget https://mirrors.aliyun.com/github-release/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+  echo "从阿里云镜像下载失败，尝试从原始地址下载..."
+  wget https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
   
-  # 如果阿里云镜像也失败，尝试原始地址
+  # 如果原始地址也失败，尝试使用代理或其他方式
   if [ $? -ne 0 ]; then
-    echo "从阿里云镜像下载失败，尝试从原始地址下载..."
-    wget https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+    echo "警告: 所有下载源都失败，请检查网络连接或手动下载文件"
+    echo "手动下载地址: https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+    exit 1
   fi
 fi
 
@@ -141,18 +143,20 @@ EOF
 echo "下载并安装 Node Exporter ${NODE_EXPORTER_VERSION}..."
 cd /tmp
 
-# Node Exporter 下载地址 - 使用国内镜像源
-wget -q "https://mirrors.aliyun.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+# Node Exporter 下载地址 - 使用阿里云镜像源
+echo "尝试从阿里云镜像下载 Node Exporter..."
+wget "https://mirrors.aliyun.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
 
 # 检查下载是否成功
 if [ $? -ne 0 ]; then
-  echo "从阿里云镜像下载失败，尝试从其他国内镜像下载..."
-  wget -q "https://github.com.cnpmjs.org/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+  echo "从阿里云镜像下载失败，尝试从原始地址下载..."
+  wget "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
   
-  # 如果其他国内镜像也失败，尝试原始地址
+  # 如果原始地址也失败，尝试使用代理或其他方式
   if [ $? -ne 0 ]; then
-    echo "从国内镜像下载失败，尝试从原始地址下载..."
-    wget -q "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+    echo "警告: 所有下载源都失败，请检查网络连接或手动下载文件"
+    echo "手动下载地址: https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+    exit 1
   fi
 fi
 
