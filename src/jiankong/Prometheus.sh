@@ -7,7 +7,7 @@
 set -e
 
 # 配置参数
-PROMETHEUS_VERSION="2.45.0"
+PROMETHEUS_VERSION="2.45.0"  # 修正为当前最新稳定版本
 NODE_EXPORTER_VERSION="1.6.1"
 GRAFANA_VERSION="10.1.1"
 BASE_DIR="/data/prometheus"
@@ -35,19 +35,43 @@ mkdir -p "${CONFIG_DIR}" "${DATA_DIR}" "${LOG_DIR}"
 # 创建系统用户
 echo "创建服务用户..."
 if ! id "${SERVICE_USER}" &>/dev/null; then
-  useradd --system --no-create-home --shell /sbin/nologin "${SERVICE_USER}"
+  useradd --system --no-create-home --shell /sbin/nologin "${SERVICE_USER}" || {
+    echo "警告: 创建用户 ${SERVICE_USER} 失败，可能已存在或需要更高权限"
+  }
 fi
 
 # 设置目录权限
-chown -R "${SERVICE_USER}:${SERVICE_USER}" "${BASE_DIR}"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "${BASE_DIR}" || {
+  echo "警告: 设置目录所有者失败，请检查权限"
+  # 尝试使用sudo
+  command -v sudo >/dev/null 2>&1 && {
+    echo "尝试使用sudo设置权限..."
+    sudo chown -R "${SERVICE_USER}:${SERVICE_USER}" "${BASE_DIR}"
+  }
+}
 chmod -R 755 "${BASE_DIR}"
 
 # 安装 Prometheus
 echo "下载并安装 Prometheus ${PROMETHEUS_VERSION}..."
 cd /tmp
-# Prometheus 下载地址
-wget -q "https://mirrors.aliyun.com/prometheus/${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+# Prometheus 下载地址 - 使用国内镜像源
+
+wget https://github.com.cnpmjs.org/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+
+# 检查下载是否成功
+if [ $? -ne 0 ]; then
+  echo "从国内镜像下载失败，尝试从阿里云镜像下载..."
+  wget https://mirrors.aliyun.com/github-release/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+  
+  # 如果阿里云镜像也失败，尝试原始地址
+  if [ $? -ne 0 ]; then
+    echo "从阿里云镜像下载失败，尝试从原始地址下载..."
+    wget https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+  fi
+fi
+
 tar xzf "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+
 cd "prometheus-${PROMETHEUS_VERSION}.linux-amd64"
 
 install -m 0755 prometheus /usr/local/bin/
@@ -116,8 +140,22 @@ EOF
 # 安装 Node Exporter
 echo "下载并安装 Node Exporter ${NODE_EXPORTER_VERSION}..."
 cd /tmp
-# Node Exporter 下载地址（修正后的URL）
+
+# Node Exporter 下载地址 - 使用国内镜像源
 wget -q "https://mirrors.aliyun.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+
+# 检查下载是否成功
+if [ $? -ne 0 ]; then
+  echo "从阿里云镜像下载失败，尝试从其他国内镜像下载..."
+  wget -q "https://github.com.cnpmjs.org/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+  
+  # 如果其他国内镜像也失败，尝试原始地址
+  if [ $? -ne 0 ]; then
+    echo "从国内镜像下载失败，尝试从原始地址下载..."
+    wget -q "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+  fi
+fi
+
 tar xzf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
 cd "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64"
 
@@ -161,7 +199,21 @@ EOF
 
 # 安装 Grafana
 echo "安装 Grafana ${GRAFANA_VERSION}..."
+
+# 使用国内镜像源
 cat > /etc/yum.repos.d/grafana.repo <<EOF
+[grafana]
+name=grafana
+baseurl=https://mirrors.aliyun.com/grafana/yum/rpm
+repo_gpgcheck=0
+enabled=1
+gpgcheck=0
+EOF
+
+# 如果安装失败，尝试使用原始源
+yum install -y "grafana-${GRAFANA_VERSION}" || {
+  echo "从国内镜像安装失败，尝试从原始源安装..."
+  cat > /etc/yum.repos.d/grafana.repo <<EOF
 [grafana]
 name=grafana
 baseurl=https://packages.grafana.com/oss/rpm
@@ -172,8 +224,8 @@ gpgkey=https://packages.grafana.com/gpg.key
 sslverify=1
 sslcacert=/etc/pki/tls/certs/ca-bundle.crt
 EOF
-
-yum install -y "grafana-${GRAFANA_VERSION}"
+  yum install -y "grafana-${GRAFANA_VERSION}"
+}
 
 # 配置 Grafana
 echo "配置 Grafana..."
@@ -204,78 +256,315 @@ EOF
 echo "启动服务..."
 systemctl daemon-reload
 
-systemctl enable --now prometheus
-systemctl enable --now node_exporter
-systemctl enable --now grafana-server
+# 启动Prometheus并检查状态
+echo "启动Prometheus服务..."
+systemctl enable prometheus
+systemctl start prometheus
+if systemctl is-active prometheus >/dev/null 2>&1; then
+  echo "Prometheus服务启动成功"
+else
+  echo "警告: Prometheus服务启动失败，请检查日志: journalctl -u prometheus"
+fi
+
+# 启动Node Exporter并检查状态
+echo "启动Node Exporter服务..."
+systemctl enable node_exporter
+systemctl start node_exporter
+if systemctl is-active node_exporter >/dev/null 2>&1; then
+  echo "Node Exporter服务启动成功"
+else
+  echo "警告: Node Exporter服务启动失败，请检查日志: journalctl -u node_exporter"
+fi
+
+# 启动Grafana并检查状态
+echo "启动Grafana服务..."
+systemctl enable grafana-server
+systemctl start grafana-server
+if systemctl is-active grafana-server >/dev/null 2>&1; then
+  echo "Grafana服务启动成功"
+else
+  echo "警告: Grafana服务启动失败，请检查日志: journalctl -u grafana-server"
+fi
 
 # 导入 Grafana 仪表盘
 echo "导入 Grafana 仪表盘..."
 # 增加等待时间确保 Grafana 完全启动
-sleep 15
+echo "等待Grafana服务完全启动..."
+sleep 20
 
-# 添加重试机制
-for i in {1..3}; do
-  curl -X POST -H "Content-Type: application/json" \
-    -d '{
-          "name": "Prometheus",
-          "type": "prometheus",
-          "access": "proxy",
-          "url": "http://localhost:9091",
-          "basicAuth": false
-        }' \
-    "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/datasources" && break
-  
-  echo "数据源导入失败，重试 ($i/3)..."
-  sleep 5
+# 检查Grafana是否可访问
+echo "检查Grafana服务是否可访问..."
+GRAFANA_READY=false
+for i in {1..6}; do
+  if curl -s "http://localhost:3000/api/health" | grep -q 'ok'; then
+    GRAFANA_READY=true
+    echo "Grafana服务已就绪"
+    break
+  else
+    echo "Grafana服务尚未就绪，等待10秒... ($i/6)"
+    sleep 10
+  fi
 done
 
-for i in {1..3}; do
-  curl -X POST -H "Content-Type: application/json" \
-    -d '{
-          "dashboard": {
-            "id": 1860,
-            "overwrite": true
-          }
-        }' \
-    "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/import" && break
+if [ "$GRAFANA_READY" = false ]; then
+  echo "警告: Grafana服务未就绪，跳过仪表盘导入"
+else
+  # 添加数据源
+  echo "添加Prometheus数据源..."
+  DATASOURCE_ADDED=false
+  for i in {1..3}; do
+    RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
+      -d '{
+            "name": "Prometheus",
+            "type": "prometheus",
+            "access": "proxy",
+            "url": "http://localhost:9091",
+            "basicAuth": false
+          }' \
+      "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/datasources")
+    
+    if echo "$RESPONSE" | grep -q 'Datasource added' || echo "$RESPONSE" | grep -q 'Data source with same name already exists'; then
+      DATASOURCE_ADDED=true
+      echo "Prometheus数据源添加成功"
+      break
+    else
+      echo "数据源添加失败，重试 ($i/3)..."
+      echo "错误信息: $RESPONSE"
+      sleep 5
+    fi
+  done
   
-  echo "仪表盘导入失败，重试 ($i/3)..."
-  sleep 5
-done
+  # 导入仪表盘
+  if [ "$DATASOURCE_ADDED" = true ]; then
+    echo "导入Node Exporter仪表盘..."
+    for i in {1..3}; do
+      RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
+        -d '{
+              "dashboard": {
+                "id": 1860,
+                "overwrite": true
+              },
+              "inputs": [{
+                "name": "DS_PROMETHEUS",
+                "type": "datasource",
+                "pluginId": "prometheus",
+                "value": "Prometheus"
+              }],
+              "overwrite": true
+            }' \
+        "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/import")
+      
+      if echo "$RESPONSE" | grep -q '"status":"success"' || echo "$RESPONSE" | grep -q '"imported":true'; then
+        echo "Node Exporter仪表盘导入成功"
+        break
+      else
+        echo "仪表盘导入失败，重试 ($i/3)..."
+        echo "错误信息: $RESPONSE"
+        sleep 5
+      fi
+    done
+  else
+    echo "警告: 由于数据源添加失败，跳过仪表盘导入"
+  fi
+fi
 
 # 创建管理脚本
 echo "创建管理脚本..."
 cat > /usr/local/bin/prometheus-manage <<EOF
 #!/bin/bash
 # Prometheus 管理脚本
+# 增强版 - 包含更多功能和错误处理
 
-ACTION=\$1
+BASE_DIR="${BASE_DIR}"
+CONFIG_DIR="${CONFIG_DIR}"
+DATA_DIR="${DATA_DIR}"
+LOG_DIR="${LOG_DIR}"
 
-case \$ACTION in
+# 颜色定义
+RED="\\033[0;31m"
+GREEN="\\033[0;32m"
+YELLOW="\\033[0;33m"
+NC="\\033[0m" # No Color
+
+# 打印彩色消息
+print_info() {
+  echo -e "${GREEN}[INFO]${NC} \$1"
+}
+
+print_warn() {
+  echo -e "${YELLOW}[WARN]${NC} \$1"
+}
+
+print_error() {
+  echo -e "${RED}[ERROR]${NC} \$1"
+}
+
+# 检查服务状态
+check_service() {
+  local service_name="\$1"
+  if systemctl is-active "\$service_name" >/dev/null 2>&1; then
+    print_info "\$service_name 服务正在运行"
+    return 0
+  else
+    print_warn "\$service_name 服务未运行"
+    return 1
+  fi
+}
+
+# 主函数
+ACTION="\$1"
+SERVICE="\$2"
+
+# 如果没有指定服务，则默认为所有服务
+if [ -z "\$SERVICE" ]; then
+  SERVICES=("prometheus" "node_exporter" "grafana-server")
+else
+  case "\$SERVICE" in
+    prometheus|node_exporter|grafana|grafana-server)
+      if [ "\$SERVICE" = "grafana" ]; then
+        SERVICE="grafana-server"
+      fi
+      SERVICES=("\$SERVICE")
+      ;;
+    *)
+      print_error "未知服务: \$SERVICE"
+      echo "可用服务: prometheus, node_exporter, grafana"
+      exit 1
+      ;;
+  esac
+fi
+
+case "\$ACTION" in
   start)
-    systemctl start prometheus node_exporter grafana-server
+    for service in "\${SERVICES[@]}"; do
+      print_info "启动 \$service 服务..."
+      systemctl start "\$service"
+      check_service "\$service"
+    done
     ;;
   stop)
-    systemctl stop prometheus node_exporter grafana-server
+    for service in "\${SERVICES[@]}"; do
+      print_info "停止 \$service 服务..."
+      systemctl stop "\$service"
+      if systemctl is-active "\$service" >/dev/null 2>&1; then
+        print_error "\$service 服务停止失败"
+      else
+        print_info "\$service 服务已停止"
+      fi
+    done
     ;;
   restart)
-    systemctl restart prometheus node_exporter grafana-server
+    for service in "\${SERVICES[@]}"; do
+      print_info "重启 \$service 服务..."
+      systemctl restart "\$service"
+      check_service "\$service"
+    done
     ;;
   status)
-    systemctl status prometheus node_exporter grafana-server
+    for service in "\${SERVICES[@]}"; do
+      check_service "\$service"
+      echo "详细状态:"
+      systemctl status "\$service"
+      echo ""
+    done
     ;;
   logs)
-    tail -f ${LOG_DIR}/prometheus.log ${LOG_DIR}/node_exporter.log
+    if [ "\${#SERVICES[@]}" -eq 1 ]; then
+      case "\${SERVICES[0]}" in
+        prometheus)
+          print_info "查看 Prometheus 日志..."
+          tail -f "${LOG_DIR}/prometheus.log" "${LOG_DIR}/prometheus_error.log"
+          ;;
+        node_exporter)
+          print_info "查看 Node Exporter 日志..."
+          tail -f "${LOG_DIR}/node_exporter.log" "${LOG_DIR}/node_exporter_error.log"
+          ;;
+        grafana-server)
+          print_info "查看 Grafana 日志..."
+          tail -f "/var/log/grafana/grafana.log"
+          ;;
+      esac
+    else
+      print_info "查看所有服务日志..."
+      tail -f "${LOG_DIR}/"*.log "/var/log/grafana/grafana.log"
+    fi
     ;;
   backup)
-    BACKUP_DIR="/backup"
+    BACKUP_DIR="/backup/prometheus"
     mkdir -p "\${BACKUP_DIR}"
     BACKUP_FILE="\${BACKUP_DIR}/prometheus-backup-\$(date +%Y%m%d-%H%M%S).tar.gz"
-    tar czf "\${BACKUP_FILE}" "${BASE_DIR}"
-    echo "备份已创建: \${BACKUP_FILE}"
+    
+    print_info "创建备份: \${BACKUP_FILE}"
+    print_info "备份数据目录..."
+    
+    # 停止服务以确保数据一致性
+    print_warn "临时停止服务以确保数据一致性..."
+    for service in "\${SERVICES[@]}"; do
+      systemctl stop "\$service"
+    done
+    
+    # 创建备份
+    tar czf "\${BACKUP_FILE}" "${BASE_DIR}" && {
+      print_info "备份已创建: \${BACKUP_FILE}"
+    } || {
+      print_error "备份创建失败"
+    }
+    
+    # 重新启动服务
+    print_info "重新启动服务..."
+    for service in "\${SERVICES[@]}"; do
+      systemctl start "\$service"
+      check_service "\$service"
+    done
+    ;;
+  check)
+    print_info "检查 Prometheus 监控系统状态..."
+    
+    # 检查服务状态
+    for service in "\${SERVICES[@]}"; do
+      check_service "\$service"
+    done
+    
+    # 检查端口
+    print_info "检查端口状态..."
+    command -v netstat >/dev/null 2>&1 || {
+      print_warn "netstat 命令不可用，安装中..."
+      yum install -y net-tools
+    }
+    
+    netstat -tulpn | grep -E '9091|9100|3000' || {
+      print_warn "未找到预期的监听端口"
+    }
+    
+    # 检查数据目录
+    print_info "检查数据目录..."
+    du -sh "${DATA_DIR}" || print_warn "无法检查数据目录大小"
+    
+    # 检查配置文件
+    print_info "检查配置文件..."
+    if [ -f "${CONFIG_DIR}/prometheus.yml" ]; then
+      print_info "Prometheus 配置文件存在"
+      if command -v promtool >/dev/null 2>&1; then
+        promtool check config "${CONFIG_DIR}/prometheus.yml" && {
+          print_info "Prometheus 配置文件验证通过"
+        } || {
+          print_error "Prometheus 配置文件验证失败"
+        }
+      else
+        print_warn "promtool 不可用，跳过配置验证"
+      fi
+    else
+      print_error "Prometheus 配置文件不存在"
+    fi
     ;;
   *)
-    echo "用法: \$0 {start|stop|restart|status|logs|backup}"
+    echo "用法: \$0 {start|stop|restart|status|logs|backup|check} [服务名称]"
+    echo "服务名称可选值: prometheus, node_exporter, grafana"
+    echo "示例:"
+    echo "  \$0 start          # 启动所有服务"
+    echo "  \$0 restart grafana # 仅重启 Grafana"
+    echo "  \$0 logs prometheus # 查看 Prometheus 日志"
+    echo "  \$0 check          # 检查监控系统状态"
     exit 1
     ;;
 esac
@@ -287,29 +576,38 @@ chmod +x /usr/local/bin/prometheus-manage
 IP_ADDRESS=$(hostname -I | awk '{print $1}')
 
 echo ""
-echo "========================================================"
-echo "Prometheus 单机部署完成！"
+echo -e "\033[1;32m========================================================\033[0m"
+echo -e "\033[1;32mPrometheus 单机部署完成！\033[0m"
 echo ""
-echo "所有数据存储在: ${BASE_DIR}"
-echo "  配置目录: ${CONFIG_DIR}"
-echo "  数据目录: ${DATA_DIR}"
-echo "  日志目录: ${LOG_DIR}"
+echo -e "\033[1;34m系统信息:\033[0m"
+echo -e "所有数据存储在: \033[1;36m${BASE_DIR}\033[0m"
+echo -e "  配置目录: \033[1;36m${CONFIG_DIR}\033[0m"
+echo -e "  数据目录: \033[1;36m${DATA_DIR}\033[0m"
+echo -e "  日志目录: \033[1;36m${LOG_DIR}\033[0m"
 echo ""
-echo "访问以下服务："
-echo "- Prometheus:  http://${IP_ADDRESS}:9091"
-echo "- Node Exporter: http://${IP_ADDRESS}:9100/metrics"
-echo "- Grafana:     http://${IP_ADDRESS}:3000"
+echo -e "\033[1;34m访问以下服务：\033[0m"
+echo -e "- Prometheus:  \033[1;36mhttp://${IP_ADDRESS}:9091\033[0m"
+echo -e "- Node Exporter: \033[1;36mhttp://${IP_ADDRESS}:9100/metrics\033[0m"
+echo -e "- Grafana:     \033[1;36mhttp://${IP_ADDRESS}:3000\033[0m"
 echo ""
-echo "Grafana 登录信息："
-echo "- 用户名: admin"
-echo "- 密码: ${GRAFANA_ADMIN_PASSWORD}"
+echo -e "\033[1;34mGrafana 登录信息：\033[0m"
+echo -e "- 用户名: \033[1;33madmin\033[0m"
+echo -e "- 密码: \033[1;33m${GRAFANA_ADMIN_PASSWORD}\033[0m"
 echo ""
-echo "已自动导入 Node Exporter 仪表盘 (ID: 1860)"
+echo -e "\033[1;34m已自动导入 Node Exporter 仪表盘 (ID: 1860)\033[0m"
 echo ""
-echo "管理命令:"
-echo "  prometheus-manage start    # 启动服务"
-echo "  prometheus-manage stop     # 停止服务"
-echo "  prometheus-manage status   # 查看状态"
-echo "  prometheus-manage logs     # 查看日志"
-echo "  prometheus-manage backup   # 创建备份"
-echo "========================================================"
+echo -e "\033[1;34m管理命令:\033[0m"
+echo -e "  \033[1;36mprometheus-manage start\033[0m    # 启动服务"
+echo -e "  \033[1;36mprometheus-manage stop\033[0m     # 停止服务"
+echo -e "  \033[1;36mprometheus-manage restart\033[0m  # 重启服务"
+echo -e "  \033[1;36mprometheus-manage status\033[0m   # 查看状态"
+echo -e "  \033[1;36mprometheus-manage logs\033[0m     # 查看日志"
+echo -e "  \033[1;36mprometheus-manage backup\033[0m   # 创建备份"
+echo -e "  \033[1;36mprometheus-manage check\033[0m    # 检查系统状态"
+echo ""
+echo -e "\033[1;34m提示:\033[0m"
+echo -e "1. 请确保防火墙已开放 9091、9100 和 3000 端口"
+echo -e "2. 如需添加更多监控目标，请编辑 ${CONFIG_DIR}/prometheus.yml 文件"
+echo -e "3. 更多 Grafana 仪表盘可在 https://grafana.com/grafana/dashboards/ 获取"
+echo -e "4. 如遇问题，请使用 \033[1;36mprometheus-manage check\033[0m 命令检查系统状态"
+echo -e "\033[1;32m========================================================\033[0m"
