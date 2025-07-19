@@ -54,20 +54,76 @@ chmod -R 755 "${BASE_DIR}"
 # 安装 Prometheus
 echo "下载并安装 Prometheus ${PROMETHEUS_VERSION}..."
 cd /tmp
-# Prometheus 下载地址 - 调整下载顺序，优先使用阿里云镜像
+# Prometheus 下载地址 - 直接使用官方地址，增加校验和重试机制
 
-echo "尝试从阿里云镜像下载 Prometheus..."
-wget https://mirrors.aliyun.com/github-release/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+echo "尝试从官方地址下载 Prometheus..."
 
-# 检查下载是否成功
-if [ $? -ne 0 ]; then
-  echo "从阿里云镜像下载失败，尝试从原始地址下载..."
-  wget https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz
+# 设置下载重试次数
+MAX_RETRY=3
+RETRY_COUNT=0
+DOWNLOAD_SUCCESS=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRY ] && [ $DOWNLOAD_SUCCESS = false ]; do
+  RETRY_COUNT=$((RETRY_COUNT+1))
   
-  # 如果原始地址也失败，尝试使用代理或其他方式
+  # 清理可能存在的不完整文件
+  rm -f "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"*
+  
+  echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
+  wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+  
+  # 检查下载是否成功
   if [ $? -ne 0 ]; then
-    echo "警告: 所有下载源都失败，请检查网络连接或手动下载文件"
-    echo "手动下载地址: https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+    echo "下载尝试 $RETRY_COUNT 失败"
+    sleep 5
+    continue
+  fi
+  
+  # 验证文件完整性
+  echo "验证文件完整性..."
+  if tar tzf "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" &>/dev/null; then
+    echo "文件验证成功，继续安装"
+    DOWNLOAD_SUCCESS=true
+  else
+    echo "文件验证失败，可能已损坏"
+    sleep 5
+  fi
+done
+
+# 如果所有下载尝试都失败
+if [ $DOWNLOAD_SUCCESS = false ]; then
+  echo "警告: 从官方地址下载失败或文件损坏，请检查网络连接或手动下载文件"
+  echo "您可以尝试以下方法："
+  echo "1. 检查网络连接和代理设置"
+  echo "2. 使用浏览器或其他工具下载文件并放置在 /tmp 目录下："
+  echo "   下载地址: https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+  echo "3. 如果您已手动下载文件到 /tmp 目录，请按 Enter 继续；否则按 Ctrl+C 中断此脚本"
+  
+  # 等待用户确认
+  read -p "按 Enter 继续或 Ctrl+C 退出..." confirm
+  
+  # 检查用户可能手动下载的文件
+  for possible_file in "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" "./prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"; do
+    if [ -f "$possible_file" ]; then
+      echo "检测到文件: $possible_file"
+      # 验证文件完整性
+      if tar tzf "$possible_file" &>/dev/null; then
+        echo "文件验证成功，继续安装"
+        # 如果文件不在当前目录，复制过来
+        if [ "$possible_file" != "./prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" ]; then
+          cp "$possible_file" "./prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+        fi
+        DOWNLOAD_SUCCESS=true
+        break
+      else
+        echo "文件验证失败，可能已损坏: $possible_file"
+      fi
+    fi
+  done
+  
+  # 如果仍然没有有效文件
+  if [ $DOWNLOAD_SUCCESS = false ]; then
+    echo "未检测到有效的安装文件，安装失败"
     exit 1
   fi
 fi
@@ -143,19 +199,75 @@ EOF
 echo "下载并安装 Node Exporter ${NODE_EXPORTER_VERSION}..."
 cd /tmp
 
-# Node Exporter 下载地址 - 使用阿里云镜像源
-echo "尝试从阿里云镜像下载 Node Exporter..."
-wget "https://mirrors.aliyun.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+# Node Exporter 下载地址 - 直接使用官方地址，增加校验和重试机制
+echo "尝试从官方地址下载 Node Exporter..."
 
-# 检查下载是否成功
-if [ $? -ne 0 ]; then
-  echo "从阿里云镜像下载失败，尝试从原始地址下载..."
-  wget "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+# 设置下载重试次数
+MAX_RETRY=3
+RETRY_COUNT=0
+DOWNLOAD_SUCCESS=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRY ] && [ $DOWNLOAD_SUCCESS = false ]; do
+  RETRY_COUNT=$((RETRY_COUNT+1))
   
-  # 如果原始地址也失败，尝试使用代理或其他方式
+  # 清理可能存在的不完整文件
+  rm -f "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"*
+  
+  echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
+  wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+  
+  # 检查下载是否成功
   if [ $? -ne 0 ]; then
-    echo "警告: 所有下载源都失败，请检查网络连接或手动下载文件"
-    echo "手动下载地址: https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+    echo "下载尝试 $RETRY_COUNT 失败"
+    sleep 5
+    continue
+  fi
+  
+  # 验证文件完整性
+  echo "验证文件完整性..."
+  if tar tzf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz" &>/dev/null; then
+    echo "文件验证成功，继续安装"
+    DOWNLOAD_SUCCESS=true
+  else
+    echo "文件验证失败，可能已损坏"
+    sleep 5
+  fi
+done
+
+# 如果所有下载尝试都失败
+if [ $DOWNLOAD_SUCCESS = false ]; then
+  echo "警告: 从官方地址下载 Node Exporter 失败或文件损坏，请检查网络连接或手动下载文件"
+  echo "您可以尝试以下方法："
+  echo "1. 检查网络连接和代理设置"
+  echo "2. 使用浏览器或其他工具下载文件并放置在 /tmp 目录下："
+  echo "   下载地址: https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+  echo "3. 如果您已手动下载文件到 /tmp 目录，请按 Enter 继续；否则按 Ctrl+C 中断此脚本"
+  
+  # 等待用户确认
+  read -p "按 Enter 继续或 Ctrl+C 退出..." confirm
+  
+  # 检查用户可能手动下载的文件
+  for possible_file in "/tmp/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz" "./node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"; do
+    if [ -f "$possible_file" ]; then
+      echo "检测到文件: $possible_file"
+      # 验证文件完整性
+      if tar tzf "$possible_file" &>/dev/null; then
+        echo "文件验证成功，继续安装"
+        # 如果文件不在当前目录，复制过来
+        if [ "$possible_file" != "./node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz" ]; then
+          cp "$possible_file" "./node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+        fi
+        DOWNLOAD_SUCCESS=true
+        break
+      else
+        echo "文件验证失败，可能已损坏: $possible_file"
+      fi
+    fi
+  done
+  
+  # 如果仍然没有有效文件
+  if [ $DOWNLOAD_SUCCESS = false ]; then
+    echo "未检测到有效的 Node Exporter 安装文件，安装失败"
     exit 1
   fi
 fi
@@ -204,20 +316,9 @@ EOF
 # 安装 Grafana
 echo "安装 Grafana ${GRAFANA_VERSION}..."
 
-# 使用国内镜像源
+# 直接使用官方源
+echo "使用官方源安装 Grafana..."
 cat > /etc/yum.repos.d/grafana.repo <<EOF
-[grafana]
-name=grafana
-baseurl=https://mirrors.aliyun.com/grafana/yum/rpm
-repo_gpgcheck=0
-enabled=1
-gpgcheck=0
-EOF
-
-# 如果安装失败，尝试使用原始源
-yum install -y "grafana-${GRAFANA_VERSION}" || {
-  echo "从国内镜像安装失败，尝试从原始源安装..."
-  cat > /etc/yum.repos.d/grafana.repo <<EOF
 [grafana]
 name=grafana
 baseurl=https://packages.grafana.com/oss/rpm
@@ -228,8 +329,28 @@ gpgkey=https://packages.grafana.com/gpg.key
 sslverify=1
 sslcacert=/etc/pki/tls/certs/ca-bundle.crt
 EOF
-  yum install -y "grafana-${GRAFANA_VERSION}"
-}
+
+# 安装 Grafana 并处理可能的错误
+if ! yum install -y "grafana-${GRAFANA_VERSION}"; then
+  echo "警告: Grafana 安装失败，请检查网络连接或手动安装"
+  echo "您可以尝试以下方法："
+  echo "1. 检查网络连接和代理设置"
+  echo "2. 手动安装 Grafana："
+  echo "   a. 下载 RPM 包: https://packages.grafana.com/oss/rpm/grafana-${GRAFANA_VERSION}-1.x86_64.rpm"
+  echo "   b. 使用 'rpm -ivh' 命令安装下载的 RPM 包"
+  echo "3. 如果您已手动安装 Grafana，请按 Enter 继续；否则按 Ctrl+C 中断此脚本"
+  
+  # 等待用户确认
+  read -p "按 Enter 继续或 Ctrl+C 退出..." confirm
+  
+  # 检查 Grafana 是否已安装
+  if ! rpm -q grafana >/dev/null 2>&1; then
+    echo "未检测到 Grafana 安装，脚本将退出"
+    exit 1
+  else
+    echo "检测到 Grafana 已安装，继续配置..."
+  fi
+fi
 
 # 配置 Grafana
 echo "配置 Grafana..."
