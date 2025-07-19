@@ -462,32 +462,46 @@ else
   # 导入仪表盘
   if [ "$DATASOURCE_ADDED" = true ]; then
     echo "导入Node Exporter仪表盘..."
-    for i in {1..3}; do
-      RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
-        -d '{
-              "dashboard": {
-                "id": 1860,
-                "overwrite": true
-              },
-              "inputs": [{
-                "name": "DS_PROMETHEUS",
-                "type": "datasource",
-                "pluginId": "prometheus",
-                "value": "Prometheus"
-              }],
-              "overwrite": true
-            }' \
-        "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/import")
+    
+    # 先获取仪表盘JSON
+    echo "获取Node Exporter仪表盘JSON..."
+    DASHBOARD_JSON=$(curl -s "https://grafana.com/api/dashboards/1860/revisions/30/download")
+    
+    if [ -z "$DASHBOARD_JSON" ] || ! echo "$DASHBOARD_JSON" | grep -q "title"; then
+      echo "获取仪表盘JSON失败，尝试备用方法..."
+      DASHBOARD_JSON=$(curl -s "https://grafana.com/api/dashboards/1860/revisions/latest/download")
+    fi
+    
+    if [ -z "$DASHBOARD_JSON" ] || ! echo "$DASHBOARD_JSON" | grep -q "title"; then
+      echo "无法获取仪表盘JSON，跳过导入"
+    else
+      echo "成功获取仪表盘JSON，准备导入..."
       
-      if echo "$RESPONSE" | grep -q '"status":"success"' || echo "$RESPONSE" | grep -q '"imported":true'; then
-        echo "Node Exporter仪表盘导入成功"
-        break
-      else
-        echo "仪表盘导入失败，重试 ($i/3)..."
-        echo "错误信息: $RESPONSE"
-        sleep 5
-      fi
-    done
+      # 导入仪表盘
+      for i in {1..3}; do
+        RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
+          -d "{
+                \"dashboard\": $DASHBOARD_JSON,
+                \"inputs\": [{
+                  \"name\": \"DS_PROMETHEUS\",
+                  \"type\": \"datasource\",
+                  \"pluginId\": \"prometheus\",
+                  \"value\": \"Prometheus\"
+                }],
+                \"overwrite\": true
+              }" \
+          "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/db")
+        
+        if echo "$RESPONSE" | grep -q '"status":"success"' || echo "$RESPONSE" | grep -q '"imported":true' || echo "$RESPONSE" | grep -q '"uid"'; then
+          echo "Node Exporter仪表盘导入成功"
+          break
+        else
+          echo "仪表盘导入失败，重试 ($i/3)..."
+          echo "错误信息: $RESPONSE"
+          sleep 5
+        fi
+      done
+    fi
   else
     echo "警告: 由于数据源添加失败，跳过仪表盘导入"
   fi
