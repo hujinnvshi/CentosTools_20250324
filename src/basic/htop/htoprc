@@ -4,9 +4,9 @@
 
 htop_version=3.1.2
 config_reader_min_version=2
-fields=0 38 48 1  # PID, 用户, CPU%, 命令
-sort_key=48        # 按 CPU 使用率排序
-sort_direction=0   # 降序排列
+fields=0 38 48 17 18 40 2 46 47 49 1  # 精简字段
+sort_key=48  # 按 CPU 使用率排序
+sort_direction=0  # 降序排列
 tree_sort_key=0
 tree_sort_direction=1
 hide_kernel_threads=1
@@ -23,11 +23,11 @@ highlight_changes_delay_secs=5
 find_comm_in_cmdline=1
 strip_exe_from_cmdline=1
 show_merged_command=0
-tree_view=0          # 禁用树形视图节省空间
+tree_view=0  # 禁用树形视图节省空间
 tree_view_always_by_pid=0
 all_branches_collapsed=1
 header_margin=1
-detailed_cpu_time=0  # 禁用详细 CPU 时间
+detailed_cpu_time=1
 cpu_count_from_one=1
 show_cpu_usage=1
 show_cpu_frequency=0
@@ -35,20 +35,21 @@ update_process_names=1
 account_guest_in_cpu_meter=0
 color_scheme=0
 enable_mouse=1
-delay=10             # 1.0 秒刷新
+delay=1  # 降低刷新频率减轻负载
 hide_function_bar=0
 
 # 核心优化部分
-header_layout=two_30_70  # 30% 系统信息，70% CPU 信息
+header_layout=two_50_50  # 两列布局
 
 # 第一列：系统概览
-column_meters_0=Memory Swap Tasks LoadAverage Uptime
-column_meter_modes_0=1 1 1 1 1
+column_meters_0=AllCPUs2 Memory Swap Tasks LoadAverage Uptime
+column_meter_modes_0=1 1 1 1 1 1
 
 # 第二列：CPU 核心分组显示
-column_meters_1=CPU-Group1 CPU-Group2 CPU-Group3 CPU-Group4
-column_meter_modes_1=1 1 1 1
+column_meters_1=LeftCPUs RightCPUs
+column_meter_modes_1=1 1
 
-# CPU 分组配置（64核优化）
-cpu_mode=1            # 使用条形图模式
-wide_cpu_usage=1       # 宽屏 CPU 使用率显示
+# CPU 分组配置（关键优化）
+cpu_mode=1  # 使用条形图模式
+detailed_cpu_time=0  # 禁用详细 CPU 时间
+wide_cpu_usage=1  # 宽屏 CPU 使用率显示
