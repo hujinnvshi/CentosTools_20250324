@@ -24,6 +24,7 @@ check_dependencies() {
     if ! command -v jq &> /dev/null; then
         echo "警告: jq 未安装，部分报告功能受限"
         echo "建议安装: sudo yum install jq -y"
+        exit 1
     fi
 }
 
