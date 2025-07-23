@@ -1,13 +1,13 @@
 #!/bin/bash
 # Prometheus 单机部署脚本（使用 /data/prometheus 路径）
 # 包含：Prometheus + Node Exporter + Grafana
-# 版本：2023.10
-# 作者：运维专家
+# 版本：2025.07.23
+# 作者：Rancher
 
 set -e
 
 # 配置参数
-PROMETHEUS_VERSION="2.45.0"  # 修正为当前最新稳定版本
+PROMETHEUS_VERSION="3.5.0"  # 修正为当前最新稳定版本
 NODE_EXPORTER_VERSION="1.6.1"
 GRAFANA_VERSION="10.1.1"
 BASE_DIR="/data/prometheus"
@@ -15,7 +15,7 @@ CONFIG_DIR="${BASE_DIR}/config"
 DATA_DIR="${BASE_DIR}/data"
 LOG_DIR="${BASE_DIR}/logs"
 SERVICE_USER="prometheus"
-GRAFANA_ADMIN_PASSWORD="SecurePass123!"  # 修改为您的安全密码
+GRAFANA_ADMIN_PASSWORD="Secsmart#612"
 
 # 检查 root 权限
 if [ "$(id -u)" -ne 0 ]; then
@@ -54,12 +54,12 @@ chmod -R 755 "${BASE_DIR}"
 # 安装 Prometheus
 echo "下载并安装 Prometheus ${PROMETHEUS_VERSION}..."
 cd /tmp
-# Prometheus 下载地址 - 直接使用官方地址，增加校验和重试机制
 
+# Prometheus 下载地址 - 直接使用官方地址，增加校验和重试机制
 # 首先检查/tmp目录下是否已有安装包
 PROMETHEUS_PACKAGE="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
 DOWNLOAD_SUCCESS=false
-
+echo $PROMETHEUS_PACKAGE
 if [ -f "$PROMETHEUS_PACKAGE" ]; then
   echo "检测到/tmp目录下已有安装包: $PROMETHEUS_PACKAGE"
   # 验证文件完整性
@@ -88,6 +88,7 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
     rm -f "$PROMETHEUS_PACKAGE"*
     
     echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
+    echo "wget https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/$PROMETHEUS_PACKAGE"
     wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/$PROMETHEUS_PACKAGE"
     
     # 检查下载是否成功
@@ -217,10 +218,10 @@ EOF
 # 安装 Node Exporter
 echo "下载并安装 Node Exporter ${NODE_EXPORTER_VERSION}..."
 cd /tmp
-
 # 首先检查/tmp目录下是否已有安装包
 NODE_EXPORTER_PACKAGE="node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
 DOWNLOAD_SUCCESS=false
+echo $NODE_EXPORTER_PACKAGE
 
 if [ -f "$NODE_EXPORTER_PACKAGE" ]; then
   echo "检测到/tmp目录下已有安装包: $NODE_EXPORTER_PACKAGE"
@@ -250,6 +251,7 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
     rm -f "$NODE_EXPORTER_PACKAGE"*
     
     echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
+    echo "wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/$NODE_EXPORTER_PACKAGE"
     wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/$NODE_EXPORTER_PACKAGE"
     
     # 检查下载是否成功
