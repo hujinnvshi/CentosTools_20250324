@@ -56,39 +56,58 @@ echo "下载并安装 Prometheus ${PROMETHEUS_VERSION}..."
 cd /tmp
 # Prometheus 下载地址 - 直接使用官方地址，增加校验和重试机制
 
-echo "尝试从官方地址下载 Prometheus..."
-
-# 设置下载重试次数
-MAX_RETRY=3
-RETRY_COUNT=0
+# 首先检查/tmp目录下是否已有安装包
+PROMETHEUS_PACKAGE="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
 DOWNLOAD_SUCCESS=false
 
-while [ $RETRY_COUNT -lt $MAX_RETRY ] && [ $DOWNLOAD_SUCCESS = false ]; do
-  RETRY_COUNT=$((RETRY_COUNT+1))
-  
-  # 清理可能存在的不完整文件
-  rm -f "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"*
-  
-  echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
-  wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
-  
-  # 检查下载是否成功
-  if [ $? -ne 0 ]; then
-    echo "下载尝试 $RETRY_COUNT 失败"
-    sleep 5
-    continue
-  fi
-  
+if [ -f "$PROMETHEUS_PACKAGE" ]; then
+  echo "检测到/tmp目录下已有安装包: $PROMETHEUS_PACKAGE"
   # 验证文件完整性
   echo "验证文件完整性..."
-  if tar tzf "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" &>/dev/null; then
-    echo "文件验证成功，继续安装"
+  if tar tzf "$PROMETHEUS_PACKAGE" &>/dev/null; then
+    echo "文件验证成功，将直接使用已有安装包"
     DOWNLOAD_SUCCESS=true
   else
-    echo "文件验证失败，可能已损坏"
-    sleep 5
+    echo "文件验证失败，可能已损坏，将重新下载"
+    rm -f "$PROMETHEUS_PACKAGE"*
   fi
-done
+fi
+
+# 如果没有找到有效的安装包，则下载
+if [ $DOWNLOAD_SUCCESS = false ]; then
+  echo "尝试从官方地址下载 Prometheus..."
+  
+  # 设置下载重试次数
+  MAX_RETRY=3
+  RETRY_COUNT=0
+  
+  while [ $RETRY_COUNT -lt $MAX_RETRY ] && [ $DOWNLOAD_SUCCESS = false ]; do
+    RETRY_COUNT=$((RETRY_COUNT+1))
+    
+    # 清理可能存在的不完整文件
+    rm -f "$PROMETHEUS_PACKAGE"*
+    
+    echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
+    wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/$PROMETHEUS_PACKAGE"
+    
+    # 检查下载是否成功
+    if [ $? -ne 0 ]; then
+      echo "下载尝试 $RETRY_COUNT 失败"
+      sleep 5
+      continue
+    fi
+    
+    # 验证文件完整性
+    echo "验证文件完整性..."
+    if tar tzf "$PROMETHEUS_PACKAGE" &>/dev/null; then
+      echo "文件验证成功，继续安装"
+      DOWNLOAD_SUCCESS=true
+    else
+      echo "文件验证失败，可能已损坏"
+      sleep 5
+    fi
+  done
+fi
 
 # 如果所有下载尝试都失败
 if [ $DOWNLOAD_SUCCESS = false ]; then
@@ -96,22 +115,22 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
   echo "您可以尝试以下方法："
   echo "1. 检查网络连接和代理设置"
   echo "2. 使用浏览器或其他工具下载文件并放置在 /tmp 目录下："
-  echo "   下载地址: https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+  echo "   下载地址: https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/$PROMETHEUS_PACKAGE"
   echo "3. 如果您已手动下载文件到 /tmp 目录，请按 Enter 继续；否则按 Ctrl+C 中断此脚本"
   
   # 等待用户确认
   read -p "按 Enter 继续或 Ctrl+C 退出..." confirm
   
   # 检查用户可能手动下载的文件
-  for possible_file in "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" "./prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"; do
+  for possible_file in "/tmp/$PROMETHEUS_PACKAGE" "./$PROMETHEUS_PACKAGE"; do
     if [ -f "$possible_file" ]; then
       echo "检测到文件: $possible_file"
       # 验证文件完整性
       if tar tzf "$possible_file" &>/dev/null; then
         echo "文件验证成功，继续安装"
         # 如果文件不在当前目录，复制过来
-        if [ "$possible_file" != "./prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" ]; then
-          cp "$possible_file" "./prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+        if [ "$possible_file" != "./$PROMETHEUS_PACKAGE" ]; then
+          cp "$possible_file" "./$PROMETHEUS_PACKAGE"
         fi
         DOWNLOAD_SUCCESS=true
         break
@@ -128,7 +147,7 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
   fi
 fi
 
-tar xzf "prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+tar xzf "$PROMETHEUS_PACKAGE"
 
 cd "prometheus-${PROMETHEUS_VERSION}.linux-amd64"
 
@@ -199,40 +218,58 @@ EOF
 echo "下载并安装 Node Exporter ${NODE_EXPORTER_VERSION}..."
 cd /tmp
 
-# Node Exporter 下载地址 - 直接使用官方地址，增加校验和重试机制
-echo "尝试从官方地址下载 Node Exporter..."
-
-# 设置下载重试次数
-MAX_RETRY=3
-RETRY_COUNT=0
+# 首先检查/tmp目录下是否已有安装包
+NODE_EXPORTER_PACKAGE="node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
 DOWNLOAD_SUCCESS=false
 
-while [ $RETRY_COUNT -lt $MAX_RETRY ] && [ $DOWNLOAD_SUCCESS = false ]; do
-  RETRY_COUNT=$((RETRY_COUNT+1))
-  
-  # 清理可能存在的不完整文件
-  rm -f "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"*
-  
-  echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
-  wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
-  
-  # 检查下载是否成功
-  if [ $? -ne 0 ]; then
-    echo "下载尝试 $RETRY_COUNT 失败"
-    sleep 5
-    continue
-  fi
-  
+if [ -f "$NODE_EXPORTER_PACKAGE" ]; then
+  echo "检测到/tmp目录下已有安装包: $NODE_EXPORTER_PACKAGE"
   # 验证文件完整性
   echo "验证文件完整性..."
-  if tar tzf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz" &>/dev/null; then
-    echo "文件验证成功，继续安装"
+  if tar tzf "$NODE_EXPORTER_PACKAGE" &>/dev/null; then
+    echo "文件验证成功，将直接使用已有安装包"
     DOWNLOAD_SUCCESS=true
   else
-    echo "文件验证失败，可能已损坏"
-    sleep 5
+    echo "文件验证失败，可能已损坏，将重新下载"
+    rm -f "$NODE_EXPORTER_PACKAGE"*
   fi
-done
+fi
+
+# 如果没有找到有效的安装包，则下载
+if [ $DOWNLOAD_SUCCESS = false ]; then
+  echo "尝试从官方地址下载 Node Exporter..."
+  
+  # 设置下载重试次数
+  MAX_RETRY=3
+  RETRY_COUNT=0
+  
+  while [ $RETRY_COUNT -lt $MAX_RETRY ] && [ $DOWNLOAD_SUCCESS = false ]; do
+    RETRY_COUNT=$((RETRY_COUNT+1))
+    
+    # 清理可能存在的不完整文件
+    rm -f "$NODE_EXPORTER_PACKAGE"*
+    
+    echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
+    wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/$NODE_EXPORTER_PACKAGE"
+    
+    # 检查下载是否成功
+    if [ $? -ne 0 ]; then
+      echo "下载尝试 $RETRY_COUNT 失败"
+      sleep 5
+      continue
+    fi
+    
+    # 验证文件完整性
+    echo "验证文件完整性..."
+    if tar tzf "$NODE_EXPORTER_PACKAGE" &>/dev/null; then
+      echo "文件验证成功，继续安装"
+      DOWNLOAD_SUCCESS=true
+    else
+      echo "文件验证失败，可能已损坏"
+      sleep 5
+    fi
+  done
+fi
 
 # 如果所有下载尝试都失败
 if [ $DOWNLOAD_SUCCESS = false ]; then
@@ -240,22 +277,22 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
   echo "您可以尝试以下方法："
   echo "1. 检查网络连接和代理设置"
   echo "2. 使用浏览器或其他工具下载文件并放置在 /tmp 目录下："
-  echo "   下载地址: https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+  echo "   下载地址: https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/$NODE_EXPORTER_PACKAGE"
   echo "3. 如果您已手动下载文件到 /tmp 目录，请按 Enter 继续；否则按 Ctrl+C 中断此脚本"
   
   # 等待用户确认
   read -p "按 Enter 继续或 Ctrl+C 退出..." confirm
   
   # 检查用户可能手动下载的文件
-  for possible_file in "/tmp/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz" "./node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"; do
+  for possible_file in "/tmp/$NODE_EXPORTER_PACKAGE" "./$NODE_EXPORTER_PACKAGE"; do
     if [ -f "$possible_file" ]; then
       echo "检测到文件: $possible_file"
       # 验证文件完整性
       if tar tzf "$possible_file" &>/dev/null; then
         echo "文件验证成功，继续安装"
         # 如果文件不在当前目录，复制过来
-        if [ "$possible_file" != "./node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz" ]; then
-          cp "$possible_file" "./node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+        if [ "$possible_file" != "./$NODE_EXPORTER_PACKAGE" ]; then
+          cp "$possible_file" "./$NODE_EXPORTER_PACKAGE"
         fi
         DOWNLOAD_SUCCESS=true
         break
@@ -272,7 +309,7 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
   fi
 fi
 
-tar xzf "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
+tar xzf "$NODE_EXPORTER_PACKAGE"
 cd "node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64"
 
 install -m 0755 node_exporter /usr/local/bin/
