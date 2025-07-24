@@ -44,15 +44,42 @@ sudo systemctl restart chronyd
 
 2.1 网络栈优化 (/etc/sysctl.conf)
 
-net.core.somaxconn = 65535
-net.core.netdev_max_backlog = 65535
-net.ipv4.tcp_max_syn_backlog = 65535
-net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_fin_timeout = 30
-net.ipv4.tcp_keepalive_time = 600
-net.ipv4.tcp_keepalive_probes = 5
-net.ipv4.tcp_keepalive_intvl = 15
+# ===== 文件系统限制 =====
+fs.file-max = 2000000          # 系统最大文件句柄数
+fs.nr_open = 1048576           # 单进程最大文件句柄数
 
+# ===== 网络优化 =====
+net.core.somaxconn = 65535     # 最大连接队列长度
+net.core.netdev_max_backlog = 65535  # 网络设备接收队列大小
+net.ipv4.tcp_max_syn_backlog = 65535  # SYN队列最大长度
+net.ipv4.tcp_tw_reuse = 1      # 启用TIME-WAIT端口复用
+net.ipv4.tcp_fin_timeout = 30  # FIN超时时间(秒)
+net.ipv4.tcp_keepalive_time = 600  # 保活探测起始时间
+net.ipv4.tcp_keepalive_intvl = 15  # 保活探测间隔
+net.ipv4.tcp_keepalive_probes = 5  # 保活探测次数
+net.ipv4.ip_local_port_range = 1024 65535  # 本地端口范围
+net.core.rmem_max = 16777216   # 最大接收窗口
+net.core.wmem_max = 16777216   # 最大发送窗口
+net.ipv4.tcp_sack = 1          # 启用选择性确认
+net.ipv4.tcp_window_scaling = 1  # 启用窗口缩放
+
+# ===== 内存优化 =====
+vm.swappiness = 5              # 内存交换倾向(0-100)
+vm.dirty_ratio = 10            # 系统刷脏页阈值(%)
+vm.dirty_background_ratio = 5  # 后台刷脏页阈值(%)
+
+# ===== 内核转储 =====
+kernel.core_pattern = /var/crash/core-%e-%s-%u-%g-%p-%t  # 核心转储路径
+kernel.core_uses_pid = 1       # 核心转储包含PID
+
+# ===== 高级优化 =====
+vm.dirty_expire_centisecs = 500  # 脏页最大存放时间(5秒)
+vm.dirty_writeback_centisecs = 100  # 脏页回写间隔(1秒)
+vm.vfs_cache_pressure = 50      # inode缓存回收倾向
+net.ipv4.tcp_slow_start_after_idle = 0  # 禁用空闲后慢启动
+
+# 生效
+sudo sysctl -p
 
 2.2 内存管理优化
 
@@ -79,12 +106,30 @@ sudo sysctl -p
 
 3.1 全局资源限制 (/etc/security/limits.conf)
 
-* soft nofile 1048576
-* hard nofile 1048576
-* soft nproc 65535
-* hard nproc 65535
-* soft stack unlimited
-* hard stack unlimited
+# =====================================================
+# 系统资源限制配置
+# 生效方式：需重新登录或重启服务
+# =====================================================
+
+# 文件句柄限制
+* soft nofile 1048576    # 单用户最大打开文件数（软限制）
+* hard nofile 1048576    # 单用户最大打开文件数（硬限制）
+
+# 进程数限制
+* soft nproc 248576       # 单用户最大进程数（软限制）
+* hard nproc 248576       # 单用户最大进程数（硬限制）
+
+# 堆栈内存限制
+* soft stack unlimited   # 堆栈大小（软限制）
+* hard stack unlimited   # 堆栈大小（硬限制）
+
+# 内存锁定限制
+* soft memlock 1048576  # 锁定内存大小(KB)（软限制）
+* hard memlock 1048576  # 锁定内存大小(KB)（硬限制）
+
+# 核心转储限制
+* soft core unlimited    # 核心转储文件大小（软限制）
+* hard core unlimited    # 核心转储文件大小（硬限制）
 
 
 3.2 用户级限制 (/etc/systemd/system.conf)
@@ -117,6 +162,15 @@ echo noop > /sys/block/nvme0n1/queue/scheduler
 echo 512 > /sys/block/sda/queue/nr_requests
 echo 256 > /sys/block/sda/queue/read_ahead_kb
 
+# 针对机械硬盘阵列
+echo 512 > /sys/block/sda/queue/nr_requests
+echo 2048 > /sys/block/sda/queue/read_ahead_kb
+echo deadline > /sys/block/sda/queue/scheduler
+
+# 针对NVMe SSD
+echo 2048 > /sys/block/nvme0n1/queue/nr_requests
+echo 128 > /sys/block/nvme0n1/queue/read_ahead_kb
+echo none > /sys/block/nvme0n1/queue/scheduler
 
 4.3 文件系统挂载优化 (/etc/fstab)
 
@@ -171,6 +225,7 @@ sudo yum install irqbalance -y
 
 # 配置优化 (/etc/sysconfig/irqbalance)
 IRQBALANCE_ARGS="--powerthresh=200 --banirq=0"
+
 sudo systemctl enable irqbalance
 sudo systemctl start irqbalance
 
@@ -249,6 +304,8 @@ gantt
 
 验证命令：
 # CPU压力测试
+
+yum install -y stress-ng
 stress-ng --cpu 48 --timeout 300
 
 # 内存带宽测试
