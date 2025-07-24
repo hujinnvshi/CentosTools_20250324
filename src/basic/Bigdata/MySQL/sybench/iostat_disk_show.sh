@@ -1,0 +1,1 @@
+iostat -x -c -d 10 -m
