@@ -1,0 +1,26 @@
+orcl.__db_cache_size=10435428352
+orcl.__java_pool_size=234881024
+orcl.__large_pool_size=134217728
+orcl.__oracle_base='/data/oracle'#ORACLE_BASE set from environment
+orcl.__pga_aggregate_target=4194304000
+orcl.__sga_target=12582912000
+orcl.__shared_io_pool_size=0
+orcl.__shared_pool_size=1677721600
+orcl.__streams_pool_size=0
+*.audit_file_dest='/data/oracle/admin/orcl/adump'
+*.audit_trail='db'
+*.compatible='11.2.0.4.0'
+*.control_files='/data/oracle/oradata/orcl/control01.ctl','/data/oracle/fast_recovery_area/orcl/control02.ctl'
+*.db_block_size=8192
+*.db_domain=''
+*.db_name='orcl'
+*.db_recovery_file_dest='/data/oracle/fast_recovery_area'
+*.db_recovery_file_dest_size=4385144832
+*.diagnostic_dest='/data/oracle'
+*.dispatchers='(PROTOCOL=TCP) (SERVICE=orclXDB)'
+*.open_cursors=300
+*.pga_aggregate_target=4194304000
+*.processes=150
+*.remote_login_passwordfile='EXCLUSIVE'
+*.sga_target=12582912000
+*.undo_tablespace='UNDOTBS1'
