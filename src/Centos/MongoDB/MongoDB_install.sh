@@ -43,7 +43,7 @@ echo -e "\n\033[32m[2/8] 创建安装目录和环境...\033[0m"
 # 创建系统用户
 if ! id ${SYSTEM_USER} &>/dev/null; then
     groupadd ${SYSTEM_USER}
-    useradd -M -s /sbin/nologin ${SYSTEM_USER}
+    useradd -M -s /sbin/nologin ${SYSTEM_USER} -g ${SYSTEM_USER}
 fi
 
 # 创建安装目录结构
@@ -109,6 +109,8 @@ net:
   port: 27017
   bindIp: 0.0.0.0  # 允许所有IP连接
   maxIncomingConnections: 10000
+  unixDomainSocket:
+    enabled: false
 
 security:
   authorization: disabled  # 默认不使用认证
@@ -150,8 +152,8 @@ EOF
 # 步骤5：启动MongoDB服务
 echo -e "\n\033[32m[5/8] 启动MongoDB服务...\033[0m"
 systemctl daemon-reload
-systemctl enable ${MONGO_SERVICE}
-systemctl start ${MONGO_SERVICE}
+systemctl enable mongod
+systemctl start mongod
 
 # 步骤6：安装MongoDB连接工具
 echo -e "\n\033[32m[6/8] 安装MongoDB连接工具...\033[0m"
@@ -159,7 +161,7 @@ echo -e "\n\033[32m[6/8] 安装MongoDB连接工具...\033[0m"
 # 检查文件是否存在，如果不存在则下载
 if [ ! -f "/tmp/mongosh.rpm" ]; then
     echo "下载 mongosh 安装包..."
-    wget ${MONGO_TOOLS_URL} -O /tmp/mongosh.rpm
+wget ${MONGO_TOOLS_URL} -O /tmp/mongosh.rpm
     # 检查下载是否成功
     if [ ! -f "/tmp/mongosh.rpm" ]; then
         echo -e "\n\033[31m错误：下载 mongosh 失败！\033[0m"
@@ -205,11 +207,9 @@ if (db.getUser('admin') == null) {
 
 # 步骤8：验证安装和连接测试
 echo -e "\n\033[32m[8/8] 验证安装和连接测试...\033[0m"
-sleep 5
-
-STATUS=$(systemctl is-active ${SYSTEM_USER})
+sleep 10
+STATUS=$(systemctl is-active mongod)
 echo "服务状态: ${STATUS}"
-
 if [ "${STATUS}" = "active" ]; then
     echo -e "\n\033[32mMongoDB ${MONGO_VERSION} 已成功安装并启动！\033[0m"
     echo -e "\n\033[34m安装信息:\033[0m"
@@ -221,7 +221,7 @@ if [ "${STATUS}" = "active" ]; then
     echo "管理员密码: ${ADMIN_PASSWORD}"
     
     echo -e "\n\033[32m服务状态:\033[0m"
-    systemctl status ${SYSTEM_USER} --no-pager
+    systemctl status mongod --no-pager
     
     echo -e "\n\033[32m连接工具已安装:\033[0m"
     echo "mongosh: $(mongosh --version | head -1)"
@@ -240,7 +240,7 @@ if [ "${STATUS}" = "active" ]; then
     echo -e "\033[33m注意：防火墙已关闭，MongoDB已配置为允许所有IP连接。\033[0m"
 else
     echo -e "\n\033[31m错误：MongoDB 启动失败！\033[0m"
-    echo "查看日志：journalctl -u ${MONGO_SERVICE}"
+    echo "查看日志：journalctl -u mongod"
     echo "或查看日志文件：${MONGO_LOG_DIR}/mongod.log"
     exit 1
-fi
+fi 
