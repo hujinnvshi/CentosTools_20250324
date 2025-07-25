@@ -42,6 +42,7 @@ echo -e "\n\033[32m[2/8] 创建安装目录和环境...\033[0m"
 
 # 创建系统用户
 if ! id ${SYSTEM_USER} &>/dev/null; then
+    groupadd ${SYSTEM_USER}
     useradd -M -s /sbin/nologin ${SYSTEM_USER}
 fi
 
@@ -74,7 +75,6 @@ cp -r ${EXTRACTED_DIR}/bin/* ${MONGO_BASE_DIR}/bin/
 chmod +x ${MONGO_BASE_DIR}/bin/*
 
 # 创建符号链接
-ln -sf ${MONGO_BASE_DIR}/bin/mongo /usr/bin/mongo
 ln -sf ${MONGO_BASE_DIR}/bin/mongod /usr/bin/mongod
 ln -sf ${MONGO_BASE_DIR}/bin/mongos /usr/bin/mongos
 
@@ -111,7 +111,7 @@ net:
   maxIncomingConnections: 10000
 
 security:
-  authorization: enabled  # 启用认证
+  authorization: disabled  # 默认不使用认证
 
 operationProfiling:
   mode: slowOp
@@ -150,15 +150,27 @@ EOF
 # 步骤5：启动MongoDB服务
 echo -e "\n\033[32m[5/8] 启动MongoDB服务...\033[0m"
 systemctl daemon-reload
-systemctl enable mongod
-systemctl start mongod
+systemctl enable ${MONGO_SERVICE}
+systemctl start ${MONGO_SERVICE}
 
 # 步骤6：安装MongoDB连接工具
 echo -e "\n\033[32m[6/8] 安装MongoDB连接工具...\033[0m"
 # 安装mongosh
-wget ${MONGO_TOOLS_URL} -O /tmp/mongosh.rpm
+# 检查文件是否存在，如果不存在则下载
+if [ ! -f "/tmp/mongosh.rpm" ]; then
+    echo "下载 mongosh 安装包..."
+    wget ${MONGO_TOOLS_URL} -O /tmp/mongosh.rpm
+    # 检查下载是否成功
+    if [ ! -f "/tmp/mongosh.rpm" ]; then
+        echo -e "\n\033[31m错误：下载 mongosh 失败！\033[0m"
+        exit 1
+    fi
+else
+    echo "mongosh 安装包已存在，跳过下载"
+fi
+
+cp /tmp/mongodb-mongosh-1.10.6.x86_64.rpm /tmp/mongosh.rpm
 yum install -y /tmp/mongosh.rpm
-rm -f /tmp/mongosh.rpm
 
 # 安装MongoDB工具包
 cat > /etc/yum.repos.d/mongodb-org-6.0.repo << EOF
@@ -177,7 +189,7 @@ echo -e "\n\033[32m[7/8] 配置管理员账户...\033[0m"
 sleep 5  # 等待服务完全启动
 
 # 创建管理员用户
-${MONGO_BASE_DIR}/bin/mongo --quiet --eval "
+mongosh --quiet --eval "
 db = db.getSiblingDB('admin');
 if (db.getUser('admin') == null) {
     db.createUser({
@@ -193,11 +205,13 @@ if (db.getUser('admin') == null) {
 
 # 步骤8：验证安装和连接测试
 echo -e "\n\033[32m[8/8] 验证安装和连接测试...\033[0m"
-STATUS=$(systemctl is-active mongod)
+sleep 5
+
+STATUS=$(systemctl is-active ${SYSTEM_USER})
+echo "服务状态: ${STATUS}"
 
 if [ "${STATUS}" = "active" ]; then
     echo -e "\n\033[32mMongoDB ${MONGO_VERSION} 已成功安装并启动！\033[0m"
-    
     echo -e "\n\033[34m安装信息:\033[0m"
     echo "安装目录: ${MONGO_BASE_DIR}"
     echo "数据目录: ${MONGO_DATA_DIR}/db"
@@ -207,7 +221,7 @@ if [ "${STATUS}" = "active" ]; then
     echo "管理员密码: ${ADMIN_PASSWORD}"
     
     echo -e "\n\033[32m服务状态:\033[0m"
-    systemctl status mongod --no-pager
+    systemctl status ${SYSTEM_USER} --no-pager
     
     echo -e "\n\033[32m连接工具已安装:\033[0m"
     echo "mongosh: $(mongosh --version | head -1)"
@@ -226,7 +240,7 @@ if [ "${STATUS}" = "active" ]; then
     echo -e "\033[33m注意：防火墙已关闭，MongoDB已配置为允许所有IP连接。\033[0m"
 else
     echo -e "\n\033[31m错误：MongoDB 启动失败！\033[0m"
-    echo "查看日志：journalctl -u mongod"
+    echo "查看日志：journalctl -u ${MONGO_SERVICE}"
     echo "或查看日志文件：${MONGO_LOG_DIR}/mongod.log"
     exit 1
 fi
