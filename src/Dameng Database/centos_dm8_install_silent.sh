@@ -14,6 +14,11 @@ if [ "$EUID" -ne 0 ]; then
     print_error "请使用root用户执行此脚本"
 fi
 
+# 提前创建用户
+# groupadd dinstall
+# useradd -g dinstall -m -d /home/dmdba -s /bin/bash dmdba
+# passwd dmdba
+
 # 设置变量
 INSTALL_DIR="/data/dm8"
 SOFT_DIR="/media/dm8"
