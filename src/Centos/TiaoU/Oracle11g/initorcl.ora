@@ -1,26 +1,82 @@
-orcl.__db_cache_size=10435428352
-orcl.__java_pool_size=234881024
-orcl.__large_pool_size=134217728
-orcl.__oracle_base='/data/oracle'#ORACLE_BASE set from environment
-orcl.__pga_aggregate_target=4194304000
-orcl.__sga_target=12582912000
-orcl.__shared_io_pool_size=0
-orcl.__shared_pool_size=1677721600
-orcl.__streams_pool_size=0
+# ================ 核心内存参数优化 ================
+*.sga_max_size=350G       # SGA最大尺寸（占用70%物理内存）
+*.sga_target=350G         # 自动管理SGA
+*.pga_aggregate_target=100G  # PGA目标（20%物理内存）
+*.db_cache_size=280G      # 缓存池大小（80% SGA）
+*.shared_pool_size=40G    # 共享池大小（约11% SGA）
+*.large_pool_size=4G      # 大池大小（并行和备份）
+*.java_pool_size=2G       # Java池大小
+*.streams_pool_size=2G     # 流池大小
+
+# ================ 并行与多核优化 ================
+*.parallel_threads_per_cpu=2  # 每个CPU线程数（96核×2）
+*.cpu_count=96                # 实际可用CPU核心数
+*.parallel_max_servers=384    # 并行最大服务进程数(核心×4)
+*.parallel_min_servers=96     # 最小并行服务进程数(核心数)
+
+# ================ I/O性能优化 ================
+*.db_file_multiblock_read_count=128  # 多块读取数（RAID5优化）
+*.disk_asynch_io=TRUE       # 启用异步I/O
+*.db_writer_processes=16    # DB写进程数（CPU核数/6）
+*.dbwr_io_slaves=8          # 写从进程数
+
+# ================ 会话与连接优化 ================
+*.processes=3000            # 最大进程数（原150过低）
+*.sessions=3300             # 会话数（processes×1.1）
+*.transactions=5000         # 并发事务数
+*.open_cursors=1000         # 游标数（原300不足）
+
+# ================ Undo/Redo优化 ================
+*.undo_retention=9000       # UNDO保留15分钟（原默认900秒）
+*.undo_tablespace='UNDOTBS1'
+*.fast_start_mttr_target=0   # 禁用自动检查点
+
+# ================ 高可用与恢复优化 ================
+*.db_recovery_file_dest='/data/oracle/fast_recovery_area'
+*.db_recovery_file_dest_size=500G  # 恢复区500GB
+*.control_files='/data/oracle/oradata/orcl/control01.ctl','/data/oracle/fast_recovery_area/orcl/control02.ctl'
+
+# ================ 保持原配置参数 ================
 *.audit_file_dest='/data/oracle/admin/orcl/adump'
 *.audit_trail='db'
 *.compatible='11.2.0.4.0'
-*.control_files='/data/oracle/oradata/orcl/control01.ctl','/data/oracle/fast_recovery_area/orcl/control02.ctl'
 *.db_block_size=8192
 *.db_domain=''
 *.db_name='orcl'
-*.db_recovery_file_dest='/data/oracle/fast_recovery_area'
-*.db_recovery_file_dest_size=4385144832
-*.diagnostic_dest='/data/oracle'
 *.dispatchers='(PROTOCOL=TCP) (SERVICE=orclXDB)'
-*.open_cursors=300
-*.pga_aggregate_target=4194304000
-*.processes=150
 *.remote_login_passwordfile='EXCLUSIVE'
-*.sga_target=12582912000
+
+*.sga_max_size=350G
+*.sga_target=350G
+*.pga_aggregate_target=100G
+*.db_cache_size=280G
+*.shared_pool_size=40G
+*.large_pool_size=4G
+*.java_pool_size=2G
+*.streams_pool_size=2G
+*.parallel_threads_per_cpu=2
+*.cpu_count=96
+*.parallel_max_servers=384
+*.parallel_min_servers=96
+*.db_file_multiblock_read_count=128
+*.disk_asynch_io=TRUE
+*.db_writer_processes=16
+*.dbwr_io_slaves=8
+*.processes=3000
+*.sessions=3300
+*.transactions=5000
+*.open_cursors=10000
+*.undo_retention=9000
 *.undo_tablespace='UNDOTBS1'
+*.fast_start_mttr_target=0
+*.db_recovery_file_dest='/data/oracle/fast_recovery_area'
+*.db_recovery_file_dest_size=500G
+*.control_files='/data/oracle/oradata/orcl/control01.ctl','/data/oracle/fast_recovery_area/orcl/control02.ctl'
+*.audit_file_dest='/data/oracle/admin/orcl/adump'
+*.audit_trail='db'
+*.compatible='11.2.0.4.0'
+*.db_block_size=8192
+*.db_domain=''
+*.db_name='orcl'
+*.dispatchers='(PROTOCOL=TCP) (SERVICE=orclXDB)'
+*.remote_login_passwordfile='EXCLUSIVE'

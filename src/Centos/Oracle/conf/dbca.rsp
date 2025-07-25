@@ -75,7 +75,7 @@ OPERATION_TYPE = "createDatabase"
 # Default value : None
 # Mandatory     : Yes
 #-----------------------------------------------------------------------------
-GDBNAME = "orcl11g.us.oracle.com"
+GDBNAME = "orcl"
 
 #-----------------------------------------------------------------------------
 # Name          : RACONENODE
@@ -167,7 +167,7 @@ GDBNAME = "orcl11g.us.oracle.com"
 # Default value : <db_name> specified in GDBNAME
 # Mandatory     : No
 #-----------------------------------------------------------------------------
-SID = "orcl11g"
+SID = "orcl"
 
 #-----------------------------------------------------------------------------
 # Name          : NODELIST
@@ -208,7 +208,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 # Default value : None
 # Mandatory     : Yes
 #-----------------------------------------------------------------------------
-#SYSPASSWORD = "password"
+SYSPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : SYSTEMPASSWORD
@@ -218,7 +218,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 # Default value : None
 # Mandatory     : Yes
 #-----------------------------------------------------------------------------
-#SYSTEMPASSWORD = "password"
+SYSTEMPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : EMCONFIGURATION
@@ -249,7 +249,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 # Default value : None
 # Mandatory     : Yes, if LOCAL specified for EMCONFIGURATION
 #-----------------------------------------------------------------------------
-#SYSMANPASSWORD = "password"
+SYSMANPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : DBSNMPPASSWORD
@@ -259,7 +259,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 # Default value : None
 # Mandatory     : Yes, if EMCONFIGURATION is specified
 #-----------------------------------------------------------------------------
-#DBSNMPPASSWORD = "password"
+DBSNMPPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : CENTRALAGENT
@@ -415,7 +415,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 # Default value : "US7ASCII"
 # Mandatory     : NO
 #-----------------------------------------------------------------------------
-#CHARACTERSET = "US7ASCII"
+CHARACTERSET = "ZHS16GBK"
 
 #-----------------------------------------------------------------------------
 # Name          : NATIONALCHARACTERSET
@@ -452,7 +452,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 #		  You can also specify the password at the command prompt instead of here.
 # Mandatory     : YES, if the value of registerWithDirService is TRUE
 #-----------------------------------------------------------------------------
-#DIRSERVICEPASSWORD= "password"
+#DIRSERVICEPASSWORD= "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : WALLETPASSWORD
@@ -461,7 +461,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 #		  You can also specify the password at the command prompt instead of here.
 # Mandatory     : YES, if the value of registerWithDirService is TRUE
 #-----------------------------------------------------------------------------
-#WALLETPASSWORD= "password"
+#WALLETPASSWORD= "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : LISTENERS
@@ -550,7 +550,7 @@ TEMPLATENAME = "General_Purpose.dbc"
 # Default value : 
 # Mandatory     : NO
 #-----------------------------------------------------------------------------
-#TOTALMEMORY = "800"
+TOTALMEMORY = "16000"
 
 
 #-----------------------*** End of CREATEDATABASE section ***------------------------
@@ -586,7 +586,7 @@ SYSDBAUSERNAME = "system"
 # Default value : none
 # Mandatory     : YES
 #-----------------------------------------------------------------------------
-#SYSDBAPASSWORD = "password"
+#SYSDBAPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : TEMPLATENAME
@@ -630,7 +630,7 @@ SOURCEDB = "orcl"
 # Default value : none
 # Mandatory     : YES
 #-----------------------------------------------------------------------------
-#SYSDBAPASSWORD = "password"
+SYSDBAPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : TEMPLATENAME
@@ -684,7 +684,7 @@ SOURCEDB = "orcl"
 # Default value : none
 # Mandatory     : YES, if no OS authentication
 #-----------------------------------------------------------------------------
-#SYSDBAPASSWORD = "password"
+SYSDBAPASSWORD = "Secsmart#612"
 #-----------------------*** End of deleteDatabase section ***------------------------
 
 #-----------------------------------------------------------------------------
@@ -804,7 +804,7 @@ GDBNAME = "orcl11.us.oracle.com"
 #		  You can also specify the password at the command prompt instead of here.
 # Mandatory     : YES, if the any of the reg/unreg/regenPasswd options specified
 #-----------------------------------------------------------------------------
-#DIRSERVICEPASSWORD= "password"
+#DIRSERVICEPASSWORD= "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : WALLETPASSWORD
@@ -813,7 +813,7 @@ GDBNAME = "orcl11.us.oracle.com"
 #		  You can also specify the password at the command prompt instead of here.
 # Mandatory     : YES, if the any of the reg/unreg/regenPasswd options specified
 #-----------------------------------------------------------------------------
-#WALLETPASSWORD= "password"
+#WALLETPASSWORD= "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : DISABLESECURITYCONFIGURATION
@@ -856,7 +856,7 @@ GDBNAME = "orcl11.us.oracle.com"
 # Default value : None
 # Mandatory     : Yes, if LOCAL specified for EMCONFIGURATION
 #-----------------------------------------------------------------------------
-#SYSMANPASSWORD = "password"
+#SYSMANPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : DBSNMPPASSWORD
@@ -866,7 +866,7 @@ GDBNAME = "orcl11.us.oracle.com"
 # Default value : None
 # Mandatory     : Yes, if EMCONFIGURATION is specified
 #-----------------------------------------------------------------------------
-#DBSNMPPASSWORD = "password"
+#DBSNMPPASSWORD = "Secsmart#612"
 
 #-----------------------------------------------------------------------------
 # Name          : CENTRALAGENT
@@ -969,7 +969,7 @@ SYSDBAUSERNAME = "sys"
 # Default value : none
 # Mandatory     : YES
 #-----------------------------------------------------------------------------
-#SYSDBAPASSWORD = "password"
+#SYSDBAPASSWORD = "Secsmart#612"
 
 #-----------------------*** End of ADDINSTANCE section ***------------------------
 
@@ -1035,7 +1035,7 @@ SYSDBAUSERNAME = "sys"
 # Default value : none
 # Mandatory     : YES
 #-----------------------------------------------------------------------------
-#SYSDBAPASSWORD = "password"
+#SYSDBAPASSWORD = "Secsmart#612"
 
 
 #-----------------------*** End of DELETEINSTANCE section ***------------------------

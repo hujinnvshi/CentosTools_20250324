@@ -15,3 +15,6 @@ cd /tmp/database
 
 su - oracle
 $ORACLE_HOME/bin/netca /silent /responseFile /tmp/netca.rsp
+
+su - oracle
+dbca -silent -responseFile /tmp/dbca.rsp
