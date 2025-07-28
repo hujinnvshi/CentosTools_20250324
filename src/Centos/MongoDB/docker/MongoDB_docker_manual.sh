@@ -21,3 +21,5 @@ docker run -d \
 sleep 10
 
 docker exec -it ${instance_name} bash
+
+mongosh --host 192.168.20.61 --port 6012 -u admin -p 'Secsmart#612' --authenticationDatabase admin 
