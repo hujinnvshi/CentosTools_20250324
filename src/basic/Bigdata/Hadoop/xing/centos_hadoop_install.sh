@@ -90,13 +90,17 @@ mkdir -p ${HADOOP_LOGS} 2>/dev/null || print_warning "目录 ${HADOOP_LOGS} 已�
 
 # 创建 hadoop 用户和组
 print_message "创建 hadoop 用户..."
-groupadd hadoop 2>/dev/null || print_warning "用户组 hadoop 已存在"
-useradd -m -g hadoop -s /bin/bash hadoop 2>/dev/null || print_warning "用户 hadoop 已存在"
+if ! getent group hadoop >/dev/null; then
+    groupadd hadoop
+else
+    print_warning "用户组 hadoop 已存在"
+fi
 
-# 创建 hadoop 用户组和 hdfs 用户
-print_message "创建用户和用户组..."
-groupadd hadoop 2>/dev/null || print_warning "用户组 hadoop 已存在"
-useradd -m -g hadoop -s /bin/bash hdfs 2>/dev/null || print_warning "用户 hdfs 已存在"
+if ! id -u hdfs >/dev/null 2>&1; then
+    useradd -m -g hadoop -s /bin/bash hdfs
+else
+    print_warning "用户 hdfs 已存在"
+fi
 
 # 设置权限
 print_message "设置权限..."
@@ -195,7 +199,7 @@ cat > ${HADOOP_HOME}/etc/hadoop/core-site.xml << EOF
     
     <property>
         <name>fs.defaultFS</name>
-        <value>hdfs://localhost:8020</value>
+        <value>hdfs://172.16.47.185:8020</value>
     </property>
     
     <property>
@@ -249,7 +253,10 @@ EOF
 
 # 配置 mapred-site.xml
 print_message "配置 mapred-site.xml..."
-cp ${HADOOP_HOME}/etc/hadoop/mapred-site.xml.template ${HADOOP_HOME}/etc/hadoop/mapred-site.xml 2>/dev/null || print_warning "mapred-site.xml 已存在"
+if [ ! -f "${HADOOP_HOME}/etc/hadoop/mapred-site.xml" ]; then
+    cp ${HADOOP_HOME}/etc/hadoop/mapred-site.xml.template ${HADOOP_HOME}/etc/hadoop/mapred-site.xml
+fi
+
 cat > ${HADOOP_HOME}/etc/hadoop/mapred-site.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
@@ -380,7 +387,7 @@ check_service() {
     if ! jps | grep -q "$service"; then
         # 检查相关日志
         print_warning "检查 ${service} 日志..."
-        tail -n 20 ${HADOOP_LOGS}/${service}*.log 2>/dev/null || print_warning "无法找到 ${service} 日志"
+        tail -n 20 ${HADOOP_LOGS}/hadoop-*-${service}-*.log 2>/dev/null || print_warning "无法找到 ${service} 日志"
         return 1
     fi
     return 0
@@ -412,7 +419,7 @@ done
 
 # 测试验证
 print_message "验证 Hadoop 安装..."
-su - hdfs -c "${HADOOP_HOME}/bin/hadoop fs -mkdir /test" 2>/dev/null || print_message "测试目录已存在"
+su - hdfs -c "${HADOOP_HOME}/bin/hadoop fs -mkdir -p /test" 2>/dev/null || print_message "测试目录已存在"
 su - hdfs -c "${HADOOP_HOME}/bin/hadoop fs -ls /"
 
 print_message "Hadoop 安装完成！"
@@ -422,7 +429,7 @@ print_message "YARN 界面: http://localhost:8088"
 # 显示服务状态
 print_message "当前服务状态:"
 jps
-systemctl status hadoop
+systemctl status hadoop --no-pager
 
 # 在脚本末尾添加
 print_message "执行验证和测试..."
@@ -430,8 +437,5 @@ if [ -f "./verify_hadoop.sh" ]; then
     chmod +x ./verify_hadoop.sh
     ./verify_hadoop.sh
 else
-    print_error "未找到验证脚本 verify_hadoop.sh"
+    print_warning "未找到验证脚本 verify_hadoop.sh，跳过验证"
 fi
-
-# 业已核验之次数： 
-# ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27

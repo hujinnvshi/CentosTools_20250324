@@ -14,7 +14,6 @@ INSTALL_DIR="${BASE_DIR}/install"
 CONFIG_DIR="${BASE_DIR}/etc"
 DATA_DIR="${BASE_DIR}/data"
 LOG_DIR="${BASE_DIR}/logs"
-SUPERVISOR_CONF="${CONFIG_DIR}/supervisor.conf"
 RUN_USER="n9e"  # 专用运行用户
 
 # 环境检查
@@ -47,32 +46,37 @@ function install_deps() {
     fi
 }
 
-# 配置自定义 supervisor
-function setup_supervisor() {
-    echo "📋 配置自定义 Supervisor..."
-    # 确保依赖可用
-    python -c "import setuptools" 2>/dev/null || pip install setuptools
+# 安装系统级 Supervisor
+function install_system_supervisor() {
+    echo "📋 安装系统级 Supervisor..."
     
-    # 下载独立的 supervisor (手动下载)
-    # wget https://github.com/Supervisor/supervisor/archive/refs/tags/4.2.5.tar.gz -O /tmp/supervisor.tar.gz
+    # 安装系统包
+    yum install -y supervisor
     
-    tar zxf /tmp/supervisor-4.2.5.tar.gz -C /tmp
-    cd /tmp/supervisor-4.2.5 && python setup.py install
+    # 创建必要的目录
+    mkdir -p /var/run/supervisor
+    mkdir -p /var/log/supervisor
+    chown root:root /var/run/supervisor
+    chown root:root /var/log/supervisor
+    chmod 755 /var/run/supervisor
+    chmod 755 /var/log/supervisor
     
-    # 创建配置文件
-    mkdir -p "${CONFIG_DIR}/supervisor"
-    cat << EOF > "${SUPERVISOR_CONF}"
+    # 创建自定义配置目录
+    mkdir -p /etc/supervisor.d
+    
+    # 修改主配置文件
+    cat << EOF > /etc/supervisord.conf
 [unix_http_server]
-file=${BASE_DIR}/supervisor.sock
+file=/var/run/supervisor/supervisor.sock
 chmod=0770
-chown=root:${RUN_USER}
+chown=root:root
 
 [supervisord]
-logfile=${LOG_DIR}/supervisord.log
+logfile=/var/log/supervisor/supervisord.log
 logfile_maxbytes=50MB
 logfile_backups=10
 loglevel=info
-pidfile=${BASE_DIR}/supervisord.pid
+pidfile=/var/run/supervisord.pid
 nodaemon=false
 minfds=1024
 minprocs=200
@@ -82,13 +86,13 @@ user=root
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [supervisorctl]
-serverurl=unix://${BASE_DIR}/supervisor.sock
+serverurl=unix:///var/run/supervisor/supervisor.sock
 
 [include]
-files = ${CONFIG_DIR}/supervisor/*.conf
+files = /etc/supervisor.d/*.conf
 EOF
 
-    # 创建启动脚本
+    # 创建服务文件
     cat << EOF > /etc/systemd/system/supervisord.service
 [Unit]
 Description=Supervisor process control system
@@ -96,12 +100,14 @@ After=network.target
 
 [Service]
 Type=forking
-ExecStart=/usr/local/bin/supervisord -c ${SUPERVISOR_CONF}
-ExecStop=/usr/local/bin/supervisorctl -c ${SUPERVISOR_CONF} shutdown
-ExecReload=/usr/local/bin/supervisorctl -c ${SUPERVISOR_CONF} reload
+ExecStart=/usr/bin/supervisord -c /etc/supervisord.conf
+ExecStop=/usr/bin/supervisorctl shutdown
+ExecReload=/usr/bin/supervisorctl reload
 KillMode=process
 Restart=on-failure
 RestartSec=5s
+User=root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 [Install]
 WantedBy=multi-user.target
@@ -109,7 +115,8 @@ EOF
 
     # 启动服务
     systemctl daemon-reload
-    systemctl enable --now supervisord
+    systemctl enable supervisord
+    systemctl start supervisord
 }
 
 # 创建目录结构
@@ -118,7 +125,6 @@ function create_dirs() {
     mkdir -p "${BASE_DIR}"
     mkdir -p "${INSTALL_DIR}/bin"
     mkdir -p "${CONFIG_DIR}"/{heartbeat,index,metrics,pushgw,server,webapi}
-    mkdir -p "${CONFIG_DIR}/supervisor"
     mkdir -p "${DATA_DIR}"/{sqlite,tsdb}
     mkdir -p "${LOG_DIR}"
     
@@ -131,7 +137,8 @@ function create_dirs() {
 function download_n9e() {
     echo "📦 下载 Nightingale v${N9E_VERSION}..."
     local download_url="https://n9e-download.oss-cn-beijing.aliyuncs.com/v${N9E_VERSION}/n9e-${N9E_VERSION}.linux-amd64.tar.gz"
-    
+    echo $download_url
+
     if ! wget -qO /tmp/n9e.tar.gz "${download_url}"; then
         echo "⚠️ 主镜像下载失败，尝试备用镜像..."
         if ! wget -qO /tmp/n9e.tar.gz "https://n9e-download.oss-cn-beijing.aliyuncs.com/v${N9E_VERSION}/n9e-${N9E_VERSION}.linux-amd64.tar.gz"; then
@@ -209,7 +216,7 @@ function create_supervisor_configs() {
     echo "🛠️ 创建 Supervisor 服务配置..."
     # 创建进程组配置
     for component in server webapi pushgw; do
-        cat << EOF > "${CONFIG_DIR}/supervisor/n9e-${component}.conf"
+        cat << EOF > /etc/supervisor.d/n9e-${component}.conf
 [program:n9e-${component}]
 command = ${INSTALL_DIR}/bin/n9e ${component}
 directory = ${INSTALL_DIR}/bin
@@ -227,8 +234,8 @@ EOF
     done
 
     # 重新加载配置
-    supervisorctl -c "${SUPERVISOR_CONF}" reread
-    supervisorctl -c "${SUPERVISOR_CONF}" update
+    supervisorctl reread
+    supervisorctl update
 }
 
 # 防火墙配置
@@ -249,13 +256,13 @@ function create_management_scripts() {
     cat << EOF > "${BASE_DIR}/n9e-start.sh"
 #!/bin/bash
 systemctl start supervisord
-supervisorctl -c ${SUPERVISOR_CONF} start all
+supervisorctl start n9e-*
 EOF
 
     # 创建停止脚本
     cat << EOF > "${BASE_DIR}/n9e-stop.sh"
 #!/bin/bash
-supervisorctl -c ${SUPERVISOR_CONF} stop all
+supervisorctl stop n9e-*
 systemctl stop supervisord
 EOF
 
@@ -263,7 +270,7 @@ EOF
     cat << EOF > "${BASE_DIR}/n9e-status.sh"
 #!/bin/bash
 systemctl status supervisord
-supervisorctl -c ${SUPERVISOR_CONF} status
+supervisorctl status
 EOF
 
     # 创建日志查看脚本
@@ -288,7 +295,7 @@ function post_install_check() {
     fi
     
     # 检查进程状态
-    supervisorctl -c "${SUPERVISOR_CONF}" status
+    supervisorctl status
     
     echo "⏳ 等待服务初始化 (15秒)..."
     sleep 15
@@ -323,7 +330,7 @@ function post_install_check() {
     else
         echo "❌ 服务检查失败 (HTTP状态码: ${status:-未知})"
         echo "检查日志:"
-        echo "Supervisor 日志: ${LOG_DIR}/supervisord.log"
+        echo "Supervisor 日志: /var/log/supervisor/supervisord.log"
         echo "Server 日志: ${LOG_DIR}/server.log"
         exit 1
     fi
@@ -333,16 +340,16 @@ function post_install_check() {
 function main() {
     check_env
     install_deps
-    setup_supervisor  # 先安装 supervisord
-    create_dirs       # 然后创建所需目录
+    install_system_supervisor  # 安装系统级 Supervisor
+    create_dirs
     download_n9e
     generate_configs
     create_supervisor_configs
     create_management_scripts
     configure_firewall
     post_install_check
-    
     echo -e "\n安装完成，所有组件已安装在 \e[34m${BASE_DIR}\e[0m"
+    echo -e "Supervisor 已作为系统服务安装"
 }
 
 main
