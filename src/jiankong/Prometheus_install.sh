@@ -7,7 +7,7 @@
 set -e
 
 # 配置参数
-PROMETHEUS_VERSION="3.5.0"  # 修正为当前最新稳定版本
+PROMETHEUS_VERSION="2.46.0​"  # 修正为当前最新稳定版本
 NODE_EXPORTER_VERSION="1.6.1"
 GRAFANA_VERSION="10.1.1"
 BASE_DIR="/data/prometheus"
@@ -89,7 +89,7 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
     
     echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
     echo "wget https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/$PROMETHEUS_PACKAGE"
-    wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/$PROMETHEUS_PACKAGE"
+    wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/$PROMETHEUS_PACKAGE" --no-check-certificate
     
     # 检查下载是否成功
     if [ $? -ne 0 ]; then
@@ -252,7 +252,7 @@ if [ $DOWNLOAD_SUCCESS = false ]; then
     
     echo "下载尝试 $RETRY_COUNT/$MAX_RETRY..."
     echo "wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/$NODE_EXPORTER_PACKAGE"
-    wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/$NODE_EXPORTER_PACKAGE"
+    wget --continue --timeout=30 --tries=3 "https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/$NODE_EXPORTER_PACKAGE" --no-check-certificate
     
     # 检查下载是否成功
     if [ $? -ne 0 ]; then
