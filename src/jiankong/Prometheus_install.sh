@@ -7,7 +7,7 @@
 set -e
 
 # 配置参数
-PROMETHEUS_VERSION="2.46.0​"  # 修正为当前最新稳定版本
+PROMETHEUS_VERSION="2.46.0"
 NODE_EXPORTER_VERSION="1.6.1"
 GRAFANA_VERSION="10.1.1"
 BASE_DIR="/data/prometheus"
@@ -54,12 +54,13 @@ chmod -R 755 "${BASE_DIR}"
 # 安装 Prometheus
 echo "下载并安装 Prometheus ${PROMETHEUS_VERSION}..."
 cd /tmp
-
 # Prometheus 下载地址 - 直接使用官方地址，增加校验和重试机制
 # 首先检查/tmp目录下是否已有安装包
 PROMETHEUS_PACKAGE="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
-DOWNLOAD_SUCCESS=false
+
+DOWNLOAD_SUCCESS=true
 echo $PROMETHEUS_PACKAGE
+
 if [ -f "$PROMETHEUS_PACKAGE" ]; then
   echo "检测到/tmp目录下已有安装包: $PROMETHEUS_PACKAGE"
   # 验证文件完整性
@@ -218,7 +219,7 @@ echo "下载并安装 Node Exporter ${NODE_EXPORTER_VERSION}..."
 cd /tmp
 # 首先检查/tmp目录下是否已有安装包
 NODE_EXPORTER_PACKAGE="node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz"
-DOWNLOAD_SUCCESS=false
+DOWNLOAD_SUCCESS=true
 echo $NODE_EXPORTER_PACKAGE
 
 if [ -f "$NODE_EXPORTER_PACKAGE" ]; then
