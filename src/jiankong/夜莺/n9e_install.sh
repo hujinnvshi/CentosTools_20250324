@@ -8,7 +8,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # 配置参数
-N9E_VERSION="6.0.1"
+N9E_VERSION="8.1.0"  # 更新为 8.1.0 版本
 BASE_DIR="/data/n9e"
 INSTALL_DIR="${BASE_DIR}/install"
 CONFIG_DIR="${BASE_DIR}/etc"
@@ -136,20 +136,10 @@ function create_dirs() {
 # 下载安装包
 function download_n9e() {
     echo "📦 下载 Nightingale v${N9E_VERSION}..."
-    local download_url="https://n9e-download.oss-cn-beijing.aliyuncs.com/v${N9E_VERSION}/n9e-${N9E_VERSION}.linux-amd64.tar.gz"
-    echo $download_url
-
-    if ! wget -qO /tmp/n9e.tar.gz "${download_url}"; then
-        echo "⚠️ 主镜像下载失败，尝试备用镜像..."
-        if ! wget -qO /tmp/n9e.tar.gz "https://n9e-download.oss-cn-beijing.aliyuncs.com/v${N9E_VERSION}/n9e-${N9E_VERSION}.linux-amd64.tar.gz"; then
-            echo "❌ 备用镜像下载失败，请手动下载后放置到 /tmp/n9e.tar.gz"
-            exit 1
-        fi
-    fi
-
+    cp /tmp/n9e-v${N9E_VERSION}-linux-amd64.tar.gz /tmp/n9e.tar.gz
     echo "📂 解压安装文件..."
+    mkdir -p "${INSTALL_DIR}/bin"
     tar -zxf /tmp/n9e.tar.gz -C "${INSTALL_DIR}/bin" --strip-components=1
-    rm -f /tmp/n9e.tar.gz
 }
 
 # 生成配置文件
@@ -160,17 +150,13 @@ function generate_configs() {
         -out "${CONFIG_DIR}/server/cert.pem" -days 365 -nodes -subj "/CN=n9e"
     chown ${RUN_USER}:${RUN_USER} "${CONFIG_DIR}"/server/*.pem
 
-    # 主配置模板
+    # 主配置模板 (适配 v8.1.0)
     cat << EOF > "${CONFIG_DIR}/config.toml"
 [Global]
-Listen = ":17000"
-LogLevel = "info"
 RunMode = "prod"
-
-[HTTP]
-Enable = true
-Host = "0.0.0.0"
-Port = 17000
+LogLevel = "info"
+HTTPPort = 17000
+HTTPSPort = 17000
 CertFile = "${CONFIG_DIR}/server/cert.pem"
 KeyFile = "${CONFIG_DIR}/server/key.pem"
 
@@ -205,7 +191,7 @@ EOF
         fi
     done
 
-    # 初始化数据库
+    # 初始化数据库 (使用 v8.1.0 的 SQL)
     echo "💾 初始化数据库..."
     sqlite3 "${DATA_DIR}/sqlite/n9e.db" < "${INSTALL_DIR}/bin/sql/n9e.sql"
     chown ${RUN_USER}:${RUN_USER} "${DATA_DIR}/sqlite/n9e.db"
@@ -340,7 +326,7 @@ function post_install_check() {
 function main() {
     check_env
     install_deps
-    install_system_supervisor  # 安装系统级 Supervisor
+    install_system_supervisor
     create_dirs
     download_n9e
     generate_configs
