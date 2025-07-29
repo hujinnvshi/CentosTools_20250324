@@ -15,7 +15,7 @@ CONFIG_DIR="${BASE_DIR}/config"
 DATA_DIR="${BASE_DIR}/data"
 LOG_DIR="${BASE_DIR}/logs"
 SERVICE_USER="prometheus"
-GRAFANA_ADMIN_PASSWORD="Secsmart#612"
+GRAFANA_ADMIN_PASSWORD="admin"
 
 # 检查 root 权限
 if [ "$(id -u)" -ne 0 ]; then
@@ -513,30 +513,63 @@ else
       echo "无法获取仪表盘JSON，跳过导入"
     else
       echo "成功获取仪表盘JSON，准备导入..."
-      
       # 导入仪表盘
       for i in {1..3}; do
-        RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
-          -d "{
-                \"dashboard\": $DASHBOARD_JSON,
-                \"inputs\": [{
-                  \"name\": \"DS_PROMETHEUS\",
-                  \"type\": \"datasource\",
-                  \"pluginId\": \"prometheus\",
-                  \"value\": \"Prometheus\"
-                }],
-                \"overwrite\": true
-              }" \
-          "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/db")
-        
-        if echo "$RESPONSE" | grep -q '"status":"success"' || echo "$RESPONSE" | grep -q '"imported":true' || echo "$RESPONSE" | grep -q '"uid"'; then
-          echo "Node Exporter仪表盘导入成功"
-          break
-        else
-          echo "仪表盘导入失败，重试 ($i/3)..."
-          echo "错误信息: $RESPONSE"
-          sleep 5
-        fi
+          echo "尝试导入仪表盘 (尝试 $i/3)..."
+
+          # 验证仪表盘 JSON 格式
+          if ! jq -e . >/dev/null 2>&1 <<<"$DASHBOARD_JSON"; then
+              echo "❌ 仪表盘 JSON 格式无效"
+              # 不要退出，而是继续重试
+              sleep 5
+              continue
+          fi
+
+          # 创建临时文件
+          DASHBOARD_FILE=$(mktemp)
+          
+          # 安全生成 JSON（无缩进）
+          cat << EOF > "${DASHBOARD_FILE}"
+{
+  "dashboard": $DASHBOARD_JSON,
+  "inputs": [{
+    "name": "DS_PROMETHEUS",
+    "type": "datasource",
+    "pluginId": "prometheus",
+    "value": "Prometheus"
+  }],
+  "overwrite": true
+}
+EOF
+
+          # 发送请求
+          RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" \
+                    --data-binary @"${DASHBOARD_FILE}" \
+                    "http://admin:${GRAFANA_ADMIN_PASSWORD}@localhost:3000/api/dashboards/db")
+          curl_status=$?
+
+          # 清理临时文件（即使失败也要清理）
+          rm -f "${DASHBOARD_FILE}"
+
+          # 检查 curl 状态
+          if [ $curl_status -ne 0 ]; then
+              echo "❌ curl 请求失败 (状态码: $curl_status)"
+              # 继续重试而不是退出
+              sleep 5
+              continue
+          fi
+
+          # 使用 jq 检查响应
+          if jq -e '.status == "success" or .imported == true or has("uid")' <<<"$RESPONSE" >/dev/null; then
+              echo "✅ Node Exporter仪表盘导入成功"
+              break
+          else
+              echo "❌ 仪表盘导入失败，重试 ($i/3)..."
+              echo "详细错误:"
+              # 使用 jq 格式化输出
+              jq . <<<"$RESPONSE"
+              sleep 5
+          fi
       done
     fi
   else
@@ -740,7 +773,7 @@ case "\$ACTION" in
     echo "  \$0 start           # 启动所有服务"
     echo "  \$0 restart grafana # 仅重启 Grafana"
     echo "  \$0 logs prometheus # 查看 Prometheus 日志"
-    echo "  \$0 check          # 检查监控系统状态"
+    echo "  \$0 check           # 检查监控系统状态"
     exit 1
     ;;
 esac
