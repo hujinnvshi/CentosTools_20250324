@@ -200,8 +200,6 @@ ExecStart=/usr/local/bin/prometheus \\
 Restart=always
 RestartSec=3
 SyslogIdentifier=prometheus
-StandardOutput=append:${LOG_DIR}/prometheus.log
-StandardError=append:${LOG_DIR}/prometheus_error.log
 
 # 设置文件描述符限制
 LimitNOFILE=65536
@@ -340,8 +338,6 @@ ExecStart=/usr/local/bin/node_exporter \\
 Restart=always
 RestartSec=3
 SyslogIdentifier=node_exporter
-StandardOutput=append:${LOG_DIR}/node_exporter.log
-StandardError=append:${LOG_DIR}/node_exporter_error.log
 
 # 安全设置
 PrivateTmp=true
@@ -393,8 +389,9 @@ fi
 
 # 配置 Grafana
 echo "配置 Grafana..."
+
 # 更健壮的密码替换
-sed -i "s/^;admin_password\s*=\s*admin/admin_password = ${GRAFANA_ADMIN_PASSWORD}/" /etc/grafana/grafana.ini
+sed -i "s/;admin_password\s*=\s*admin/admin_password = ${GRAFANA_ADMIN_PASSWORD}/" /etc/grafana/grafana.ini
 sed -i "s/;disable_gravatar = false/disable_gravatar = true/" /etc/grafana/grafana.ini
 
 # 创建日志轮转配置
@@ -739,7 +736,7 @@ case "\$ACTION" in
     echo "用法: \$0 {start|stop|restart|status|logs|backup|check} [服务名称]"
     echo "服务名称可选值: prometheus, node_exporter, grafana"
     echo "示例:"
-    echo "  \$0 start          # 启动所有服务"
+    echo "  \$0 start           # 启动所有服务"
     echo "  \$0 restart grafana # 仅重启 Grafana"
     echo "  \$0 logs prometheus # 查看 Prometheus 日志"
     echo "  \$0 check          # 检查监控系统状态"
