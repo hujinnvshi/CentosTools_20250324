@@ -176,6 +176,7 @@ echo none > /sys/block/nvme0n1/queue/scheduler
 
 # XFS优化
 /dev/mapper/data /data xfs defaults,noatime,nodiratime,nobarrier,logbsize=256k 0 0
+                           
 
 # EXT4优化
 /dev/mapper/app /app ext4 defaults,noatime,nodiratime,data=writeback,barrier=0 0 0
