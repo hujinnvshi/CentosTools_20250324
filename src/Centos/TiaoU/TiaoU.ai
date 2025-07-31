@@ -307,7 +307,7 @@ gantt
 # CPU压力测试
 
 yum install -y stress-ng
-stress-ng --cpu 48 --timeout 300
+stress-ng --cpu 64 --timeout 300
 
 # 内存带宽测试
 mbw -n 10 200000
