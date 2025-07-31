@@ -49,19 +49,41 @@ fs.file-max = 2000000          # 系统最大文件句柄数
 fs.nr_open = 1048576           # 单进程最大文件句柄数
 
 # ===== 网络优化 =====
-net.core.somaxconn = 65535     # 最大连接队列长度
-net.core.netdev_max_backlog = 65535  # 网络设备接收队列大小
-net.ipv4.tcp_max_syn_backlog = 65535  # SYN队列最大长度
-net.ipv4.tcp_tw_reuse = 1      # 启用TIME-WAIT端口复用
-net.ipv4.tcp_fin_timeout = 30  # FIN超时时间(秒)
-net.ipv4.tcp_keepalive_time = 600  # 保活探测起始时间
-net.ipv4.tcp_keepalive_intvl = 15  # 保活探测间隔
-net.ipv4.tcp_keepalive_probes = 5  # 保活探测次数
-net.ipv4.ip_local_port_range = 1024 65535  # 本地端口范围
-net.core.rmem_max = 16777216   # 最大接收窗口
-net.core.wmem_max = 16777216   # 最大发送窗口
-net.ipv4.tcp_sack = 1          # 启用选择性确认
-net.ipv4.tcp_window_scaling = 1  # 启用窗口缩放
+# 连接队列优化
+net.core.somaxconn = 65535          # 最大连接队列长度 (采用建议值)
+net.core.netdev_max_backlog = 65536 # 网络设备接收队列大小 (采用建议值)
+net.ipv4.tcp_max_syn_backlog = 65536 # SYN队列最大长度 (采用建议值)
+
+# TIME-WAIT优化
+net.ipv4.tcp_tw_reuse = 1           # 启用TIME-WAIT端口复用 (两者一致)
+net.ipv4.tcp_tw_recycle = 0         # 在NAT环境中禁用 (建议配置)
+net.ipv4.tcp_fin_timeout = 30        # FIN超时时间(秒) (两者一致)
+net.ipv4.tcp_max_tw_buckets = 2000000 # 最大TIME-WAIT套接字数 (建议配置)
+
+# 保活连接设置
+net.ipv4.tcp_keepalive_time = 600    # 保活探测起始时间 (两者一致)
+net.ipv4.tcp_keepalive_intvl = 15   # 保活探测间隔 (两者一致)
+net.ipv4.tcp_keepalive_probes = 5   # 保活探测次数 (两者一致)
+
+# 端口范围
+net.ipv4.ip_local_port_range = 1024 65535 # 本地端口范围 (两者一致)
+
+# 内存缓冲区优化
+net.core.rmem_max = 16777216        # 最大接收窗口 (两者一致)
+net.core.wmem_max = 16777216        # 最大发送窗口 (两者一致)
+net.ipv4.tcp_rmem = 4096 87380 16777216 # TCP接收内存范围 (建议配置)
+net.ipv4.tcp_wmem = 4096 65536 16777216 # TCP发送内存范围 (建议配置)
+
+# TCP协议特性
+net.ipv4.tcp_sack = 1               # 启用选择性确认 (当前配置)
+net.ipv4.tcp_window_scaling = 1      # 启用窗口缩放 (当前配置)
+net.ipv4.tcp_syncookies = 1          # 启用SYN cookies防护 (建议配置)
+net.ipv4.tcp_congestion_control = cubic # 拥塞控制算法 (建议配置)
+
+# 新增优化参数 (推荐添加)
+net.ipv4.tcp_fastopen = 3            # 启用TCP快速打开
+net.ipv4.tcp_slow_start_after_idle = 0 # 禁用空闲后慢启动
+net.ipv4.tcp_mtu_probing = 1          # 启用路径MTU发现
 
 # ===== 内存优化 =====
 vm.swappiness = 5              # 内存交换倾向(0-100)
