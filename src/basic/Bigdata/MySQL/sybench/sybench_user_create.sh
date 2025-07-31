@@ -15,10 +15,11 @@ general_log_file = /var/log/mysql/general.log
 # 日志输出方式 (FILE/TABLE/NONE)
 log_output = FILE
 
-mysql -u admin -pSecsmart#612 -P3312
-mysql -u admin -pSecsmart#612 -P3312 zn1 < /opt/V3_2_1__V3.2.1R200初始化整合.sql
+mysql -u admin -pSecsmart#612 -P3312  -S /data/mysql8_8.0.25/tmp/mysql.sock
+
+mysql -u admin -pSecsmart#612 -P3312 yfp < /opt/V3_2_1__V3.2.1R200初始化整合.sql -S /data/mysql8_8.0.25/tmp/mysql.sock
 echo "END"
-mysql -u admin -pSecsmart#612 -P3312 zn1 < /opt/V3_2_2__V3.2.1R200插入数据.sql
+mysql -u admin -pSecsmart#612 -P3312 yfp < /opt/V3_2_2__V3.2.1R200插入数据.sql -S /data/mysql8_8.0.25/tmp/mysql.sock
 echo "END"
 
 
