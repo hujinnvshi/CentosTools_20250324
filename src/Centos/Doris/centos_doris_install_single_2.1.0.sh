@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# 重要：先安装JDK8,再安装MySQL5.x,最后安装Doris2.1.0
+
 # 设置颜色变量
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -182,7 +184,10 @@ mysql -h ${HOST_IP} -P 9030 -u root << EOF
 SET PASSWORD FOR 'root' = PASSWORD('Secsmart#612');
 CREATE DATABASE IF NOT EXISTS \`admin\`;
 CREATE USER IF NOT EXISTS 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
 EOF
 if [ $? -ne 0 ]; then
     print_error "修改密码或创建用户失败"
 fi
+# mysql -h localhost -P 9030 -u root -p
