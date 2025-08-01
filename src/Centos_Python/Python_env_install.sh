@@ -1,6 +1,6 @@
 #!/bin/bash
-# CentOS 7 Python开发环境安装脚本
-# 功能：安装pyenv和Python 3.12，创建隔离开发环境，禁止全局设置
+# CentOS 7 Python开发环境安装脚本（本地包版）
+# 功能：使用本地包安装pyenv和Python 3.12，创建隔离开发环境，禁止全局设置
 
 set -euo pipefail
 
@@ -10,26 +10,63 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-# 安装系统依赖
-echo "安装系统依赖..."
-yum install -y git gcc zlib-devel bzip2 bzip2-devel readline-devel \
-sqlite sqlite-devel openssl-devel xz xz-devel libffi-devel make curl
-
-# 安装pyenv
-echo "安装pyenv v2.3.21..."
-PYENV_DIR="/opt/pyenv"
-PYENV_VERSION="v2.3.21"
-
-if [ ! -d "$PYENV_DIR" ]; then
-    git clone https://github.com/pyenv/pyenv.git "$PYENV_DIR"
-    cd "$PYENV_DIR"
-    git checkout "$PYENV_VERSION"
-else
-    echo "pyenv目录已存在，跳过克隆"
-    cd "$PYENV_DIR"
-    git fetch
-    git checkout "$PYENV_VERSION"
+# 检查本地安装包是否存在
+echo "检查本地安装包..."
+if [ ! -f "/tmp/pyenv-master.zip" ]; then
+    echo "错误：/tmp/pyenv-master.zip 不存在，请确认文件已放置在/tmp目录"
+    exit 1
 fi
+
+if [ ! -f "/tmp/pyenv-virtualenv-master.zip" ]; then
+    echo "错误：/tmp/pyenv-virtualenv-master.zip 不存在，请确认文件已放置在/tmp目录"
+    exit 1
+fi
+
+# 安装系统依赖（补充EPEL源和高版本OpenSSL）
+echo "安装系统依赖..."
+# 启用EPEL源（提供openssl11-devel）
+yum install -y epel-release
+# 安装依赖（替换openssl-devel为openssl11-devel，补充其他必要库）
+yum install -y git gcc zlib-devel bzip2 bzip2-devel readline-devel \
+sqlite sqlite-devel openssl11-devel xz xz-devel libffi-devel make curl \
+openssl11 unzip  # 确保unzip已安装，用于解压本地包
+
+# 安装pyenv及virtualenv插件
+echo "安装pyenv及virtualenv插件（使用本地包）..."
+PYENV_DIR="/opt/pyenv"
+
+# 清理可能的残留文件
+rm -rf "$PYENV_DIR" /tmp/pyenv-tmp /tmp/pyenv-virtualenv-tmp
+
+# 安装pyenv主程序（使用本地包）
+if [ ! -d "$PYENV_DIR" ]; then
+    echo "解压并安装pyenv..."
+    # 创建临时目录解压
+    mkdir -p /tmp/pyenv-tmp
+    mkdir -p $PYENV_DIR
+    unzip -q /tmp/pyenv-master.zip -d /tmp/pyenv-tmp
+    # 移动解压后的文件到目标目录（兼容不同压缩包内部结构）
+    mv /tmp/pyenv-tmp/*/* "$PYENV_DIR/" || mv /tmp/pyenv-tmp/* "$PYENV_DIR/"
+    # 设置可执行权限
+    chmod +x "$PYENV_DIR/bin/"*
+fi
+
+# 安装pyenv-virtualenv插件（使用本地包）
+PYENV_VIRTUALENV_DIR="${PYENV_DIR}/plugins/pyenv-virtualenv"
+if [ ! -d "$PYENV_VIRTUALENV_DIR" ]; then
+    echo "解压并安装pyenv-virtualenv插件..."
+    # 创建临时目录解压
+    mkdir -p /tmp/pyenv-virtualenv-tmp
+    unzip -q /tmp/pyenv-virtualenv-master.zip -d /tmp/pyenv-virtualenv-tmp
+    # 移动解压后的文件到插件目录
+    mkdir -p "$PYENV_VIRTUALENV_DIR"
+    mv /tmp/pyenv-virtualenv-tmp/*/* "$PYENV_VIRTUALENV_DIR/" || mv /tmp/pyenv-virtualenv-tmp/* "$PYENV_VIRTUALENV_DIR/"
+    # 设置可执行权限
+    chmod +x "$PYENV_VIRTUALENV_DIR/bin/"*
+fi
+
+# 清理临时文件
+rm -rf /tmp/pyenv-tmp /tmp/pyenv-virtualenv-tmp
 
 # 配置环境变量 - 禁止全局设置
 echo "配置环境变量并禁用全局设置..."
@@ -50,24 +87,31 @@ pyenv() {
     esac
 }
 
-# 初始化pyenv
+# 初始化pyenv及virtualenv插件
 eval "$(command pyenv init --path)"
 eval "$(command pyenv virtualenv-init -)"
 EOF
 
+# 立即生效环境变量
 source /etc/profile.d/pyenv.sh
 
-# 安装Python 3.12
+# 验证pyenv安装
+if ! command -v pyenv &> /dev/null; then
+    echo "错误：pyenv安装失败，未在PATH中找到pyenv命令"
+    exit 1
+fi
+
+# 安装Python 3.12（指定OpenSSL 1.1.1路径）
 echo "安装Python 3.12..."
 PYTHON_VERSION="3.12.0"
 
 # 检查是否已安装
 if ! pyenv versions | grep -q "$PYTHON_VERSION"; then
-    # 安装前准备
-    export CFLAGS="-O2"
-    export LDFLAGS="-L/usr/lib64"
-    
-    # 安装Python
+    # 指定OpenSSL 1.1.1的头文件和库路径（适配CentOS 7的openssl11-devel）
+    export CPPFLAGS="-I/usr/include/openssl11"
+    export LDFLAGS="-L/usr/lib64/openssl11"
+    export PKG_CONFIG_PATH="/usr/lib64/openssl11/pkgconfig"  # 帮助找到openssl库
+    # 安装Python（从源码编译）
     pyenv install "$PYTHON_VERSION"
 else
     echo "Python $PYTHON_VERSION 已安装，跳过安装"
@@ -85,11 +129,12 @@ pyenv local "$PYTHON_VERSION"
 
 # 验证安装 - 确保全局未被设置
 echo "验证安装..."
-GLOBAL_VERSION=$(pyenv global)
+# 关键修改：用`command pyenv global`直接调用原始命令，绕过自定义函数
+GLOBAL_VERSION=$(command pyenv global)
 if [ "$GLOBAL_VERSION" != "system" ]; then
     echo "错误：全局Python版本已被修改为 $GLOBAL_VERSION"
     echo "正在恢复为系统默认..."
-    command pyenv global system
+    command pyenv global system  # 同样使用`command`调用原始命令
 fi
 
 # 验证本地版本
