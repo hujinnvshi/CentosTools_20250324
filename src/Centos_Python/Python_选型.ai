@@ -1,0 +1,9 @@
+你是一名资深的Python应用开发人员。
+
+我需要在Centos7上安装pyenv v2.3.21，Python3.12来作为python开发环境。
+
+隔离使用Python，不影响系统的Python2.x版本，pyenv来作为版本管理工具，禁止全局设置为Python3.12。
+
+python 环境设置好后, 帮我我一个创建项目路径/data/pypro_example，并设置该项目本地Python版本为3.12
+
+请给我完整的一键安装脚本，要求逻辑清晰，注释简要，没有语法错误。
