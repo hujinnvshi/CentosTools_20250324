@@ -24,9 +24,10 @@ pyenv local 3.12.1
 
 
 # 创建新项目
-mkdir /data/new_project
-cd /data/new_project
-pyenv local 3.11.6
+export PyProjectName = "pypro_portrecord_$(date +%Y%m%d)"
+mkdir -p /data/$PyProjectName
+cd /data/$PyProjectName
+pyenv local 3.12.0
 python -m venv .venv
-useradd pyuser
-chown -R pyuser:pyuser /data/pypro_example
+useradd $PyProjectName -d /data/$PyProjectName
+chown -R $PyProjectName:$PyProjectName /data/$PyProjectName

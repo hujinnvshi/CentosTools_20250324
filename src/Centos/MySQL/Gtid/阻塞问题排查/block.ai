@@ -1,0 +1,15 @@
+-- 查看InnoDB锁等待（MySQL 5.7+）
+SELECT 
+  r.trx_id AS 请求事务ID,
+  r.trx_mysql_thread_id AS 请求会话ID,  -- 对应PROCESSLIST中的ID列
+  b.trx_id AS 阻塞事务ID,
+  b.trx_mysql_thread_id AS 阻塞会话ID,
+  r.trx_query AS 请求SQL,
+  b.trx_query AS 阻塞SQL,
+  TIMESTAMPDIFF(SECOND, r.trx_wait_started, NOW()) AS 等待秒数
+FROM 
+  information_schema.INNODB_LOCK_WAITS w
+JOIN 
+  information_schema.INNODB_TRX r ON w.REQUESTING_TRX_ID = r.trx_id
+JOIN 
+  information_schema.INNODB_TRX b ON w.BLOCKING_TRX_ID = b.trx_id;
