@@ -11,7 +11,7 @@ source venv/bin/activate
 python --version  # 应显示3.12.x
 
 # 安装包示例
-pip install numpy pandas
+pip install numpy==1.26.4 pandas
 
 # 退出环境
 deactivate
