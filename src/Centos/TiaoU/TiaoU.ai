@@ -39,6 +39,8 @@ sudo sed -i 's/^server.*/server ntp.aliyun.com iburst/g' /etc/chrony.conf
 sudo systemctl enable chronyd
 sudo systemctl restart chronyd
 
+# 每分钟执行一次强制时间同步（chronyc -a makestep）
+* * * * * /usr/bin/chronyc -a makestep > /dev/null 2>&1
 
 阶段2：内核参数优化
 
