@@ -34,7 +34,7 @@ create_user_group() {
         echo "创建Hadoop用户: $HADOOP_USER"
         groupadd "$HADOOP_GROUP"
         useradd -g "$HADOOP_GROUP" "$HADOOP_USER" -d "$HADOOP_BASE_DIR"
-        echo "1" | passwd --stdin "$HADOOP_USER"
+        echo "hadoop" | passwd --stdin "$HADOOP_USER"
         # 创建配置文件
         chmod 750 /etc/sudoers
         echo "$HADOOP_USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -91,7 +91,11 @@ EOF
 <configuration>
     <property>
         <name>fs.defaultFS</name>
-        <value>hdfs://localhost:9000</value>
+        <value>hdfs://localhost:8020</value>
+    </property>
+    <property>
+        <name>dfs.namenode.rpc-address</name>
+        <value>0.0.0.0:8020</value>  <!-- 恢复为默认 RPC 端口 8020 -->
     </property>
     <property>
         <name>hadoop.tmp.dir</name>
@@ -115,6 +119,10 @@ EOF
         <name>dfs.datanode.data.dir</name>
         <value>file://$HADOOP_DATA_DIR/dfs/data</value>
     </property>
+    <property>
+        <name>dfs.namenode.http-address</name>
+        <value>0.0.0.0:50070</value>  <!-- 恢复为默认 Web UI 端口 50070 -->
+    </property>
 </configuration>
 EOF
     
@@ -125,6 +133,10 @@ EOF
     <property>
         <name>mapreduce.framework.name</name>
         <value>yarn</value>
+    </property>
+    <property>
+        <name>mapreduce.jobhistory.webapp.address</name>
+        <value>0.0.0.0:19888</value>
     </property>
 </configuration>
 EOF
@@ -143,7 +155,14 @@ EOF
     <property>
         <name>yarn.nodemanager.localizer.address</name>
         <value>0.0.0.0:8041</value>
-        <!-- 原默认值为 0.0.0.0:8040 -->
+    </property>
+    <property>
+        <name>yarn.resourcemanager.address</name>
+        <value>0.0.0.0:8032</value>
+    </property>
+    <property>
+        <name>yarn.resourcemanager.scheduler.address</name>
+        <value>0.0.0.0:8034</value>  <!-- 默认端口 8030 -->
     </property>
 </configuration>
 EOF
@@ -205,7 +224,7 @@ EOF
 # 端口检测函数
 check_ports() {
     local ports=("8020" "50070" "8032" "19888" "8041")
-    local services=("HDFS NameNode" "HDFS Web UI" "YARN ResourceManager" "JobHistory" "YARN NodeManager")
+    local services=("HDFS NameNode(RPC)" "HDFS Web UI" "YARN ResourceManager" "JobHistory(Web UI)" "YARN NodeManager")
     echo "检测端口状态..."
     for i in "${!ports[@]}"; do
         if netstat -tuln | grep ":${ports[i]}" > /dev/null; then
