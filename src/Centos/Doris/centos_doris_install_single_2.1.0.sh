@@ -41,7 +41,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 设置变量
-DORIS_HOME="/data/Doris2.1.0"
+DORIS_HOME="/data1/Doris2.1.0"
 FE_HOME="${DORIS_HOME}/fe"
 BE_HOME="${DORIS_HOME}/be"
 # 获取本机 IPv4 地址
