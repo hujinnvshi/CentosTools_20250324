@@ -18,6 +18,34 @@ HADOOP_VERSION="2.7.7"
 HADOOP_USER="hadoop_${HADOOP_VERSION}_v1"
 HADOOP_HOME="/data/hadoop_2.7.7_v1/current"
 
+# 检查端口是否可用
+check_port_available() {
+    local port=$1
+    local service=$2
+    
+    # 使用多种方法检查端口占用
+    if command -v ss &> /dev/null; then
+        if ss -tuln | grep -q ":$port "; then
+            error "$service 端口 $port 已被占用"
+        fi
+    elif command -v netstat &> /dev/null; then
+        if netstat -tuln | grep -q ":$port "; then
+            error "$service 端口 $port 已被占用"
+        fi
+    elif command -v lsof &> /dev/null; then
+        if lsof -i :$port &>/dev/null; then
+            error "$service 端口 $port 已被占用"
+        fi
+    else
+        # 尝试直接绑定端口测试
+        if ! ( timeout 1 bash -c "echo >/dev/tcp/localhost/$port" ) 2>/dev/null; then
+            warn "无法检测端口状态，假设端口 $port 可用"
+        else
+            error "$service 端口 $port 已被占用"
+        fi
+    fi
+}
+
 # 动态端口分配 - 基于版本和实例计算
 calculate_ports() {
     # 基础端口偏移量 (版本号 * 100 + 实例ID哈希)
@@ -39,6 +67,14 @@ calculate_ports() {
     if [ $HIVESERVER_PORT -lt 1024 ] || [ $HIVESERVER_PORT -gt 65535 ]; then
         error "无效的HiveServer2端口: $HIVESERVER_PORT"
     fi
+    
+    # 检查Metastore端口
+    check_port_available $METASTORE_PORT "Metastore"
+    
+    # 检查HiveServer2端口
+    check_port_available $HIVESERVER_PORT "HiveServer2"
+    
+    info "端口可用性验证通过 - Metastore: $METASTORE_PORT, HiveServer2: $HIVESERVER_PORT"
 }
 
 # 服务参数
