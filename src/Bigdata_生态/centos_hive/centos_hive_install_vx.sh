@@ -371,15 +371,16 @@ init_metastore() {
     error "元数据库初始化失败"
 }
 
-# 服务健康检查
+# 服务健康检
+
+
+查
 check_service_health() {
     local port=$1
     local service=$2
     local timeout=30
-    local start_time=$(date +%s)
-    
-    info "等待 $service 服务启动 (端口: $port)..."
-    
+    local start_time=$(date +%s)    
+    info "等待 $service 服务启动 (端口: $port)..."    
     while ! nc -z localhost $port; do
         sleep 1
         if [ $(($(date +%s) - start_time)) -gt $timeout ]; then
@@ -521,7 +522,8 @@ EOF
     echo "  HIVE_VERSION=x.x.x INSTANCE_ID=id $0 install"
     echo "示例:"
     echo "  HIVE_VERSION=2.3.9 INSTANCE_ID=v1 $0 install"
-    echo "  HIVE_VERSION=3.1.3 INSTANCE_ID=v2 $0 install"
+    echo "  HIVE_VERSION=3.1.3 INSTANCE_ID=v1 $0 install"
+    echo "  HIVE_VERSION=3.1.2 INSTANCE_ID=v1 $0 install"
     exit 1
 }
 
