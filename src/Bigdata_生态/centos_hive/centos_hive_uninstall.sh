@@ -3,16 +3,16 @@ set -euo pipefail
 
 # 配置参数（与安装脚本保持一致）
 HIVE_VERSION="2.3.9"
-Service_ID="hive_${HIVE_VERSION}_v1"
-HIVE_BASE_DIR="/data/${Service_ID}"
+SERVICE_ID="hive_${HIVE_VERSION}_v1"
+HIVE_BASE_DIR="/data/${SERVICE_ID}"
 MYSQL_HOST="172.16.48.233"
 MYSQL_PORT="6005"
 MYSQL_USER="admin"
 MYSQL_PASS="Secsmart#612"
-Hive_Meta_DB="metastore_db_239v1"
+HIVE_META_DB="metastore_db_239v1"
 
-# 服务管理参数
-HIVE_USER=$Service_ID
+# 服务参数
+HIVE_USER=$SERVICE_ID
 PID_DIR="$HIVE_BASE_DIR/pids"
 
 # 颜色定义
@@ -115,12 +115,12 @@ clean_metastore_database() {
     
     # 删除元数据库
     if mysql -h"$MYSQL_HOST" -P"$MYSQL_PORT" -u"$MYSQL_USER" -p"$MYSQL_PASS" \
-        -e "SHOW DATABASES LIKE '${Hive_Meta_DB}'" | grep -q "${Hive_Meta_DB}"; then
-        info "删除元数据库: ${Hive_Meta_DB}"
+        -e "SHOW DATABASES LIKE '${HIVE_META_DB}'" | grep -q "${HIVE_META_DB}"; then
+        info "删除元数据库: ${HIVE_META_DB}"
         mysql -h"$MYSQL_HOST" -P"$MYSQL_PORT" -u"$MYSQL_USER" -p"$MYSQL_PASS" \
-            -e "DROP DATABASE IF EXISTS ${Hive_Meta_DB}"
+            -e "DROP DATABASE IF EXISTS ${HIVE_META_DB}"
     else
-        warn "元数据库不存在: ${Hive_Meta_DB}"
+        warn "元数据库不存在: ${HIVE_META_DB}"
     fi
     
     info "元数据库清理完成"
@@ -149,7 +149,7 @@ clean_local_files() {
     # 删除临时文件
     if [ -f "apache-hive-$HIVE_VERSION-bin.tar.gz" ]; then
         info "删除Hive安装包"
-        rm -f "apache-hive-$HIVE_VERSION-bin.tar.gz"
+        # rm -f "apache-hive-$HIVE_VERSION-bin.tar.gz"
     fi
     
     info "本地文件清理完成"
