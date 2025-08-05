@@ -57,7 +57,10 @@ calculate_ports() {
     METASTORE_PORT=$((9083 + base_offset % 1000))
     
     # HiveServer2端口 (10000 + 偏移量)
-    HIVESERVER_PORT=$((10000 + base_offset % 1000))
+    HIVESERVER_PORT=$((METASTORE_PORT + 1))
+    
+    # WebUI端口 (10012 + 偏移量)
+    WEBUI_PORT=$((HIVESERVER_PORT + 1))
     
     # 验证端口范围
     if [ $METASTORE_PORT -lt 1024 ] || [ $METASTORE_PORT -gt 65535 ]; then
@@ -327,6 +330,10 @@ EOF
     <name>hive.server2.logging.operation.log.location</name>
     <value>${SERVICE_LOG_DIR}/operation_logs</value>
   </property>
+  <property>
+    <name>hive.server2.webui.port</name>
+    <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
+  </property>
 </configuration>
 EOF
     
@@ -373,8 +380,6 @@ init_metastore() {
 
 # 服务健康检
 
-
-查
 check_service_health() {
     local port=$1
     local service=$2
@@ -485,6 +490,7 @@ install_main() {
 元数据库:   $HIVE_META_DB
 Metastore端口:   $METASTORE_PORT
 HiveServer2端口: $HIVESERVER_PORT
+WebUI端口:  $WEBUI_PORT
 
 HDFS目录:
   仓库目录: $(grep -A1 'hive.metastore.warehouse.dir' $HIVE_BASE_DIR/conf/hive-site.xml | tail -1 | sed -e 's/<[^>]*>//g')
@@ -521,9 +527,8 @@ EOF
     echo "用法:"
     echo "  HIVE_VERSION=x.x.x INSTANCE_ID=id $0 install"
     echo "示例:"
-    echo "  HIVE_VERSION=2.3.9 INSTANCE_ID=v1 $0 install"
-    echo "  HIVE_VERSION=3.1.3 INSTANCE_ID=v1 $0 install"
-    echo "  HIVE_VERSION=3.1.2 INSTANCE_ID=v1 $0 install"
+    echo "  HIVE_VERSION=2.3.9 INSTANCE_ID=v1 $0 install(✅)"
+    echo "  HIVE_VERSION=3.1.3 INSTANCE_ID=v1 $0 install(✅)"
     exit 1
 }
 
