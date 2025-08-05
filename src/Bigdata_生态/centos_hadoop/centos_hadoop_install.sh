@@ -84,6 +84,7 @@ export HADOOP_PREFIX=$hadoop_home
 export HADOOP_LOG_DIR=$HADOOP_LOG_DIR
 export HADOOP_OPTS="-Djava.net.preferIPv4Stack=true"
 export HADOOP_CLIENT_OPTS="-Xmx512m"
+export HADOOP_CLASSPATH=$HADOOP_BASE_DIR/current/lib/*
 EOF
     
     # 配置core-site.xml
@@ -290,6 +291,8 @@ setup_environment() {
     cat > /etc/profile.d/hadoop.sh <<EOF
 export HADOOP_HOME=$HADOOP_BASE_DIR/current
 export PATH=\$PATH:\$HADOOP_HOME/bin:\$HADOOP_HOME/sbin
+export HADOOP_CONF_DIR=\$HADOOP_HOME/etc/hadoop
+export HADOOP_CLASSPATH=\$HADOOP_HOME/lib/*
 EOF
     source /etc/profile.d/hadoop.sh
 }

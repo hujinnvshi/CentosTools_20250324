@@ -1,293 +1,308 @@
 #!/bin/bash
 set -euo pipefail
 
-# 新增配置参数
-TEZ_VERSION="${TEZ_VERSION:-0.9.2}"  # Tez 版本
-TEZ_BASE_DIR="/data/tez_${TEZ_VERSION}_${INSTANCE_ID}"  # Tez 安装目录
+# 配置参数 - 可根据需要调整版本
+TEZ_VERSION="${TEZ_VERSION:-0.9.2}"
+HIVE_VERSION="${HIVE_VERSION:-2.3.9}"
+INSTANCE_ID="${INSTANCE_ID:-v2}"
+HIVE_BASE_DIR="/data/hive_${HIVE_VERSION}_${INSTANCE_ID}"
+TEZ_BASE_DIR="/data/tez_${TEZ_VERSION}_hive${HIVE_VERSION}_${INSTANCE_ID}"
 
-# 安装 Tez
-install_tez() {
-    info "开始安装 Tez $TEZ_VERSION"
+# 依赖路径 (与Hive安装脚本保持一致)
+HADOOP_HOME="/data/hadoop_2.7.7_v1/current"
+JAVA_HOME="/data/java/jdk1.8.0_251"
+HADOOP_USER="hadoop_2.7.7_v1"
+HIVE_USER="hive_${HIVE_VERSION}_${INSTANCE_ID}"
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# 状态函数
+error() { echo -e "${RED}[ERROR] $* ${NC}" >&2; exit 1; }
+warn() { echo -e "${YELLOW}[WARN] $* ${NC}" >&2; }
+info() { echo -e "${GREEN}[INFO] $* ${NC}"; }
+
+# 检查Hive是否已安装
+check_hive_installed() {
+    [ -d "$HIVE_BASE_DIR" ] || error "Hive未安装在 $HIVE_BASE_DIR，请先安装Hive"
+    [ -f "$HIVE_BASE_DIR/conf/hive-site.xml" ] || error "Hive配置文件不存在"
+    info "Hive环境验证通过"
+}
+
+# 检查依赖
+check_dependencies() {
+    [ -d "$JAVA_HOME" ] || error "JAVA_HOME路径不存在: $JAVA_HOME"
+    [ -d "$HADOOP_HOME" ] || error "Hadoop路径不存在: $HADOOP_HOME"
     
-    # 清理旧安装
-    [ -d "$TEZ_BASE_DIR" ] && rm -rf "$TEZ_BASE_DIR"
-    mkdir -p "$TEZ_BASE_DIR"
+    # 检查必要命令
+    for cmd in wget tar; do
+        command -v $cmd &>/dev/null || error "缺少必要命令: $cmd，请先安装"
+    done
     
-    # 下载 Tez
+    info "所有依赖检查通过"
+}
+
+# 下载Tez
+download_tez() {
     local tez_tar="apache-tez-${TEZ_VERSION}-bin.tar.gz"
     local tez_url="https://archive.apache.org/dist/tez/${TEZ_VERSION}/${tez_tar}"
+    
+    info "开始下载Tez $TEZ_VERSION"
     
     # 使用本地缓存或下载
     if [ -f "/tmp/$tez_tar" ]; then
         info "使用本地缓存的Tez安装包"
         cp "/tmp/$tez_tar" .
     else
-        info "下载Tez $TEZ_VERSION"
         wget "$tez_url" -O "$tez_tar" || error "下载Tez失败"
-        
-        # 保存到缓存
-        cp "$tez_tar" "/tmp/"
+        cp "$tez_tar" /tmp/
     fi
-    
+    info "下载完成"
     # 检查文件完整性
-    local file_size=$(stat -c %s "$tez_tar")
-    if [ "$file_size" -lt 1000000 ]; then
-        error "下载的Tez包不完整, 大小: ${file_size}字节"
-    fi
+    [ $(stat -c %s "$tez_tar") -gt 1000000 ] || error "下载的Tez包不完整"
     
-    info "解压Tez安装包..."
+    info "Tez下载成功"
+}
+
+# 安装Tez
+install_tez() {
+    info "安装Tez到: $TEZ_BASE_DIR"
+    
+    # 清理并创建目录
+    [ -d "$TEZ_BASE_DIR" ] && rm -rf "$TEZ_BASE_DIR"
+    mkdir -p "$TEZ_BASE_DIR"
+    
+    # 解压Tez
+    local tez_tar="apache-tez-${TEZ_VERSION}-bin.tar.gz"
     tar -zxf "$tez_tar" -C "$TEZ_BASE_DIR" --strip-components=1
+    cp "$tez_tar" /tmp
+    rm -f "$tez_tar"
     
-    # 保留安装包用于后续上传
-    mv "$tez_tar" "$TEZ_BASE_DIR/share/"
-    
+    # 创建Tez临时目录并设置权限
+    su - $HADOOP_USER <<EOF
+        hdfs dfs -mkdir -p /user/tez
+        hdfs dfs -chmod -R 777 /user/tez
+        hdfs dfs -mkdir -p /tmp/tez
+        hdfs dfs -chmod -R 777 /tmp/tez
+EOF
+
     info "Tez安装完成"
 }
 
-# 配置 Tez
+# 配置Tez
 configure_tez() {
     info "配置Tez环境"
     
-    # 创建配置文件目录
-    mkdir -p "$TEZ_BASE_DIR/conf"
-    
-    # 创建tez-site.xml
+    # 创建tez-site.xml配置
     cat > "$TEZ_BASE_DIR/conf/tez-site.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
   <property>
     <name>tez.lib.uris</name>
-    <value>\${fs.defaultFS}/tez/tez-${TEZ_VERSION}.tar.gz</value>
+    <value>hdfs:///user/tez/tez-${TEZ_VERSION}-libs</value>
   </property>
   <property>
     <name>tez.use.cluster.hadoop-libs</name>
     <value>true</value>
   </property>
   <property>
+    <name>tez.history.logging.service.class</name>
+    <value>org.apache.tez.dag.history.logging.ats.ATSHistoryLoggingService</value>
+  </property>
+  <property>
     <name>tez.am.resource.memory.mb</name>
     <value>1024</value>
+  </property>
+  <property>
+    <name>tez.container.max.java.heap.fraction</name>
+    <value>0.7</value>
   </property>
   <property>
     <name>tez.task.resource.memory.mb</name>
     <value>1024</value>
   </property>
-  <property>
-    <name>tez.runtime.io.sort.mb</name>
-    <value>256</value>
-  </property>
-  <property>
-    <name>tez.runtime.compress</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>tez.runtime.compress.codec</name>
-    <value>org.apache.hadoop.io.compress.SnappyCodec</value>
-  </property>
 </configuration>
 EOF
-    
-    # 上传Tez到HDFS
-    info "上传Tez到HDFS..."
-    hdfs dfs -mkdir -p /tez || warn "无法创建/tez目录，可能已存在"
-    hdfs dfs -put -f "$TEZ_BASE_DIR/share/apache-tez-${TEZ_VERSION}-bin.tar.gz" "/tez/tez-${TEZ_VERSION}.tar.gz" \
-        || error "上传Tez到HDFS失败"
-    
+
+    # 配置Hadoop的tez环境
+    # 使用xmlstarlet向core-site.xml添加代理用户配置
+    HADOOP_CORE_SITE="$HADOOP_HOME/etc/hadoop/core-site.xml"
+
+    # 添加hadoop.proxyuser.hive.hosts
+    if ! xmlstarlet sel -t -v "//configuration/property[name='hadoop.proxyuser.hive.hosts']" "$HADOOP_CORE_SITE" >/dev/null; then
+        xmlstarlet ed -L \
+            -s "//configuration" -t elem -n "property" \
+            -s "//configuration/property[last()]" -t elem -n "name" -v "hadoop.proxyuser.hive.hosts" \
+            -s "//configuration/property[last()]" -t elem -n "value" -v "*" \
+            "$HADOOP_CORE_SITE"
+    fi
+
+    # 添加hadoop.proxyuser.hive.groups
+    if ! xmlstarlet sel -t -v "//configuration/property[name='hadoop.proxyuser.hive.groups']" "$HADOOP_CORE_SITE" >/dev/null; then
+        xmlstarlet ed -L \
+            -s "//configuration" -t elem -n "property" \
+            -s "//configuration/property[last()]" -t elem -n "name" -v "hadoop.proxyuser.hive.groups" \
+            -s "//configuration/property[last()]" -t elem -n "value" -v "*" \
+            "$HADOOP_CORE_SITE"
+    fi
+
+    # 分发Tez库到HDFS
+    su - $HADOOP_USER <<EOF
+        hdfs dfs -mkdir -p /user/tez/tez-${TEZ_VERSION}-libs
+        hdfs dfs -put $TEZ_BASE_DIR/* /user/tez/tez-${TEZ_VERSION}-libs/
+EOF
     info "Tez配置完成"
 }
 
-# 配置Hive使用Tez引擎
-configure_hive_for_tez() {
-    info "配置Hive使用Tez执行引擎"
+# 配置Hive使用Tez
+configure_hive_tez() {
+    info "配置Hive使用Tez执行引擎"    
+    local hive_site="$HIVE_BASE_DIR/conf/hive-site.xml"
     
-    # 备份原始配置文件
-    cp "$HIVE_BASE_DIR/conf/hive-site.xml" "$HIVE_BASE_DIR/conf/hive-site.xml.bak"
+    # 备份原有配置
+    [ -f "$hive_site.bak" ] || cp "$hive_site" "$hive_site.bak"
     
-    # 检查并安装xmlstarlet
+    # 添加Tez相关配置到Hive
+    # 使用xmlstarlet工具修改XML配置（如果没有会自动安装）
     if ! command -v xmlstarlet &>/dev/null; then
-        warn "未找到xmlstarlet，尝试安装..."
+        info "安装xmlstarlet工具"
         if command -v yum &>/dev/null; then
-            yum install -y xmlstarlet || error "安装xmlstarlet失败"
+            yum install -y xmlstarlet
         elif command -v apt-get &>/dev/null; then
-            apt-get install -y xmlstarlet || error "安装xmlstarlet失败"
+            apt-get install -y xmlstarlet
         else
-            error "无法自动安装xmlstarlet，请手动安装"
+            error "无法安装xmlstarlet，请手动安装后重试"
         fi
     fi
     
-    # 添加Tez配置
-    xmlstarlet ed -L \
-        --subnode "/configuration" -t elem -n "property" -v "" \
-        --subnode "//property[last()]" -t elem -n "name" -v "hive.execution.engine" \
-        --subnode "//property[last()]" -t elem -n "value" -v "tez" \
-        --subnode "/configuration" -t elem -n "property" -v "" \
-        --subnode "//property[last()]" -t elem -n "name" -v "tez.lib.uris" \
-        --subnode "//property[last()]" -t elem -n "value" -v "\${fs.defaultFS}/tez/tez-${TEZ_VERSION}.tar.gz" \
-        --subnode "/configuration" -t elem -n "property" -v "" \
-        --subnode "//property[last()]" -t elem -n "name" -v "hive.tez.container.size" \
-        --subnode "//property[last()]" -t elem -n "value" -v "1024" \
-        "$HIVE_BASE_DIR/conf/hive-site.xml" || error "修改hive-site.xml失败"
+    # 设置执行引擎为Tez
+    if xmlstarlet sel -t -v "//configuration/property[name='hive.execution.engine']/value" "$hive_site" >/dev/null; then
+        xmlstarlet ed -L -u "//configuration/property[name='hive.execution.engine']/value" -v "tez" "$hive_site"
+    else
+        xmlstarlet ed -L -s "//configuration" -t elem -n "property" \
+            -s "//configuration/property[last()]" -t elem -n "name" -v "hive.execution.engine" \
+            -s "//configuration/property[last()]" -t elem -n "value" -v "tez" \
+            "$hive_site"
+    fi
     
-    # 更新环境变量
-    cat >> "/etc/profile.d/hive-${HIVE_VERSION}-${INSTANCE_ID}.sh" <<EOF
-
-# Tez配置
+    # 禁用Tez会话池（避免冲突）
+    if ! xmlstarlet sel -t -v "//configuration/property[name='hive.tez.session.pool.enabled']/value" "$hive_site" >/dev/null; then
+        xmlstarlet ed -L -s "//configuration" -t elem -n "property" \
+            -s "//configuration/property[last()]" -t elem -n "name" -v "hive.tez.session.pool.enabled" \
+            -s "//configuration/property[last()]" -t elem -n "value" -v "false" \
+            "$hive_site"
+    fi
+    
+    # 添加Tez到Hive环境变量
+    local hive_env="$HIVE_BASE_DIR/conf/hive-env.sh"
+    if ! grep -q "TEZ_HOME" "$hive_env"; then
+        cat >> "$hive_env" <<EOF
 export TEZ_HOME="$TEZ_BASE_DIR"
-export TEZ_CONF_DIR="$TEZ_BASE_DIR/conf"
-export HADOOP_CLASSPATH="\$HADOOP_CLASSPATH:\$TEZ_HOME/*:\$TEZ_HOME/lib/*"
+export HIVE_AUX_JARS_PATH=\$TEZ_HOME/*:\$TEZ_HOME/lib/*:\$HIVE_AUX_JARS_PATH
+EOF
+    fi
+    
+    # 创建环境变量脚本
+    local env_file="/etc/profile.d/tez-${TEZ_VERSION}-hive${HIVE_VERSION}-${INSTANCE_ID}.sh"
+    cat > "$env_file" <<EOF
+export TEZ_HOME="$TEZ_BASE_DIR"
+export PATH="\$PATH:\$TEZ_HOME/bin"
+export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$TEZ_HOME/*:\$TEZ_HOME/lib/*
 EOF
     
-    source "/etc/profile.d/hive-${HIVE_VERSION}-${INSTANCE_ID}.sh"
-    
-    info "Hive已配置为使用Tez执行引擎"
+    source "$env_file"
+    info "Hive-Tez集成配置完成"
 }
 
-# 等待服务启动
-wait_for_service() {
-    local port=$1
-    local service=$2
-    local timeout=30
-    local start_time=$(date +%s)
+# 启动Hive服务
+start_hive_services() {
+    info "启动Hive服务..."
     
-    info "等待 $service 服务启动 (端口: $port)..."
+    local pid_dir="$HIVE_BASE_DIR/pids"
+    local log_dir="$HIVE_BASE_DIR/logs"
     
-    while ! nc -z localhost $port; do
-        sleep 1
-        if [ $(($(date +%s) - start_time)) -gt $timeout ]; then
-            error "$service 服务启动超时"
-        fi
-    done
-    info "$service 服务启动成功"
-}
-
-# 验证Tez功能
-test_tez() {
-    info "验证Tez功能..."
+    mkdir -p "$pid_dir" "$log_dir"
     
-    # 确保日志目录存在
-    mkdir -p "$SERVICE_LOG_DIR" "$PID_DIR"
-    
-    # 启动服务
-    info "启动Metastore服务..."
-    nohup "$HIVE_BASE_DIR/bin/hive" --service metastore > "$SERVICE_LOG_DIR/metastore.log" 2>&1 &
-    metastore_pid=$!
-    echo $metastore_pid > "$PID_DIR/metastore.pid"
-    
-    info "启动HiveServer2服务..."
-    nohup "$HIVE_BASE_DIR/bin/hive" --service hiveserver2 > "$SERVICE_LOG_DIR/hiveserver2.log" 2>&1 &
-    hiveserver_pid=$!
-    echo $hiveserver_pid > "$PID_DIR/hiveserver2.pid"
-    
-    # 等待服务启动
-    wait_for_service $METASTORE_PORT "Metastore"
-    wait_for_service $HIVESERVER_PORT "HiveServer2"
-    
-    # 创建测试环境
-    info "创建测试数据库和表..."
-    "$HIVE_BASE_DIR/bin/hive" -e "CREATE DATABASE IF NOT EXISTS test_db;
-             CREATE TABLE test_db.install_test (id INT, name STRING);
-             INSERT INTO test_db.install_test VALUES (1, '测试数据1'), (2, '测试数据2');" \
-             || warn "创建测试数据失败"
-    
-    # 运行Tez测试查询
-    info "执行Tez测试查询..."
-    local result=$("$HIVE_BASE_DIR/bin/beeline" -u "jdbc:hive2://localhost:$HIVESERVER_PORT" \
-        -n "$HIVE_USER" \
-        --silent=true \
-        --outputformat=tsv2 \
-        -e "EXPLAIN SELECT COUNT(*) FROM test_db.install_test;" 2>/dev/null)
-    
-    # 验证结果
-    if echo "$result" | grep -q "Tez"; then
-        info "Tez功能验证成功: 查询使用Tez执行引擎"
-    else
-        warn "Tez功能验证失败: 查询未使用Tez执行引擎"
-        echo "$result"
+    # 停止可能运行的服务
+    if [ -f "$pid_dir/metastore.pid" ]; then
+        kill $(cat "$pid_dir/metastore.pid") 2>/dev/null || true
+        rm -f "$pid_dir/metastore.pid"
     fi
     
-    # 清理测试数据
-    "$HIVE_BASE_DIR/bin/hive" -e "DROP DATABASE test_db CASCADE;" &>/dev/null || true
+    if [ -f "$pid_dir/hiveserver2.pid" ]; then
+        kill $(cat "$pid_dir/hiveserver2.pid") 2>/dev/null || true
+        rm -f "$pid_dir/hiveserver2.pid"
+    fi
     
-    # 停止服务
-    info "停止服务..."
-    kill $metastore_pid $hiveserver_pid
-    wait $metastore_pid $hiveserver_pid 2>/dev/null || true
-    rm -f "$PID_DIR"/{metastore,hiveserver2}.pid
+    # 启动元数据服务
+    nohup "$HIVE_BASE_DIR/bin/hive" --service metastore > "$log_dir/metastore-tez.log" 2>&1 &
+    echo $! > "$pid_dir/metastore.pid"
+    
+    # 启动HiveServer2
+    nohup "$HIVE_BASE_DIR/bin/hive" --service hiveserver2 > "$log_dir/hiveserver2-tez.log" 2>&1 &
+    echo $! > "$pid_dir/hiveserver2.pid"
+    
+    # 等待服务启动
+    sleep 15
+    info "Hive服务启动完成"
 }
 
-# 主安装流程（添加Tez支持）
-install_main() {
-    info "开始安装 Hive $HIVE_VERSION (实例: $INSTANCE_ID)"
-    check_root
-    check_dependencies
-    create_user
-    download_hive
-    install_hive
+# 测试Tez配置
+test_tez() {
+    info "开始测试Tez执行引擎..."
     
-    # 安装和配置Tez
+    local test_db="tez_test_db_${HIVE_VERSION}_${INSTANCE_ID}"
+    local test_table="test_tez_table"
+    
+    # 使用beeline连接Hive
+    local hiveserver_port=$(xmlstarlet sel -t -v "//configuration/property[name='hive.server2.thrift.port']/value" "$HIVE_BASE_DIR/conf/hive-site.xml")
+    local hostname=$(hostname -f)
+    
+    # 执行测试SQL
+    "$HIVE_BASE_DIR/bin/beeline" -u "jdbc:hive2://$hostname:$hiveserver_port/default" -n "$HIVE_USER" -e "
+        DROP DATABASE IF EXISTS $test_db CASCADE;
+        CREATE DATABASE $test_db;
+        USE $test_db;
+        CREATE TABLE $test_table (id INT, name STRING);
+        INSERT INTO $test_table VALUES (1, 'tez_test'), (2, 'hive_test');
+        SELECT COUNT(*) FROM $test_table;
+        DROP DATABASE $test_db CASCADE;
+    " || error "Tez测试执行失败"
+    info "Tez执行引擎测试成功"
+}
+
+# 主流程
+main() {
+    info "开始为Hive $HIVE_VERSION (实例: $INSTANCE_ID)安装Tez $TEZ_VERSION"
+    
+    check_hive_installed
+    check_dependencies
+    download_tez
     install_tez
     configure_tez
+    configure_hive_tez
+    start_hive_services
+    test_tez
     
-    configure_hive
-    init_metastore
-    set_permissions
-    
-    # 配置Hive使用Tez
-    configure_hive_for_tez
-    
-    info "运行安装测试..."
-    test_hive || warn "基础功能测试失败，但安装已完成"
-    
-    info "运行Tez测试..."
-    test_tez || warn "Tez功能测试失败"
-    
-    info "Hive安装成功! (使用Tez引擎)"
+    info "Tez安装并配置成功!"
     cat <<EOF
 =============================================================
+Tez版本:    $TEZ_VERSION
+安装路径:   $TEZ_BASE_DIR
+Hive版本:   $HIVE_VERSION
+Hive路径:   $HIVE_BASE_DIR
 
-版本:       Hive $HIVE_VERSION + Tez $TEZ_VERSION
-实例ID:     $INSTANCE_ID
-安装路径:   $HIVE_BASE_DIR
-Tez路径:    $TEZ_BASE_DIR
-日志目录:   $SERVICE_LOG_DIR
-服务用户:   $HIVE_USER
-元数据库:   $HIVE_META_DB
-Metastore端口:   $METASTORE_PORT
-HiveServer2端口: $HIVESERVER_PORT
+验证Tez是否生效的命令:
+source /etc/profile.d/tez-${TEZ_VERSION}-hive${HIVE_VERSION}-${INSTANCE_ID}.sh
+$HIVE_BASE_DIR/bin/hive -e "set hive.execution.engine;"
 
-Tez配置:
-  HDFS路径: /tez/tez-${TEZ_VERSION}.tar.gz
-  内存配置: 1024MB
-
-使用说明:
-1. 加载环境变量:
-   source /etc/profile.d/hive-${HIVE_VERSION}-${INSTANCE_ID}.sh
-
-2. 启动服务:
-   nohup \$HIVE_HOME/bin/hive --service metastore > \$SERVICE_LOG_DIR/metastore.log 2>&1 &
-   echo \$! > \$PID_DIR/metastore.pid
-   
-   nohup \$HIVE_HOME/bin/hive --service hiveserver2 > \$SERVICE_LOG_DIR/hiveserver2.log 2>&1 &
-   echo \$! > \$PID_DIR/hiveserver2.pid
-
-3. 使用Tez引擎查询:
-   beeline -u "jdbc:hive2://localhost:$HIVESERVER_PORT" -e "SET hive.execution.engine=tez; SELECT ..."
-
+应输出: hive.execution.engine=tez
 =============================================================
 EOF
 }
 
 # 执行入口
-[ $# -eq 0 ] && {
-    echo "Hive + Tez 安装工具"
-    echo "用法:"
-    echo "  HIVE_VERSION=x.x.x TEZ_VERSION=y.y.y INSTANCE_ID=id $0 install"
-    echo "示例:"
-    echo "  HIVE_VERSION=2.3.9 TEZ_VERSION=0.9.2 INSTANCE_ID=v1 $0 install"
-    echo "  HIVE_VERSION=3.1.3 TEZ_VERSION=0.10.1 INSTANCE_ID=v2 $0 install"
-    exit 1
-}
-
-case "$1" in
-    install) install_main ;;
-    *) echo "无效命令: $1"; exit 1 ;;
-esac
+main
