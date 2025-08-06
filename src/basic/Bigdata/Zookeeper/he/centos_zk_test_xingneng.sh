@@ -16,7 +16,7 @@ print_error() {
 }
 
 # ZooKeeper 命令行客户端
-ZK_CLI="/data/zookeeper/bin/zkCli.sh"
+ZK_CLI="/data/zookeeper/zk_3.5.8_v2/bin/zkCli.sh"
 
 # 测试连接
 test_connection() {
