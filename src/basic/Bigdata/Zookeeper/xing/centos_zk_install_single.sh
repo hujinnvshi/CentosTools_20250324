@@ -22,6 +22,7 @@ print_error() {
 }
 
 # 设置变量
+ZK_HOST="${ZK_HOST:-172.16.48.233}"
 ZK_VERSION="${ZK_VERSION:-3.8.1}"               # 允许通过环境变量覆盖版本
 ZK_INSTANCE="${ZK_INSTANCE:-v1}"                # 实例标识符
 ZK_INSTANCE_ID="zk_${ZK_VERSION}_${ZK_INSTANCE}" # 实例ID（限制长度）
@@ -381,6 +382,9 @@ ${GREEN}==================== ZooKeeper 安装完成 ====================${NC}
 客户端端口:   ${ZK_PORT}
 管理端口:     ${ZK_ADMIN_PORT}
 堆内存:       ${ZK_HEAP_SIZE}GB
+WEB URL:     http://${ZK_HOST}:${ZK_ADMIN_PORT}/commands
+WEB URL:     http://${ZK_HOST}:${ZK_ADMIN_PORT}/health
+WEB URL:     http://${ZK_HOST}:${ZK_ADMIN_PORT}/stats
 
 ${YELLOW}管理命令:${NC}
 启动服务:     systemctl start ${ZK_INSTANCE_ID}
