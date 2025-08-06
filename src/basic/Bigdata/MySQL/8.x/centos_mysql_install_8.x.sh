@@ -42,12 +42,6 @@ cleanup() {
 }
 # trap cleanup ERR
 
-# 检查安装包
-# https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.28-linux-glibc2.12-x86_64.tar.xz
-if [ ! -f "/tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz" ]; then
-    print_message "安装包不存在：/tmp/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz"
-    wget https://cdn.mysql.com/archives/mysql-8.0/mysql-${PERCONA_VERSION}-linux-glibc2.12-x86_64.tar.xz
-fi
 
 # 检查并安装依赖包
 print_message "检查并安装依赖包..."
