@@ -361,13 +361,16 @@ init_metastore() {
     local warehouse_dir=$(grep -A1 'hive.metastore.warehouse.dir' "$HIVE_BASE_DIR/conf/hive-site.xml" | tail -1 | sed -e 's/<[^>]*>//g' | tr -d ' ')
     local scratch_dir=$(grep -A1 'hive.exec.scratchdir' "$HIVE_BASE_DIR/conf/hive-site.xml" | tail -1 | sed -e 's/<[^>]*>//g' | tr -d ' ')
     
+    info "创建版本化HDFS目录hive.metastore.warehouse.dir: $warehouse_dir"
+    info "创建版本化HDFS目录hive.exec.scratchdir: $scratch_dir"
+    info "HIVE_BASE_DIR: $HIVE_BASE_DIR"
     hdfs dfs -mkdir -p "$warehouse_dir" "$scratch_dir"
     hdfs dfs -chmod 773 "$warehouse_dir"
     hdfs dfs -chmod 777 "$scratch_dir"
     
     # 初始化元数据库（带重试）
     for i in {1..3}; do
-        "$HIVE_BASE_DIR/bin/schematool" -dbType mysql -initSchema && {
+        "$HIVE_BASE_DIR/bin/schematool" -dbType mysql -initSchema --verbose && {
             info "Hive元数据库初始化成功"
             return 0
         }

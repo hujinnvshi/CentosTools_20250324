@@ -84,6 +84,7 @@ export HADOOP_PREFIX=$hadoop_home
 export HADOOP_LOG_DIR=$HADOOP_LOG_DIR
 export HADOOP_OPTS="-Djava.net.preferIPv4Stack=true"
 export HADOOP_CLIENT_OPTS="-Xmx512m"
+# 设置Hadoop类路径,如果后面有HIVE,则需要添加HIVE的jar包
 export HADOOP_CLASSPATH=$HADOOP_BASE_DIR/current/lib/*
 EOF
     
