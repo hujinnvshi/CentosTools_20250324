@@ -67,8 +67,7 @@ MySQL 多实例安装脚本
 
 示例:
   $0 --version 8.0.25 --instance v1 --port 3312
-  $0 --version 8.0.34 --instance v2 --port 3313
-  $0 --version 8.0.44 --instance v3 --port 3400
+  $0 --version 8.0.34 --instance v1 --port 3313
 EOF
 }
 
@@ -229,7 +228,6 @@ default-time-zone = '+8:00'
 server-id = ${MYSQL_PORT}
 gtid_mode = ON
 enforce_gtid_consistency = ON
-# skip-grant-tables
 
 # TLS 配置
 tls_version = TLSv1.2,TLSv1.3
@@ -252,7 +250,7 @@ sort_buffer_size = 2M
 log-error = ${MYSQL_HOME}/log/error.log
 general_log = 1
 general_log_file = ${MYSQL_HOME}/log/general.log
-slow_query_log = 3
+slow_query_log = 1
 slow_query_log_file = ${MYSQL_HOME}/log/slow.log
 long_query_time = 5
 log_queries_not_using_indexes = 1
@@ -279,10 +277,10 @@ performance_schema = ON
 [client]
 port = ${MYSQL_PORT}
 socket = ${MYSQL_HOME}/tmp/mysql.sock
-default-character-set = utf8mb4
 
-[mysql]
-default-character-set = utf8mb4
+[mysqld_safe]
+log-error = ${MYSQL_HOME}/log/error.log
+pid-file = ${MYSQL_HOME}/tmp/mysql.pid
 EOF
 }
 
@@ -330,25 +328,24 @@ After=network.target
 After=syslog.target
 
 [Service]
-Type=notify
+Type=simple
 User=${MYSQL_USER}
 Group=${MYSQL_GROUP}
-Environment="LD_LIBRARY_PATH=${MYSQL_HOME}/base/lib"
 ExecStart=${MYSQL_HOME}/base/bin/mysqld_safe --defaults-file=${MYSQL_HOME}/my.cnf
 ExecStop=${MYSQL_HOME}/base/bin/mysqladmin --defaults-file=${MYSQL_HOME}/my.cnf -uroot -p${MYSQL_PASSWORD} shutdown
 PIDFile=${MYSQL_HOME}/tmp/mysql.pid
-
-# 更安全的终止模式
-KillMode=process
-TimeoutStartSec=300
-TimeoutStopSec=300
-Restart=no
-RestartSec=50s
+TimeoutStartSec=180
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=5s
 LimitNOFILE=10000
 PrivateTmp=false
 RemainAfterExit=no
+KillMode=mixed
+
 # 确保工作目录存在
 WorkingDirectory=${MYSQL_HOME}
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -372,19 +369,19 @@ start_service() {
     systemctl start ${SERVICE_NAME}
     
     # 检查服务状态
-    local MAX_RETRIES=5
+    local MAX_RETRIES=30
     local RETRY_COUNT=0
     local SERVICE_ACTIVE=false
     
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        # 使用 systemctl 检查服务状态
-        if systemctl is-active --quiet ${SERVICE_NAME}; then
+        # 检查错误日志中是否有"ready for connections"
+        if grep -q "ready for connections" ${MYSQL_HOME}/log/error.log; then
             print_message "MySQL服务已成功启动"
             SERVICE_ACTIVE=true
             break
         fi        
         print_message "等待服务启动... (${RETRY_COUNT}/${MAX_RETRIES})"
-        sleep 5
+        sleep 2
         RETRY_COUNT=$((RETRY_COUNT + 1))
     done
     
@@ -392,7 +389,7 @@ start_service() {
         print_error "MySQL服务启动超时，请检查日志：${MYSQL_HOME}/log/error.log"
     fi
     
-    # 启用服务自启
+    # 禁止服务开机自启
     systemctl disable ${SERVICE_NAME}
 }
 
@@ -409,8 +406,7 @@ EOF
 # 执行安全配置
 secure_installation() {
     print_message "执行安全配置..."
-    ${MYSQL_HOME}/base/bin/mysql_secure_installation -P ${MYSQL_PORT} -S ${MYSQL_HOME}/tmp/mysql.sock \
-        -uroot -p"${MYSQL_PASSWORD}" << EOF
+    ${MYSQL_HOME}/base/bin/mysql_secure_installation -P ${MYSQL_PORT} -S ${MYSQL_HOME}/tmp/mysql.sock -uroot -p"${MYSQL_PASSWORD}" << EOF
 n
 y
 2
@@ -425,7 +421,9 @@ EOF
 # 创建测试数据
 create_test_data() {
     print_message "创建测试数据..."
-    cat > /tmp/init.sql << EOF
+    local init_file="/tmp/init_${INSTANCE_NAME}.sql"
+    
+    cat > ${init_file} << EOF
 CREATE DATABASE test_db;
 CREATE USER 'test_user'@'localhost' IDENTIFIED BY 'Test@123';
 GRANT ALL PRIVILEGES ON test_db.* TO 'test_user'@'localhost';
@@ -452,9 +450,11 @@ INSERT INTO employees (name, age, department, salary, hire_date) VALUES
 EOF
 
     ${MYSQL_HOME}/base/bin/mysql -P ${MYSQL_PORT} -S ${MYSQL_HOME}/tmp/mysql.sock \
-        -uroot -p"${MYSQL_PASSWORD}" < /tmp/init.sql || print_error "创建测试数据失败"
+        -uroot -p"${MYSQL_PASSWORD}" < ${init_file} || print_error "创建测试数据失败"
+    
+    # 清理临时文件
+    rm -f ${init_file}
 }
-
 
 # 显示安装摘要
 show_summary() {
@@ -501,9 +501,9 @@ main() {
     check_root
     install_dependencies
     check_port_availability
-    backup_existing_installation
-    create_directory_structure
+    backup_existing_installation    
     create_user_and_group
+    create_directory_structure
     download_package
     extract_package
     configure_mycnf
@@ -511,7 +511,7 @@ main() {
     initialize_database
     create_systemd_service
     configure_environment
-    # start_service
+    start_service
     set_root_password
     secure_installation
     create_test_data
