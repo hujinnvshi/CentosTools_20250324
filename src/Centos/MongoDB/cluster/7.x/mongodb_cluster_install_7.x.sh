@@ -4,6 +4,7 @@
 # 一键在单机部署 3 节点 MongoDB 副本集 (CentOS 7.9)
 #
 # 优化点：
+# - 适配 MongoDB 7.0.12 新特性
 # - 添加端口冲突检查与自动替换功能
 # - 提供详细的连接测试信息
 # - 增强错误处理和日志输出
@@ -16,18 +17,19 @@ set -euo pipefail
 IFS=$'\n\t'
 
 ### ====== 可配置项（如需修改） ======
-MONGO_VERSION="6.0.4"
-MONGO_PACKAGE="/tmp/mongodb-linux-x86_64-rhel70-${MONGO_VERSION}.tgz"  # 本地包路径，修改为实际路径
-BASE_DIR="/data/mongo_cluster_"$MONGO_VERSION               # 集群安装基准目录
+MONGO_VERSION="7.0.12"
+MONGO_PACKAGE="/tmp/mongodb-linux-x86_64-rhel70-${MONGO_VERSION}.tgz"  # 本地包路径
+BASE_DIR="/data/mongo_cluster_${MONGO_VERSION}"             # 集群安装基准目录
 BIN_DIR="${BASE_DIR}/bin"                                   # 二进制放置目录
-USER="mongod_"$MONGO_VERSION                                # 运行用户
+USER="mongod_${MONGO_VERSION}"                              # 运行用户
 REPL_NAME="rs0"                                             # 副本集名字
 PORTS=(27017 27018 27019)                                   # 三个实例端口
 ADMIN_USER="admin"
-ADMIN_PWD="Secsmart#612"                                    # 创建的管理员密码（可改）
+ADMIN_PWD="Secsmart#612"                                    # 管理员密码
+MONGOSH_RPM_URL="https://downloads.mongodb.com/compass/mongodb-mongosh-2.0.1.x86_64.rpm"  # 更新为最新版mongosh
 
 # systemd unit 名称前缀
-SERVICE_PREFIX="mongod_multi_"$MONGO_VERSION
+SERVICE_PREFIX="mongod_multi_${MONGO_VERSION}"
 
 ### ====== 基础检查 ======
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -132,7 +134,7 @@ for i in "${!PORTS[@]}"; do
   # 存储实际使用的端口
   ACTUAL_PORTS+=("$port")
 
-  # 初始配置：禁用认证
+  # MongoDB 7.0 配置
   cat > "$conf" <<EOF
 # MongoDB ${MONGO_VERSION} instance (node${idx})
 storage:
@@ -154,8 +156,6 @@ replication:
 security:
   keyFile: ${KEYFILE}
   authorization: disabled
-setParameter:
-  enableLocalhostAuthBypass: true
 EOF
 
   chown "$USER":"$USER" "$conf"
@@ -212,15 +212,83 @@ for attempt in {1..20}; do
   sleep 1
 done
 
+### ====== 7. 创建管理员账户 ======
+echo "[7/8] 创建管理员账户..."
 PRIMARY_PORT=${ACTUAL_PORTS[0]}
 HOST_IP=$(hostname -I | awk '{print $1}')
-echo "初始化副本集..."
+
+# 创建管理员账户（在禁用认证状态下）
+mongosh --quiet --port ${PRIMARY_PORT} --eval "
+try {
+    db = db.getSiblingDB('admin');
+    if (db.getUser('${ADMIN_USER}') == null) {
+        db.createUser({user: '${ADMIN_USER}', pwd: '${ADMIN_PWD}', roles: ['root']});
+        print('管理员账户创建成功');
+    } else {
+        print('管理员账户已存在，跳过创建');
+        db.changeUserPassword('${ADMIN_USER}', '${ADMIN_PWD}');
+    }
+} catch (e) {
+    if (e.codeName === 'Unauthorized') {
+        print('检测到认证已启用，尝试使用认证创建用户');
+        try {
+            db.auth('${ADMIN_USER}', '${ADMIN_PWD}');
+            if (db.getUser('${ADMIN_USER}') == null) {
+                db.createUser({user: '${ADMIN_USER}', pwd: '${ADMIN_PWD}', roles: ['root']});
+                print('管理员账户创建成功（使用认证）');
+            } else {
+                print('管理员账户已存在，跳过创建（使用认证）');
+                db.changeUserPassword('${ADMIN_USER}', '${ADMIN_PWD}');
+            }
+        } catch (authErr) {
+            if (authErr.codeName === 'AuthenticationFailed') {
+                print('认证失败，尝试创建新用户');
+                db.createUser({user: '${ADMIN_USER}', pwd: '${ADMIN_PWD}', roles: ['root']});
+                print('管理员账户创建成功（使用认证）');
+            } else {
+                throw authErr;
+            }
+        }
+    } else {
+        print('创建用户时出错: ' + e);
+        throw e;
+    }
+}"
+
+### ====== 8. 启用认证并初始化副本集 ======
+echo "[8/8] 启用认证并初始化副本集..."
+# 启用认证
+echo "启用认证并重启服务..."
+for i in "${!ACTUAL_PORTS[@]}"; do
+  idx=$((i+1))
+  inst_dir="${BASE_DIR}/node${idx}"
+  conf="${inst_dir}/conf/mongod.conf"
+  
+  # 修改配置文件启用认证
+  sed -i 's/authorization: disabled/authorization: enabled/' "$conf"
+  
+  # 重启服务
+  systemctl restart "${SERVICE_PREFIX}-${idx}.service"
+  sleep 1
+done
+
+# 等待实例重启就绪
+echo "等待实例重启就绪（最多 20 秒）..."
+for attempt in {1..20}; do
+  ready=true
+  for port in "${ACTUAL_PORTS[@]}"; do
+    if ! ss -ltn "( sport = :${port} )" >/dev/null 2>&1; then
+      ready=false
+    fi
+  done
+  $ready && break
+  sleep 1
+done
 
 # 使用认证信息初始化副本集
 echo "初始化副本集（若已初始化则跳过）..."
 already_in_rs=false
-
-if mongosh --quiet --port ${PRIMARY_PORT} --eval "rs.status()" >/dev/null 2>&1; then
+if mongosh --quiet --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p ${ADMIN_PWD} --authenticationDatabase admin --eval "rs.status()" >/dev/null 2>&1; then
   echo "检测到副本集已初始化，跳过 rs.initiate"
   already_in_rs=true
 fi
@@ -239,13 +307,11 @@ if ! $already_in_rs; then
   # 生成 js 并执行 init（使用认证）
   init_js="rs.initiate({ _id: \"${REPL_NAME}\", ${members_js} })"
   echo "执行 rs.initiate: ${init_js}"
-
-  mongosh --quiet --port ${PRIMARY_PORT} --eval "${init_js}"
+  mongosh --quiet --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p ${ADMIN_PWD} --authenticationDatabase admin --eval "${init_js}"
   echo "等待副本集选举完成（最多 30 秒）..."
-  
   # 等待 PRIMARY 出现
   for k in {1..30}; do
-    state=$(mongosh --quiet --port ${PRIMARY_PORT} --eval "rs.status().myState" 2>/dev/null || echo "")
+    state=$(mongosh --quiet --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p ${ADMIN_PWD} --authenticationDatabase admin --eval "rs.status().myState" 2>/dev/null || echo "")
     # myState == 1 表示 PRIMARY
     if [[ "$state" == "1" ]]; then
       echo "节点 ${HOST_IP}:${PRIMARY_PORT} 成为 PRIMARY"
@@ -255,6 +321,13 @@ if ! $already_in_rs; then
   done
 fi
 
+# 验证认证是否生效
+echo "验证认证是否生效..."
+if mongosh --quiet --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p ${ADMIN_PWD} --authenticationDatabase admin --eval "db.runCommand({connectionStatus:1})" | grep -q "authenticatedUsers"; then
+  echo "认证已成功启用"
+else
+  echo "警告: 认证可能未正确启用"
+fi
 
 echo
 echo "部署完成！信息汇总："
@@ -297,17 +370,17 @@ echo " - 若要开放防火墙端口，请自行调整防火墙策略。"
 echo " - 本脚本在单机上模拟三节点，生产环境建议不同物理/虚拟机部署。"
 echo
 # 生成 start/stop 管理脚本
-cat > ${BASE_DIR}/mongo-cluster-start.sh <<'EOF'
+cat > ${BASE_DIR}/mongo-cluster-start.sh <<EOF
 #!/bin/bash
-systemctl start "${SERVICE_PREFIX}-1.service"
-systemctl start "${SERVICE_PREFIX}-2.service"
-systemctl start "${SERVICE_PREFIX}-3.service"
+systemctl start ${SERVICE_PREFIX}-1.service
+systemctl start ${SERVICE_PREFIX}-2.service
+systemctl start ${SERVICE_PREFIX}-3.service
 EOF
-cat > ${BASE_DIR}/mongo-cluster-stop.sh <<'EOF'
+cat > ${BASE_DIR}/mongo-cluster-stop.sh <<EOF
 #!/bin/bash
-systemctl stop "${SERVICE_PREFIX}-3.service"
-systemctl stop "${SERVICE_PREFIX}-2.service"
-systemctl stop "${SERVICE_PREFIX}-1.service"
+systemctl stop ${SERVICE_PREFIX}-3.service
+systemctl stop ${SERVICE_PREFIX}-2.service
+systemctl stop ${SERVICE_PREFIX}-1.service
 EOF
 chmod +x ${BASE_DIR}/mongo-cluster-start.sh ${BASE_DIR}/mongo-cluster-stop.sh
 echo "一键启动脚本： ${BASE_DIR}/mongo-cluster-start.sh"

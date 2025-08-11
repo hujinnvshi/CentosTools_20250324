@@ -27,3 +27,4 @@ use admin
 db.auth("admin", "Secsmart#612")
 -- 方法二
 mongosh --host 127.0.0.1 --port 27017 -u admin -p 'Secsmart#612' --authenticationDatabase admin
+mongosh --host 172.16.48.233 --port 27017 -u admin -p 'Secsmart#612' --authenticationDatabase admin
