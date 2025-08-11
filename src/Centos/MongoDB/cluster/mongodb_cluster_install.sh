@@ -7,6 +7,7 @@
 # - 添加端口冲突检查与自动替换功能
 # - 提供详细的连接测试信息
 # - 增强错误处理和日志输出
+# - 修复副本集初始化认证问题
 #
 # 使用：
 #   sudo ./mongo3_repl_install.sh
@@ -131,6 +132,7 @@ for i in "${!PORTS[@]}"; do
   # 存储实际使用的端口
   ACTUAL_PORTS+=("$port")
 
+  # 初始配置：禁用认证
   cat > "$conf" <<EOF
 # MongoDB ${MONGO_VERSION} instance (node${idx})
 storage:
@@ -150,8 +152,8 @@ net:
 replication:
   replSetName: ${REPL_NAME}
 security:
-  authorization: disabled
   keyFile: ${KEYFILE}
+  authorization: disabled
 setParameter:
   enableLocalhostAuthBypass: false
 EOF
@@ -210,13 +212,14 @@ for attempt in {1..20}; do
   sleep 1
 done
 
-### ====== 7. 初始化副本集（如果尚未初始化） ======
-echo "[7/8] 初始化副本集（若已初始化则跳过）..."
 PRIMARY_PORT=${ACTUAL_PORTS[0]}
 HOST_IP=$(hostname -I | awk '{print $1}')
+echo "初始化副本集..."
 
-# 检查是否已属于副本集（从第一个节点获取 rs.status）
+# 使用认证信息初始化副本集
+echo "初始化副本集（若已初始化则跳过）..."
 already_in_rs=false
+
 if mongosh --quiet --port ${PRIMARY_PORT} --eval "rs.status()" >/dev/null 2>&1; then
   echo "检测到副本集已初始化，跳过 rs.initiate"
   already_in_rs=true
@@ -233,11 +236,13 @@ if ! $already_in_rs; then
   # 去掉末尾逗号
   members_js="${members_js%,}]"
 
-  # 生成 js 并执行 init
+  # 生成 js 并执行 init（使用认证）
   init_js="rs.initiate({ _id: \"${REPL_NAME}\", ${members_js} })"
   echo "执行 rs.initiate: ${init_js}"
+  
   mongosh --quiet --port ${PRIMARY_PORT} --eval "${init_js}"
   echo "等待副本集选举完成（最多 30 秒）..."
+  
   # 等待 PRIMARY 出现
   for k in {1..30}; do
     state=$(mongosh --quiet --port ${PRIMARY_PORT} --eval "rs.status().myState" 2>/dev/null || echo "")
@@ -248,11 +253,15 @@ if ! $already_in_rs; then
     fi
     sleep 1
   done
+
 fi
 
-### ====== 8. 创建管理员账户（如果不存在） ======
-echo "[8/8] 创建管理员账户（如不存在）..."
-# 使用 localhost exception 无需认证即可创建 admin（因为 keyFile 和 auth 已启用，但 localhost exception允许在本地创建首个用户）
+### ====== 7. 创建管理员账户 ======
+echo "[7/8] 创建管理员账户..."
+PRIMARY_PORT=${ACTUAL_PORTS[0]}
+HOST_IP=$(hostname -I | awk '{print $1}')
+
+# 创建管理员账户（在禁用认证状态下）
 mongosh --quiet --port ${PRIMARY_PORT} --eval "
 db = db.getSiblingDB('admin');
 if (db.getUser('${ADMIN_USER}') == null) {
@@ -260,7 +269,46 @@ if (db.getUser('${ADMIN_USER}') == null) {
   print('管理员账户创建成功');
 } else {
   print('管理员账户已存在，跳过创建');
+  db.changeUserPassword('admin', '${ADMIN_PWD}');
 }"
+
+### ====== 8. 启用认证并初始化副本集 ======
+echo "[8/8] 启用认证并初始化副本集..."
+# 启用认证
+echo "启用认证并重启服务..."
+for i in "${!ACTUAL_PORTS[@]}"; do
+  idx=$((i+1))
+  inst_dir="${BASE_DIR}/node${idx}"
+  conf="${inst_dir}/conf/mongod.conf"
+
+  # 修改配置文件启用认证
+  sed -i 's/authorization: disabled/authorization: enabled/' "$conf"
+  
+  # 重启服务
+  systemctl restart "${SERVICE_PREFIX}-${idx}.service"
+  sleep 1
+done
+
+# 等待实例重启就绪
+echo "等待实例重启就绪（最多 20 秒）..."
+for attempt in {1..20}; do
+  ready=true
+  for port in "${ACTUAL_PORTS[@]}"; do
+    if ! ss -ltn "( sport = :${port} )" >/dev/null 2>&1; then
+      ready=false
+    fi
+  done
+  $ready && break
+  sleep 1
+done
+
+# 验证认证是否生效
+echo "验证认证是否生效..."
+if mongosh --quiet --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p ${ADMIN_PWD} --authenticationDatabase admin --eval "db.runCommand({connectionStatus:1})" | grep -q "authenticatedUsers"; then
+  echo "认证已成功启用"
+else
+  echo "警告: 认证可能未正确启用"
+fi
 
 echo
 echo "部署完成！信息汇总："
