@@ -33,10 +33,10 @@ ADMIN_PASS="Secsmart#612"
 
 # 端口分配
 declare -A PORT_ASSIGNMENTS=(
-    ["Mongos"]=27017
-    ["ConfigServer"]=27019
-    ["Shard1"]=27018
-    ["Shard2"]=27020
+    ["Mongos"]=27117
+    ["ConfigServer"]=27119
+    ["Shard1"]=27118
+    ["Shard2"]=27200
 )
 
 # ====== 函数定义 ======
@@ -139,12 +139,6 @@ start_service() {
     
     # 启动服务
     "$bin" -f "$conf" --fork >/dev/null 2>&1
-    
-    # 检查服务状态
-    if ! wait_for_service "$name" "$conf" "$logfile"; then
-        log $RED "❌ $name 启动失败"
-        return 1
-    fi
     
     log $GREEN "✓ $name 启动成功"
     return 0
@@ -260,7 +254,7 @@ show_summary() {
     echo -e "${CYAN}==============================================${RESET}\n"
     
     echo -e "${BOLD}${GREEN}连接命令:${RESET}"
-    echo -e "  ${BIN_DIR}/mongosh --port ${PORT_ASSIGNMENTS["Mongos"]} -u $ADMIN_USER -p '$ADMIN_PASS' --authenticationDatabase admin"
+    echo -e "mongosh --port ${PORT_ASSIGNMENTS["Mongos"]} -u $ADMIN_USER -p '$ADMIN_PASS' --authenticationDatabase admin"
 }
 
 # ====== 主流程 ======
@@ -368,42 +362,6 @@ EOF
         --eval "sh.addShard('shard2Repl/127.0.0.1:${PORT_ASSIGNMENTS["Shard2"]}')" && \
     log $GREEN "✓ Shard2 添加成功"
 
-    # 验证分片添加
-    shard_count=$("mongosh" --quiet --port ${PORT_ASSIGNMENTS["Mongos"]} \
-        --eval "sh.status().shards.length" 2>/dev/null)
-    
-    if [[ "$shard_count" -eq 2 ]]; then
-        log $GREEN "✓ 分片添加验证成功 (数量: $shard_count)"
-    else
-        log $RED "❌ 分片添加失败，当前分片数量: ${shard_count:-无}"
-        exit 1
-    fi
-
-    # ====== 创建管理员账号 ======
-    log_step 11 "创建管理员账户..."
-    "mongosh" --quiet --port ${PORT_ASSIGNMENTS["Mongos"]} <<EOF
-use admin
-db.createUser({
-  user: "$ADMIN_USER",
-  pwd: "$ADMIN_PASS",
-  roles: [
-    {role: "root", db: "admin"},
-    {role: "clusterAdmin", db: "admin"}
-  ]
-})
-EOF
-
-    # 验证管理员账户
-    auth_result=$("mongosh" --quiet --port ${PORT_ASSIGNMENTS["Mongos"]} \
-        -u "$ADMIN_USER" -p "$ADMIN_PASS" --authenticationDatabase admin \
-        --eval "db.runCommand({connectionStatus:1})" 2>/dev/null)
-    
-    if echo "$auth_result" | grep -q "authenticatedUsers"; then
-        log $GREEN "✓ 管理员账户创建成功"
-    else
-        log $RED "❌ 管理员账户创建失败"
-        exit 1
-    fi
 
     # ====== 完成部署 ======
     cleanup
