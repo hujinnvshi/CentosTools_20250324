@@ -103,7 +103,7 @@ fi
 
 # 安装Python 3.12（指定OpenSSL 1.1.1路径）
 echo "安装Python 3.12..."
-PYTHON_VERSION="3.12.0"
+PYTHON_VERSION="3.8.15"
 
 # 检查是否已安装
 if ! pyenv versions | grep -q "$PYTHON_VERSION"; then

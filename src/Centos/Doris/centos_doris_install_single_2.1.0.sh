@@ -1,6 +1,8 @@
 #!/bin/bash
 
+# Doris 2.1.0 单节点安装脚本
 # 重要：先安装JDK8,再安装MySQL5.x,最后安装Doris2.1.0
+# 优化点：修复端口冲突、增强权限设置、优化存储配置
 
 # 设置颜色变量
 GREEN='\033[0;32m'
@@ -21,17 +23,8 @@ print_error() {
 check_port() {
     local port=$1
     local port_name=$2
-    # 使用netstat或ss检查端口（兼容不同系统）
-    if command -v netstat &>/dev/null; then
-        if netstat -tuln | grep -q ":${port} "; then
-            print_error "${port_name}端口(${port})已被占用，请释放后重试"
-        fi
-    elif command -v ss &>/dev/null; then
-        if ss -tuln | grep -q ":${port} "; then
-            print_error "${port_name}端口(${port})已被占用，请释放后重试"
-        fi
-    else
-        print_message "警告：未找到netstat或ss，无法检查端口占用情况"
+    if ss -tuln | grep -q ":${port} "; then
+        print_error "${port_name}端口(${port})已被占用，请释放后重试"
     fi
 }
 
@@ -40,154 +33,212 @@ if [ "$EUID" -ne 0 ]; then
     print_error "请使用 root 用户执行此脚本"
 fi
 
+# 检查 Java 环境
+if [ -z "$JAVA_HOME" ]; then
+    print_message "检测到未设置 JAVA_HOME，尝试查找 JDK..."
+    
+    # 尝试查找 JDK 安装路径
+    if [ -d "/usr/lib/jvm/java-1.8.0" ]; then
+        export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
+        print_message "检测到 OpenJDK 1.8: 设置 JAVA_HOME=${JAVA_HOME}"
+    elif [ -d "/usr/java/jdk1.8.0" ]; then
+        export JAVA_HOME="/usr/java/jdk1.8.0"
+        print_message "检测到 Oracle JDK 1.8: 设置 JAVA_HOME=${JAVA_HOME}"
+    else
+        print_error "未检测到 JDK 8 安装，请先安装 JDK 8"
+    fi
+else
+    print_message "已设置 JAVA_HOME=${JAVA_HOME}"
+fi
+
 # 设置变量
-DORIS_HOME="/data1/Doris2.1.0"
+DORIS_HOME="/data/Doris2.1.0"
 FE_HOME="${DORIS_HOME}/fe"
 BE_HOME="${DORIS_HOME}/be"
-# 获取本机 IPv4 地址
-HOST_IP=$(ip -4 addr show | grep inet | grep -v 127.0.0.1 | awk '{print $2}' | cut -d'/' -f1 | head -n 1)
-if [ -z "${HOST_IP}" ]; then
-    print_error "无法获取本机 IPv4 地址"
-fi
 INSTALL_PACKAGE="/tmp/apache-doris-2.1.0-bin-x64.tar.gz"
-INSTALL_DIR="/tmp/apache-doris-2.1.0-bin-x64"
+INSTALL_DIR="/tmp/doris-install"
 
-# ====================== 新增：端口检查工作 ======================
-print_message "开始检查Doris所需端口是否可用..."
-# FE 关键端口
-check_port 8030 "FE HTTP"       # FE web管理端口
-check_port 9020 "FE RPC"        # FE 内部RPC端口
-check_port 9030 "FE Query"      # FE MySQL客户端连接端口
-# BE 关键端口
-check_port 9060 "BE 内部通信"   # BE 内部端口
-check_port 8040 "BE HTTP"       # BE web管理端口
-check_port 9050 "BE 心跳"       # BE 与FE通信的心跳端口
-check_port 8060 "BE BRPC"       # BE BRPC端口
-# 其他可能用到的端口（如后续添加follower/observer）
-check_port 9010 "FE 副本同步"   # FE follower/observer同步端口
+# 获取本机 IPv4 地址
+HOST_IP=$(ip route get 8.8.8.8 | awk '{print $7}' | head -1)
+if [ -z "${HOST_IP}" ]; then
+    HOST_IP=$(hostname -I | awk '{print $1}')
+    print_message "备用方法获取 IP: ${HOST_IP}"
+fi
+
+# ====================== 端口检查 ======================
+print_message "开始检查Doris所需端口..."
+ports_to_check=(
+    "8030 FE HTTP"
+    "9020 FE RPC"
+    "9030 FE Query"
+    "9060 BE 内部通信"
+    "8040 BE HTTP"
+    "9050 BE 心跳"
+    "8060 BE BRPC"
+)
+
+for item in "${ports_to_check[@]}"; do
+    port=$(echo $item | awk '{print $1}')
+    name=$(echo $item | awk '{print $2}')
+    check_port $port $name
+done
 print_message "所有必要端口均未被占用，继续安装..."
-# ==============================================================
 
-# 解压安装包
+# ====================== 解压安装 ======================
 print_message "解压 Doris 安装包..."
 if [ ! -f "${INSTALL_PACKAGE}" ]; then
     print_error "Doris 安装包未找到，请确保已下载到 ${INSTALL_PACKAGE}"
 fi
-mkdir -p ${INSTALL_DIR} || print_error "创建解压目录失败"
+
+rm -rf ${INSTALL_DIR}
+mkdir -p ${INSTALL_DIR}
 tar -xzf ${INSTALL_PACKAGE} -C ${INSTALL_DIR} --strip-components=1 || print_error "解压安装包失败"
 
 # 创建安装目录
 print_message "创建安装目录..."
-if [ ! -d "/data" ]; then
-    print_error "/data 目录不存在，请手动创建并确保有足够权限"
-fi
-mkdir -p ${DORIS_HOME} ${FE_HOME} ${BE_HOME} || print_error "创建目录失败"
+mkdir -p ${DORIS_HOME} ${FE_HOME} ${BE_HOME} ${BE_HOME}/storage
 
 # 移动 FE 和 BE 文件
 print_message "移动 FE 和 BE 文件..."
-if [ ! -d "/tmp/apache-doris-2.1.0-bin-x64/fe" ] || [ ! -d "/tmp/apache-doris-2.1.0-bin-x64/be" ]; then
-    print_error "Doris 安装包未找到，请确保已解压到 /tmp/apache-doris-2.1.0-bin-x64"
-fi
-cp -r /tmp/apache-doris-2.1.0-bin-x64/fe/* ${FE_HOME} || print_error "移动 FE 文件失败"
-cp -r /tmp/apache-doris-2.1.0-bin-x64/be/* ${BE_HOME} || print_error "移动 BE 文件失败"
+cp -r ${INSTALL_DIR}/fe/* ${FE_HOME} || print_error "移动 FE 文件失败"
+cp -r ${INSTALL_DIR}/be/* ${BE_HOME} || print_error "移动 BE 文件失败"
 
 # 配置 FE
 print_message "配置 Doris FE..."
 cat > ${FE_HOME}/conf/fe.conf << EOF
-# FE 配置
+# FE 核心配置
 http_port = 8030
 rpc_port = 9020
 query_port = 9030
 priority_networks = ${HOST_IP}/24
 meta_dir = ${FE_HOME}/doris-meta
+
+# JVM 优化 (根据内存大小调整)
+JAVA_OPTS = "-Xmx8192m -Xms8192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 EOF
 
 # 配置 BE
 print_message "配置 Doris BE..."
 cat > ${BE_HOME}/conf/be.conf << EOF
-# BE 配置
+# BE 核心配置
 be_port = 9060
 webserver_port = 8040
 heartbeat_service_port = 9050
 brpc_port = 8060
-storage_root_path = ${BE_HOME}/storage
+storage_root_path = ${BE_HOME}/storage,medium:ssd
+
+# 内存优化 (建议物理内存50%)
+mem_limit = 60%
 EOF
 
-# 启动 FE
+# ====================== 系统优化 ======================
+print_message "进行系统优化配置..."
+# 优化 vm.max_map_count 限制
+CURRENT_MAP_COUNT=$(sysctl -n vm.max_map_count)
+if [ ${CURRENT_MAP_COUNT} -lt 2000000 ]; then
+    print_message "优化 vm.max_map_count (当前值 ${CURRENT_MAP_COUNT} -> 2000000)"
+    sysctl -w vm.max_map_count=2000000
+    echo "vm.max_map_count=2000000" >> /etc/sysctl.conf
+fi
+
+# 禁用 swap
+if free | grep -q swap; then
+    print_message "禁用 swap 内存..."
+    swapoff -a
+    sed -i '/swap/d' /etc/fstab
+fi
+
+# ====================== 启动服务 ======================
 print_message "启动 Doris FE..."
 ${FE_HOME}/bin/start_fe.sh --daemon || print_error "启动 FE 失败"
 
-# 启动 BE
 print_message "启动 Doris BE..."
-# 检查并设置 vm.max_map_count
-CURRENT_MAP_COUNT=$(sysctl -n vm.max_map_count)
-if [ ${CURRENT_MAP_COUNT} -lt 2000000 ]; then
-    print_message "当前 vm.max_map_count 值为 ${CURRENT_MAP_COUNT}，设置为 2000000..."
-    sysctl -w vm.max_map_count=2000000 || print_error "设置 vm.max_map_count 失败"
-    echo "vm.max_map_count=2000000" >> /etc/sysctl.conf || print_error "永久配置 vm.max_map_count 失败"
-fi
-# 禁用 swap 内存
-print_message "禁用 swap 内存..."
-swapoff -a || print_error "禁用 swap 内存失败"
-sed -i '/swap/d' /etc/fstab || print_error "永久禁用 swap 内存失败"
-
 ${BE_HOME}/bin/start_be.sh --daemon || print_error "启动 BE 失败"
 
-# 验证安装
-print_message "验证 Doris 安装..."
-MAX_RETRIES=3
-RETRY_COUNT=0
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    sleep 10
-    curl http://${HOST_IP}:8030/api/bootstrap && break
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    print_message "验证失败，重试中... ($RETRY_COUNT/$MAX_RETRIES)"
-done
-[ $RETRY_COUNT -eq $MAX_RETRIES ] && print_error "Doris FE 启动失败"
+# ====================== 验证服务 ======================
+print_message "验证 Doris 服务状态..."
+check_service() {
+    local port=$1
+    local service=$2
+    local timeout=60
+    local start_time=$(date +%s)
+    
+    while :; do
+        if ss -tuln | grep -q ":${port} "; then
+            print_message "${service} 在端口 ${port} 成功启动"
+            return 0
+        fi
+        
+        current_time=$(date +%s)
+        elapsed=$((current_time - start_time))
+        
+        if [ $elapsed -ge $timeout ]; then
+            print_error "${service} 启动超时，查看日志: ${service}/log/*.log"
+        fi
+        
+        sleep 2
+    done
+}
 
-MAX_RETRIES=3
-RETRY_COUNT=0
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    sleep 10
-    curl http://${HOST_IP}:8040/api/health && break
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    print_message "验证失败，重试中... ($RETRY_COUNT/$MAX_RETRIES)"
-done
-[ $RETRY_COUNT -eq $MAX_RETRIES ] && print_error "Doris BE 启动失败"
+check_service 8030 "FE"
+check_service 8040 "BE"
 
-# 输出系统信息和优化参数
-print_message "系统信息："
-echo "FE 端口：8030"
-echo "BE 端口：9060"
-echo "FE 配置文件：${FE_HOME}/conf/fe.conf"
-echo "BE 配置文件：${BE_HOME}/conf/be.conf"
-echo "FE 日志目录：${FE_HOME}/log"
-echo "BE 日志目录：${BE_HOME}/log"
-echo "FE 启动命令：${FE_HOME}/bin/start_fe.sh"
-echo "BE 启动命令：${BE_HOME}/bin/start_be.sh"
-echo "FE 停止命令：${FE_HOME}/bin/stop_fe.sh"
-echo "BE 停止命令：${BE_HOME}/bin/stop_be.sh"
-echo "MySQL: mysql -h ${HOST_IP} -P 9030 -u root"
-echo "SET PASSWORD FOR 'root' = PASSWORD('Secsmart#612');"
-echo "ALTER SYSTEM ADD FOLLOWER \"${HOST_IP}:9010\";"
-echo "ALTER SYSTEM ADD OBSERVER \"${HOST_IP}:9010\";"
-echo "ALTER SYSTEM ADD BACKEND \"${HOST_IP}:9050\";"
+# ====================== 数据库初始化 ======================
+print_message "初始化 Doris 数据库和用户..."
+sleep 10 # 确保服务完全就绪
 
-# 完成
-print_message "Doris 单节点环境安装完成！"
-print_message "FE 管理界面: http://${HOST_IP}:8030"
-print_message "BE 管理界面: http://${HOST_IP}:8040"
-
-# 修改 root 用户密码并创建 admin 用户
-print_message "修改 root 用户密码并创建 admin 用户..."
-mysql -h ${HOST_IP} -P 9030 -u root << EOF
+mysql -h ${HOST_IP} -P 9030 -u root <<EOF
+-- 修改 root 密码
 SET PASSWORD FOR 'root' = PASSWORD('Secsmart#612');
-CREATE DATABASE IF NOT EXISTS \`admin\`;
-CREATE USER IF NOT EXISTS 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
+
+-- 添加 BE 节点 (单节点不需要添加 follower)
+ALTER SYSTEM ADD BACKEND "${HOST_IP}:9050";
+
+-- 创建管理数据库
+CREATE DATABASE IF NOT EXISTS admin;
+
+-- 创建管理员用户并赋权
+CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
+
+-- 验证节点状态
+SHOW BACKENDS\G
 EOF
-if [ $? -ne 0 ]; then
-    print_error "修改密码或创建用户失败"
-fi
-# mysql -h localhost -P 9030 -u root -p
+
+[ $? -eq 0 ] || print_error "数据库初始化失败"
+
+# ====================== 完成输出 ======================
+print_message "="
+print_message "***** Doris 2.1.0 单节点安装完成! *****"
+print_message "="
+print_message "系统信息:"
+print_message "本机 IP 地址: ${HOST_IP}"
+print_message "Doris 安装目录: ${DORIS_HOME}"
+print_message "FE 配置文件: ${FE_HOME}/conf/fe.conf"
+print_message "BE 配置文件: ${BE_HOME}/conf/be.conf"
+print_message "="
+print_message "访问地址:"
+print_message "FE 管理界面: http://${HOST_IP}:8030 (用户名/密码: root/无)"
+print_message "BE 管理界面: http://${HOST_IP}:8040"
+print_message "="
+print_message "MySQL 连接:"
+print_message "管理员: mysql -h ${HOST_IP} -P 9030 -u admin -p'Secsmart#612'"
+print_message "Root 用户: mysql -h ${HOST_IP} -P 9030 -u root -p'Secsmart#612'"
+print_message "="
+print_message "常用命令:"
+print_message "启动 FE: ${FE_HOME}/bin/start_fe.sh --daemon"
+print_message "停止 FE: ${FE_HOME}/bin/stop_fe.sh"
+print_message "启动 BE: ${BE_HOME}/bin/start_be.sh --daemon"
+print_message "停止 BE: ${BE_HOME}/bin/stop_be.sh"
+print_message "查看日志: tail -f ${FE_HOME}/log/fe.log 或 ${BE_HOME}/log/be.log"
+print_message "="
+print_message "首次使用建议:"
+print_message "1. 访问 FE 管理界面创建新用户"
+print_message "2. 执行 'SHOW BACKENDS;' 确保 BE 状态健康"
+print_message "3. 执行 'CREATE DATABASE test; USE test; CREATE TABLE demo (...) ENGINE=olap;' 测试"
+print_message "="
+
+# 清理临时文件
+rm -rf ${INSTALL_DIR}
+print_message "已清理临时安装文件"

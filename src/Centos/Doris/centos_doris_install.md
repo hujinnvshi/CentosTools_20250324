@@ -13,15 +13,17 @@ ALTER SYSTEM ADD BACKEND "172.16.32.143:9050";
 create database testdb;
  
 -- create a test table
-CREATE TABLE testdb.table_hash
-(
+CREATE TABLE testdb.table_hash (
     k1 TINYINT,
     k2 DECIMAL(10, 2) DEFAULT "10.5",
     k3 VARCHAR(10) COMMENT "string column",
     k4 INT NOT NULL DEFAULT "1" COMMENT "int column"
 )
 COMMENT "my first table"
-DISTRIBUTED BY HASH(k1) BUCKETS 32;
+DISTRIBUTED BY HASH(k1) BUCKETS 32
+PROPERTIES (
+    "replication_num" = "1"  -- 👉 关键修复：覆盖默认副本数
+);
 
 
 -- insert data
