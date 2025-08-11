@@ -155,7 +155,7 @@ security:
   keyFile: ${KEYFILE}
   authorization: disabled
 setParameter:
-  enableLocalhostAuthBypass: false
+  enableLocalhostAuthBypass: true
 EOF
 
   chown "$USER":"$USER" "$conf"
@@ -239,7 +239,7 @@ if ! $already_in_rs; then
   # 生成 js 并执行 init（使用认证）
   init_js="rs.initiate({ _id: \"${REPL_NAME}\", ${members_js} })"
   echo "执行 rs.initiate: ${init_js}"
-  
+
   mongosh --quiet --port ${PRIMARY_PORT} --eval "${init_js}"
   echo "等待副本集选举完成（最多 30 秒）..."
   
@@ -253,62 +253,8 @@ if ! $already_in_rs; then
     fi
     sleep 1
   done
-
 fi
 
-### ====== 7. 创建管理员账户 ======
-echo "[7/8] 创建管理员账户..."
-PRIMARY_PORT=${ACTUAL_PORTS[0]}
-HOST_IP=$(hostname -I | awk '{print $1}')
-
-# 创建管理员账户（在禁用认证状态下）
-mongosh --quiet --port ${PRIMARY_PORT} --eval "
-db = db.getSiblingDB('admin');
-if (db.getUser('${ADMIN_USER}') == null) {
-  db.createUser({user: '${ADMIN_USER}', pwd: '${ADMIN_PWD}', roles: ['root']});
-  print('管理员账户创建成功');
-} else {
-  print('管理员账户已存在，跳过创建');
-  db.changeUserPassword('admin', '${ADMIN_PWD}');
-}"
-
-### ====== 8. 启用认证并初始化副本集 ======
-echo "[8/8] 启用认证并初始化副本集..."
-# 启用认证
-echo "启用认证并重启服务..."
-for i in "${!ACTUAL_PORTS[@]}"; do
-  idx=$((i+1))
-  inst_dir="${BASE_DIR}/node${idx}"
-  conf="${inst_dir}/conf/mongod.conf"
-
-  # 修改配置文件启用认证
-  sed -i 's/authorization: disabled/authorization: enabled/' "$conf"
-  
-  # 重启服务
-  systemctl restart "${SERVICE_PREFIX}-${idx}.service"
-  sleep 1
-done
-
-# 等待实例重启就绪
-echo "等待实例重启就绪（最多 20 秒）..."
-for attempt in {1..20}; do
-  ready=true
-  for port in "${ACTUAL_PORTS[@]}"; do
-    if ! ss -ltn "( sport = :${port} )" >/dev/null 2>&1; then
-      ready=false
-    fi
-  done
-  $ready && break
-  sleep 1
-done
-
-# 验证认证是否生效
-echo "验证认证是否生效..."
-if mongosh --quiet --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p ${ADMIN_PWD} --authenticationDatabase admin --eval "db.runCommand({connectionStatus:1})" | grep -q "authenticatedUsers"; then
-  echo "认证已成功启用"
-else
-  echo "警告: 认证可能未正确启用"
-fi
 
 echo
 echo "部署完成！信息汇总："
@@ -351,19 +297,18 @@ echo " - 若要开放防火墙端口，请自行调整防火墙策略。"
 echo " - 本脚本在单机上模拟三节点，生产环境建议不同物理/虚拟机部署。"
 echo
 # 生成 start/stop 管理脚本
-cat > /usr/local/bin/mongo-cluster-start.sh <<'EOF'
+cat > ${BASE_DIR}/mongo-cluster-start.sh <<'EOF'
 #!/bin/bash
-systemctl start mongod-multi-1.service
-systemctl start mongod-multi-2.service
-systemctl start mongod-multi-3.service
+systemctl start "${SERVICE_PREFIX}-1.service"
+systemctl start "${SERVICE_PREFIX}-2.service"
+systemctl start "${SERVICE_PREFIX}-3.service"
 EOF
-cat > /usr/local/bin/mongo-cluster-stop.sh <<'EOF'
+cat > ${BASE_DIR}/mongo-cluster-stop.sh <<'EOF'
 #!/bin/bash
-systemctl stop mongod-multi-3.service
-systemctl stop mongod-multi-2.service
-systemctl stop mongod-multi-1.service
+systemctl stop "${SERVICE_PREFIX}-3.service"
+systemctl stop "${SERVICE_PREFIX}-2.service"
+systemctl stop "${SERVICE_PREFIX}-1.service"
 EOF
-chmod +x /usr/local/bin/mongo-cluster-start.sh /usr/local/bin/mongo-cluster-stop.sh
-
-echo "一键启动脚本： /usr/local/bin/mongo-cluster-start.sh"
-echo "一键停止脚本： /usr/local/bin/mongo-cluster-stop.sh"
+chmod +x ${BASE_DIR}/mongo-cluster-start.sh ${BASE_DIR}/mongo-cluster-stop.sh
+echo "一键启动脚本： ${BASE_DIR}/mongo-cluster-start.sh"
+echo "一键停止脚本： ${BASE_DIR}/mongo-cluster-stop.sh"
