@@ -3,11 +3,10 @@
 # mongo3_repl_install.sh
 # 一键在单机部署 3 节点 MongoDB 副本集 (CentOS 7.9)
 #
-# 要点：
-# - 三节点端口：27017, 27018, 27019
-# - 每个实例独立 data/log/conf/pid，二进制共享
-# - 使用 keyFile 做节点间认证，并启用 authorization (生产应更谨慎)
-# - 自动生成 systemd unit，启用并启动
+# 优化点：
+# - 添加端口冲突检查与自动替换功能
+# - 提供详细的连接测试信息
+# - 增强错误处理和日志输出
 #
 # 使用：
 #   sudo ./mongo3_repl_install.sh
@@ -17,10 +16,10 @@ IFS=$'\n\t'
 
 ### ====== 可配置项（如需修改） ======
 MONGO_VERSION="6.0.4"
-MONGO_PACKAGE="/tmp/mongodb-linux-x86_64-rhel70-6.0.4.tgz"   # 本地包路径，修改为实际路径
-BASE_DIR="/data/mongo-cluster"                              # 集群安装基准目录
+MONGO_PACKAGE="/tmp/mongodb-linux-x86_64-rhel70-6.0.4.tgz"  # 本地包路径，修改为实际路径
+BASE_DIR="/data/mongo_cluster_"$MONGO_VERSION               # 集群安装基准目录
 BIN_DIR="${BASE_DIR}/bin"                                   # 二进制放置目录
-USER="mongod"                                               # 运行用户
+USER="mongod_"$MONGO_VERSION                                # 运行用户
 REPL_NAME="rs0"                                             # 副本集名字
 PORTS=(27017 27018 27019)                                   # 三个实例端口
 ADMIN_USER="admin"
@@ -28,7 +27,7 @@ ADMIN_PWD="Secsmart#612"                                    # 创建的管理员
 MONGOSH_RPM_URL="https://downloads.mongodb.com/compass/mongodb-mongosh-1.10.6.x86_64.rpm"
 
 # systemd unit 名称前缀
-SERVICE_PREFIX="mongod-multi"
+SERVICE_PREFIX="mongod_multi_"$MONGO_VERSION
 
 ### ====== 基础检查 ======
 if [[ "$(id -u)" -ne 0 ]]; then
@@ -108,6 +107,8 @@ fi
 
 ### ====== 5. 生成每个节点配置文件 & systemd unit ======
 echo "[5/8] 生成实例配置与 systemd unit..."
+ACTUAL_PORTS=()  # 存储实际使用的端口
+
 for i in "${!PORTS[@]}"; do
   idx=$((i+1))
   port=${PORTS[i]}
@@ -116,6 +117,21 @@ for i in "${!PORTS[@]}"; do
   log="${inst_dir}/logs/mongod.log"
   pidfile="${inst_dir}/pid/mongod.pid"
   dbpath="${inst_dir}/data"
+
+  # 检查端口是否被占用
+  original_port=$port
+  while ss -tuln | grep -q ":$port "; do
+    echo "警告: 端口 $port 已被占用，尝试新端口..."
+    port=$((port + 1))
+  done
+  
+  # 如果端口被替换，记录信息
+  if [[ "$port" != "$original_port" ]]; then
+    echo "节点 ${idx} 端口从 ${original_port} 替换为 ${port}"
+  fi
+  
+  # 存储实际使用的端口
+  ACTUAL_PORTS+=("$port")
 
   cat > "$conf" <<EOF
 # MongoDB ${MONGO_VERSION} instance (node${idx})
@@ -177,7 +193,7 @@ done
 
 ### ====== 6. 启动所有实例 ======
 echo "[6/8] 启动所有 mongod 实例..."
-for i in "${!PORTS[@]}"; do
+for i in "${!ACTUAL_PORTS[@]}"; do
   idx=$((i+1))
   systemctl start "${SERVICE_PREFIX}-${idx}.service"
   sleep 1
@@ -187,7 +203,7 @@ done
 echo "等待实例就绪（最多 20 秒）..."
 for attempt in {1..20}; do
   ready=true
-  for port in "${PORTS[@]}"; do
+  for port in "${ACTUAL_PORTS[@]}"; do
     if ! ss -ltn "( sport = :${port} )" >/dev/null 2>&1; then
       ready=false
     fi
@@ -198,7 +214,7 @@ done
 
 ### ====== 7. 初始化副本集（如果尚未初始化） ======
 echo "[7/8] 初始化副本集（若已初始化则跳过）..."
-PRIMARY_PORT=${PORTS[0]}
+PRIMARY_PORT=${ACTUAL_PORTS[0]}
 HOST_IP=$(hostname -I | awk '{print $1}')
 
 # 检查是否已属于副本集（从第一个节点获取 rs.status）
@@ -211,9 +227,9 @@ fi
 if ! $already_in_rs; then
   # 构造 members 列表
   members_js="members: ["
-  for i in "${!PORTS[@]}"; do
+  for i in "${!ACTUAL_PORTS[@]}"; do
     idx=$((i))
-    port=${PORTS[i]}
+    port=${ACTUAL_PORTS[i]}
     members_js="${members_js}{ _id: ${i}, host: \"${HOST_IP}:${port}\" },"
   done
   # 去掉末尾逗号
@@ -252,8 +268,8 @@ echo
 echo "部署完成！信息汇总："
 echo "-------------------------------"
 echo "Base dir: ${BASE_DIR}"
-for i in "${!PORTS[@]}"; do
-  idx=$((i+1)); port=${PORTS[i]}
+for i in "${!ACTUAL_PORTS[@]}"; do
+  idx=$((i+1)); port=${ACTUAL_PORTS[i]}
   echo "Node${idx}: data=${BASE_DIR}/node${idx}/data, log=${BASE_DIR}/node${idx}/logs/mongod.log, port=${port}"
 done
 echo "ReplicaSet name: ${REPL_NAME}"
@@ -262,11 +278,26 @@ echo "Admin password: ${ADMIN_PWD}"
 echo "Keyfile: ${KEYFILE}"
 echo
 echo "管理命令示例："
-echo "  systemctl status ${SERVICE_PREFIX}-1.service"
-echo "  systemctl status ${SERVICE_PREFIX}-2.service"
-echo "  systemctl status ${SERVICE_PREFIX}-3.service"
-echo "连接 PRIMARY："
-echo "  mongosh --host ${HOST_IP} --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p '${ADMIN_PWD}' --authenticationDatabase admin"
+for i in "${!ACTUAL_PORTS[@]}"; do
+  idx=$((i+1))
+  echo "  systemctl status ${SERVICE_PREFIX}-${idx}.service"
+done
+echo
+echo "连接测试信息："
+echo "1. 连接到 PRIMARY 节点:"
+echo "   mongosh --host ${HOST_IP} --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p '${ADMIN_PWD}' --authenticationDatabase admin"
+echo
+echo "2. 副本集状态检查:"
+echo "   mongosh --host ${HOST_IP} --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p '${ADMIN_PWD}' --authenticationDatabase admin --eval \"rs.status()\""
+echo
+echo "3. 节点列表检查:"
+echo "   mongosh --host ${HOST_IP} --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p '${ADMIN_PWD}' --authenticationDatabase admin --eval \"rs.conf().members\""
+echo
+echo "4. 数据库列表检查:"
+echo "   mongosh --host ${HOST_IP} --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p '${ADMIN_PWD}' --authenticationDatabase admin --eval \"show dbs\""
+echo
+echo "5. 创建测试数据库:"
+echo "   mongosh --host ${HOST_IP} --port ${PRIMARY_PORT} -u ${ADMIN_USER} -p '${ADMIN_PWD}' --authenticationDatabase admin --eval \"use testdb; db.test.insertOne({name: 'test'}); db.test.find()\""
 echo
 echo "注意："
 echo " - 脚本启用了 keyFile 与 authorization，用于生产环境更安全。"
