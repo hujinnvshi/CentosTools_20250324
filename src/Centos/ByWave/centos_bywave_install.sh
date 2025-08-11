@@ -16,7 +16,7 @@ TMP_FILE=$(mktemp)
 echo "📥 正在下载订阅..."
 curl -sL "$SUB_URL" -o "$TMP_FILE"
 
-# 检测是否 Base64
+# 如果是 Base64 格式的订阅，先解码
 if base64 -d "$TMP_FILE" >/dev/null 2>&1; then
     base64 -d "$TMP_FILE" > "${TMP_FILE}_decoded"
     mv "${TMP_FILE}_decoded" "$TMP_FILE"
@@ -30,18 +30,28 @@ while read -r line; do
     [[ -z "$line" ]] && continue
     [[ "${line:0:5}" != "ss://" ]] && continue
 
+    # 去掉 ss:// 前缀
     url="${line#ss://}"
-    url="${url%%#*}" # 去掉备注
 
+    # 分离备注
+    remark=""
+    if [[ "$url" == *"#"* ]]; then
+        remark="${url#*#}"
+        url="${url%%#*}"
+    fi
+
+    # 分离插件参数
     plugin_opts=""
     if [[ "$url" == *"?"* ]]; then
         plugin_opts="${url#*\?}"
         url="${url%%\?*}"
     fi
 
+    # 分离用户信息和服务器信息
     userinfo="${url%@*}"
     serverinfo="${url#*@}"
 
+    # Base64 解码用户信息
     method_pass=$(echo "$userinfo" | base64 -d 2>/dev/null || echo "$userinfo")
     method="${method_pass%%:*}"
     password="${method_pass#*:}"
@@ -49,24 +59,31 @@ while read -r line; do
     server="${serverinfo%%:*}"
     port="${serverinfo##*:}"
 
+    # 只保留数字端口
+    port=$(echo "$port" | tr -cd '0-9')
+
+    # 处理插件参数（解码百分号）
     decoded_opts=$(printf '%b' "${plugin_opts//%/\\x}")
     safe_opts=$(printf '%s' "$decoded_opts" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
+    # 生成配置文件
     config_file="$OUTPUT_DIR/node${i}.json"
-    cat > "$config_file" <<EOF
-{
-    "server": "$server",
-    "server_port": $port,
-    "local_address": "0.0.0.0",
-    "local_port": 1080,
-    "password": "$password",
-    "timeout": 300,
-    "method": "$method",
-    "plugin": "obfs-local",
-    "plugin_opts": "$safe_opts",
-    "fast_open": true
-}
-EOF
+    {
+        echo "{"
+        echo "    \"server\": \"$server\","
+        echo "    \"server_port\": $port,"
+        echo "    \"local_address\": \"127.0.0.1\","
+        echo "    \"local_port\": 1080,"
+        echo "    \"password\": \"$password\","
+        echo "    \"timeout\": 300,"
+        echo "    \"method\": \"$method\","
+        if [[ -n "$safe_opts" ]]; then
+            echo "    \"plugin\": \"obfs-local\","
+            echo "    \"plugin_opts\": \"$safe_opts\","
+        fi
+        echo "    \"fast_open\": true"
+        echo "}"
+    } > "$config_file"
 
     NODES+=("$server|$config_file")
     echo "✅ 已生成: $config_file"
@@ -84,7 +101,7 @@ for entry in "${NODES[@]}"; do
     config="${entry##*|}"
 
     ping_ms=$(ping -c 1 -W 1 "$server" 2>/dev/null | grep 'time=' | awk -F'time=' '{print $2}' | cut -d' ' -f1)
-    ping_ms=${ping_ms%.*}  # 去小数
+    ping_ms=${ping_ms%.*}
     if [[ -z "$ping_ms" ]]; then
         ping_ms=99999
     fi
