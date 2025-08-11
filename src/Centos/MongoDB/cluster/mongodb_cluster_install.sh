@@ -24,7 +24,6 @@ REPL_NAME="rs0"                                             # 副本集名字
 PORTS=(27017 27018 27019)                                   # 三个实例端口
 ADMIN_USER="admin"
 ADMIN_PWD="Secsmart#612"                                    # 创建的管理员密码（可改）
-MONGOSH_RPM_URL="https://downloads.mongodb.com/compass/mongodb-mongosh-1.10.6.x86_64.rpm"
 
 # systemd unit 名称前缀
 SERVICE_PREFIX="mongod_multi_"$MONGO_VERSION
@@ -88,7 +87,6 @@ cp -r "${extracted}/bin/"* "$BIN_DIR/"
 chmod +x "$BIN_DIR/"*
 ln -sf "$BIN_DIR/mongod" /usr/bin/mongod
 ln -sf "$BIN_DIR/mongos" /usr/bin/mongos
-ln -sf "$BIN_DIR/mongosh" /usr/bin/mongosh || true  # 若包内含mongosh
 
 rm -rf "$tmpdir"
 chown -R "$USER":"$USER" "$BIN_DIR"
@@ -152,7 +150,7 @@ net:
 replication:
   replSetName: ${REPL_NAME}
 security:
-  authorization: enabled
+  authorization: disabled
   keyFile: ${KEYFILE}
 setParameter:
   enableLocalhostAuthBypass: false
@@ -237,7 +235,7 @@ if ! $already_in_rs; then
 
   # 生成 js 并执行 init
   init_js="rs.initiate({ _id: \"${REPL_NAME}\", ${members_js} })"
-  echo "执行 rs.initiate ..."
+  echo "执行 rs.initiate: ${init_js}"
   mongosh --quiet --port ${PRIMARY_PORT} --eval "${init_js}"
   echo "等待副本集选举完成（最多 30 秒）..."
   # 等待 PRIMARY 出现
