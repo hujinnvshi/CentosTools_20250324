@@ -17,7 +17,7 @@ IFS=$'\n\t'
 
 ### ====== 可配置项（如需修改） ======
 MONGO_VERSION="6.0.4"
-MONGO_PACKAGE="/tmp/mongodb-linux-x86_64-rhel70-6.0.4.tgz"  # 本地包路径，修改为实际路径
+MONGO_PACKAGE="/tmp/mongodb-linux-x86_64-rhel70-${MONGO_VERSION}.tgz"  # 本地包路径，修改为实际路径
 BASE_DIR="/data/mongo_cluster_"$MONGO_VERSION               # 集群安装基准目录
 BIN_DIR="${BASE_DIR}/bin"                                   # 二进制放置目录
 USER="mongod_"$MONGO_VERSION                                # 运行用户
