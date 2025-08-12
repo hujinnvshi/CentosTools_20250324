@@ -11,7 +11,7 @@ ESXI_USER="root"
 ESXI_PASSWORD='Secsmart#612'  # 修复转义问题（单引号避免不必要转义）
 PROMETHEUS_HOST="172.16.47.185"
 PROMETHEUS_PORT="9091"        # 更正端口：9090是标准Prometheus端口
-GRAFANA_DASHBOARD_ID="10826"  # ESXi 主机性能仪表板
+GRAFANA_DASHBOARD_ID="10826"  # ESXi 主机性能仪表板13659（不好用自己设计）
 TELEGRAF_PORT="9273"          # 新增 Telegraf 端口
 
 # 检查 root 权限

@@ -14,3 +14,7 @@ root / Secsmart
 
 # 手动测试
  telegraf --config /etc/telegraf/telegraf.d/esxi.conf --test
+# 测试展示
+ sum by (vcenter) (vsphere_vm_virtualDisk_write_average)
+ sum by (vcenter) (vsphere_vm_virtualDisk_read_average)
+ 
