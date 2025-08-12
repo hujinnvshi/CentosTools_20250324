@@ -10,7 +10,7 @@ ESXI_HOSTS=("172.16.48.11" "172.16.48.12" "172.16.48.13" "172.16.48.14" "172.16.
 ESXI_USER="root"
 ESXI_PASSWORD='Secsmart#612'  # 修复转义问题（单引号避免不必要转义）
 PROMETHEUS_HOST="172.16.47.185"
-PROMETHEUS_PORT="9090"        # 更正端口：9090是标准Prometheus端口
+PROMETHEUS_PORT="9091"        # 更正端口：9090是标准Prometheus端口
 GRAFANA_DASHBOARD_ID="10826"  # ESXi 主机性能仪表板
 
 # 检查 root 权限
@@ -41,7 +41,8 @@ EOF
     
     # 安装 Telegraf
     yum update -y
-    yum install -y telegraf-${TELEGRAF_VERSION}
+    echo "安装 Telegraf..."
+    yum install -y telegraf --nogpgcheck
     
     # 验证安装
     telegraf --version
@@ -55,10 +56,11 @@ configure_telegraf() {
     # 动态生成vcenters配置
     vcenter_config=""
     for host in "${ESXI_HOSTS[@]}"; do
-        vcenter_config+="    \"https://${host}/sdk\",\n"
+        vcenter_config+=" \"https://${host}/sdk\", "
     done
     
     # 创建 ESXi 监控配置
+    mkdir -p /etc/telegraf/telegraf.d
     tee /etc/telegraf/telegraf.d/esxi.conf <<EOF
 [agent]
   interval = "60s"
@@ -68,14 +70,13 @@ configure_telegraf() {
   collection_jitter = "5s"
 
 [[inputs.vsphere]]
-  # ESXi 主机列表
   vcenters = [
-${vcenter_config::-3}  # 移除最后一个逗号和换行
+     ${vcenter_config::-2}
   ]
   
   # 认证信息
   username = "${ESXI_USER}"
-  password = '${ESXI_PASSWORD}'  # 单引号避免特殊字符问题
+  password = '${ESXI_PASSWORD}'
   
   # 安全设置
   insecure_skip_verify = true
@@ -83,22 +84,14 @@ ${vcenter_config::-3}  # 移除最后一个逗号和换行
   # 采集间隔
   interval = "60s"
   
-  # 采集内容
-  collect_only = ["datastore", "host", "vm"]
-  
   # 高级设置
   max_query_metrics = 256
   timeout = "30s"
   host_include = ["/"]
   
-  # 性能优化
-  [inputs.vsphere.discovery]
-    discover_concurrency = 8
-    collect_concurrency = 4
-
 [[outputs.prometheus_client]]
   # 监听地址和端口
-  listen = ":9273"
+  listen = "${PROMETHEUS_HOST}:${PROMETHEUS_PORT}"
   
   # 指标格式版本
   metric_version = 2
@@ -114,24 +107,9 @@ ${vcenter_config::-3}  # 移除最后一个逗号和换行
     environment = "production"
     location = "datacenter1"
 EOF
-
     echo "Telegraf 配置完成"
 }
 
-# 步骤 3: 配置防火墙
-configure_firewall() {
-    echo "配置防火墙..."
-    
-    # 检查防火墙是否运行
-    if systemctl status firewalld &>/dev/null; then
-        # 开放 Telegraf 端口
-        firewall-cmd --zone=public --add-port=9273/tcp --permanent
-        firewall-cmd --reload
-        echo "防火墙配置完成"
-    else
-        echo "警告：firewalld 未运行，跳过防火墙配置"
-    fi
-}
 
 # 步骤 4: 启动服务
 start_services() {
@@ -247,7 +225,6 @@ main() {
     
     install_telegraf
     configure_telegraf
-    configure_firewall
     start_services
     verify_configuration
     configure_prometheus
