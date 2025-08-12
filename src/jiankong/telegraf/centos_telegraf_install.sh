@@ -78,7 +78,7 @@ configure_telegraf() {
   # 认证信息
   username = "${ESXI_USER}"
   password = '${ESXI_PASSWORD}'
-  
+
   # 安全设置
   insecure_skip_verify = true
   

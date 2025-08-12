@@ -11,3 +11,6 @@ Exsi 7.1 版本
 172.16.48.17
 172.16.48.18
 root / Secsmart
+
+# 手动测试
+ telegraf --config /etc/telegraf/telegraf.d/esxi.conf --test
