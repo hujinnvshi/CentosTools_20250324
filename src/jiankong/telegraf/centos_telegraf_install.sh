@@ -12,6 +12,7 @@ ESXI_PASSWORD='Secsmart#612'  # 修复转义问题（单引号避免不必要转
 PROMETHEUS_HOST="172.16.47.185"
 PROMETHEUS_PORT="9091"        # 更正端口：9090是标准Prometheus端口
 GRAFANA_DASHBOARD_ID="10826"  # ESXi 主机性能仪表板
+TELEGRAF_PORT="9273"          # 新增 Telegraf 端口
 
 # 检查 root 权限
 if [ "$(id -u)" != "0" ]; then
@@ -91,7 +92,7 @@ configure_telegraf() {
   
 [[outputs.prometheus_client]]
   # 监听地址和端口
-  listen = "${PROMETHEUS_HOST}:${PROMETHEUS_PORT}"
+  listen = "0.0.0.0:${TELEGRAF_PORT}"
   
   # 指标格式版本
   metric_version = 2
