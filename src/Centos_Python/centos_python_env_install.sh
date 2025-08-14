@@ -102,7 +102,7 @@ if ! command -v pyenv &> /dev/null; then
 fi
 
 # 安装Python 3.12（指定OpenSSL 1.1.1路径）
-echo "安装Python 3.12..."
+echo "安装Python 3.8.15."
 PYTHON_VERSION="3.8.15"
 
 # 检查是否已安装
