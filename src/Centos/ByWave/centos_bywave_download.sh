@@ -122,5 +122,4 @@ fi
 echo "🚀 启动最快节点 ($BEST_NODE) 延迟 ${BEST_PING}ms..."
 pkill -f ss-local
 nohup ss-local -c "$BEST_NODE" -u >/dev/null 2>&1 &
-
 echo "✅ 已启动，SOCKS5 代理监听在 127.0.0.1:1080"

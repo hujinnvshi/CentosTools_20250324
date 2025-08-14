@@ -18,3 +18,56 @@ root / Secsmart
  sum by (vcenter) (vsphere_vm_virtualDisk_write_average)
  sum by (vcenter) (vsphere_vm_virtualDisk_read_average)
  
+ # 查看版本
+ telegraf --version
+ Telegraf 1.35.3 (git: HEAD@b66e5091)
+# 配置文件
+cat /etc/telegraf/telegraf.d/esxi.conf
+
+我在使用 Telegraf 1.35.3 来时监控exsi主机，并上传到普罗米修斯，我的配置文件如下，请帮我检查我的配置是否有可以优化的点，二是还没有找到合适的grafana可视化界面，请帮我找一个。
+cat /etc/telegraf/telegraf.d/esxi.conf
+[agent]
+  interval = "60s"
+  round_interval = true
+  metric_batch_size = 1000
+  metric_buffer_limit = 10000
+  collection_jitter = "5s"
+
+[[inputs.vsphere]]
+  vcenters = [
+      "https://172.16.48.11/sdk",  "https://172.16.48.12/sdk",  "https://172.16.48.13/sdk",  "https://172.16.48.14/sdk",  "https://172.16.48.15/sdk",  "https://172.16.48.17/sdk",  "https://172.16.48.18/sdk"
+  ]
+  
+  # 认证信息
+  username = "root"
+  password = 'Secsmart#612'
+  
+  # 安全设置
+  insecure_skip_verify = true
+  
+  # 采集间隔
+  interval = "60s"
+  
+  # 高级设置
+  max_query_metrics = 256
+  timeout = "30s"
+  host_include = ["/"]
+  
+[[outputs.prometheus_client]]
+  # 监听地址和端口
+  listen = "0.0.0.0:9273"
+  
+  # 指标格式版本
+  metric_version = 2
+  
+  # 指标过期时间
+  expiration_interval = "120s"
+  
+  # 添加路径
+  path = "/metrics"
+  
+  # 添加标签
+  [outputs.prometheus_client.tags]
+    environment = "production"
+    location = "datacenter1"
+
