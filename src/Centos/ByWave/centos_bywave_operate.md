@@ -1,6 +1,6 @@
 # 安装
-chmod +x centos_bywave_install.sh
-sudo ./centos_bywave_install.sh "https://sub.bbwwvip.org/subscribe/435800/la8WuuCKoHfT"
+chmod +x centos_bywave_download.sh
+sudo ./centos_bywave_download.sh "https://sub.bbwwvip.org/subscribe/435800/la8WuuCKoHfT"
 
 
 # 手动重启
