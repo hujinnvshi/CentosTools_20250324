@@ -1,6 +1,6 @@
 #!/bin/bash
-# Shadowsocks 节点连通性测试脚本 (优化修复版)
-# 版本: 2.1
+# Shadowsocks 节点连通性测试脚本 (并行优化版)
+# 版本: 3.0
 # 作者: 网络性能专家
 # 最后更新: 2023-10-15
 
@@ -18,6 +18,7 @@ TMP_DIR=$(mktemp -d)
 PORT_BASE=10000
 MAX_RETRIES=2
 LOG_LEVEL="info"  # debug, info, warning, error
+MAX_CONCURRENT=5  # 最大并发测试数
 
 # 颜色定义
 RED='\033[0;31m'
@@ -280,7 +281,7 @@ EOF
     echo "详细报告: $detailed_report" >> "$summary_file"
 }
 
-# 主函数 (修复版)
+# 主函数 (并行优化版)
 main() {
     log info "===== Shadowsocks 节点连通性测试 =====" $PURPLE
     log info "开始时间: $(date)" $PURPLE
@@ -300,23 +301,46 @@ main() {
     
     log info "🔍 找到 ${#config_files[@]} 个节点配置文件" $BLUE
     
-    # 测试每个节点
+    # 创建任务数组
+    local tasks=()
     local port=$PORT_BASE
+    local running_tasks=0
+    
+    # 测试每个节点 (并行)
     for config in "${config_files[@]}"; do
         local node_name=$(basename "$config" .json)
-        log info "\n${BLUE}===== 测试节点: $node_name (端口 $port) =====${NC}" $BLUE
         
-        # 测试节点连通性
-        local test_results=$(test_node_connectivity "$config" "$port")
-        if [[ $? -eq 0 ]]; then
-            # 保存结果
-            echo "$test_results" | tr ' ' '\n' > "$TMP_DIR/$node_name.results"
-        else
-            log error "节点测试失败" $RED
-        fi
+        # 如果达到最大并发数，等待一个任务完成
+        while [[ $running_tasks -ge $MAX_CONCURRENT ]]; do
+            # 等待任意任务完成
+            wait -n
+            ((running_tasks--))
+        done
         
+        # 启动测试任务
+        (
+            log info "\n${BLUE}===== 测试节点: $node_name (端口 $port) =====${NC}" $BLUE
+            
+            # 测试节点连通性
+            local test_results=$(test_node_connectivity "$config" "$port")
+            if [[ $? -eq 0 ]]; then
+                # 保存结果
+                echo "$test_results" | tr ' ' '\n' > "$TMP_DIR/$node_name.results"
+            else
+                log error "节点测试失败" $RED
+            fi
+        ) &
+        
+        # 记录任务信息
+        tasks[$!]="$node_name"
+        ((running_tasks++))
         ((port++))
     done
+    
+    # 等待所有任务完成
+    log info "\n${PURPLE}等待所有节点测试完成...${NC}" $PURPLE
+    wait
+    log info "${PURPLE}所有节点测试完成${NC}" $PURPLE
     
     # 生成报告
     generate_detailed_report "$REPORT_FILE" "${config_files[@]}"
