@@ -1,20 +1,24 @@
 #!/bin/bash
 # Sybase ASE 15.7 CentOS 一键安装部署脚本
-# 版本: 1.2
+# 版本: 1.3
 # 作者: Rancher
 # 最后更新: 2025-08-20
 
 # 设置环境变量
-export SYBASE_USER="sybase157v1"
-export SYBASE_GROUP="sybase157v1"
-export SYBASE_HOME="/data/sybase157v1"
+export SYBASE_USER="sb157v1"  # 用户名长度不超过8字符
+export SYBASE_GROUP="sb157v1" # 组名长度不超过8字符
+export SYBASE_HOME="/data/sb157v1"
 export ASE_VERSION="15.7"
 export ASE_INSTALL_DIR="$SYBASE_HOME/ASE-$ASE_VERSION"
 export ASE_DATA_DIR="$SYBASE_HOME/data"
 export ASE_BACKUP_DIR="$SYBASE_HOME/backups"
 export ASE_INTERFACES="$SYBASE_HOME/interfaces"
-export ASE_INSTALL_FILE="ase157_linuxx86-64.tgz"  # 替换为实际文件名
+export ASE_INSTALL_FILE="ase157_linuxx86-64.tgz"
 export ASE_INSTALL_PATH="/tmp/$ASE_INSTALL_FILE"
+export SA_PASSWORD=${SA_PASSWORD:-"Secsmart#612"} # 可从环境变量获取密码
+
+# 设置严格模式
+set -euo pipefail
 
 # 检查是否以root用户运行
 check_root() {
@@ -36,7 +40,15 @@ check_install_file() {
 # 安装依赖包
 install_dependencies() {
     echo "安装系统依赖包..."
-    yum install -y glibc.i686 libaio libaio-devel ksh compat-libstdc++-33 redhat-lsb-core
+    
+    # 检测系统版本
+    if grep -q "CentOS Linux 8" /etc/os-release; then
+        echo "检测到CentOS 8，启用PowerTools仓库..."
+        dnf install -y epel-release
+        dnf config-manager --set-enabled powertools
+    fi
+    
+    yum install -y glibc.i686 libaio libaio-devel ksh redhat-lsb-core
 }
 
 # 创建Sybase用户和组
@@ -58,7 +70,6 @@ create_directories() {
     mkdir -p $ASE_DATA_DIR
     mkdir -p $ASE_BACKUP_DIR
     mkdir -p $ASE_INSTALL_DIR
-
     chown -R $SYBASE_USER:$SYBASE_GROUP $SYBASE_HOME
     chmod -R 755 $SYBASE_HOME
 }
@@ -66,7 +77,7 @@ create_directories() {
 # 解压安装文件
 extract_install_files() {
     echo "解压Sybase安装文件..."
-    su - "$SYBASE_USER" -c "tar -xzvf '$ASE_INSTALL_PATH' -C '$SYBASE_HOME'"
+    su - "$SYBASE_USER" -c "tar -xzvf '$ASE_INSTALL_PATH' -C '$ASE_INSTALL_DIR' --strip-components=1"
 }
 
 # 创建响应文件
@@ -101,8 +112,15 @@ EOF
 # 运行安装程序
 run_installer() {
     echo "开始安装Sybase ASE 15.7..."
-    cd $SYBASE_HOME/ASE-$ASE_VERSION/install
-    ./setup -console -f $SYBASE_HOME/ase_install.rs
+    cd $ASE_INSTALL_DIR/
+    ./setup.bin -console -f $SYBASE_HOME/ase_install.rs
+    
+    # 检查安装是否成功
+    if [ $? -ne 0 ]; then
+        echo "错误: Sybase安装失败"
+        echo "请检查日志: $SYBASE_HOME/ase_install.log"
+        exit 1
+    fi
 }
 
 # 配置环境变量
@@ -160,6 +178,10 @@ EOF
 # 设置内核参数
 configure_kernel_parameters() {
     echo "优化系统内核参数..."
+    
+    # 备份原配置
+    cp /etc/sysctl.conf /etc/sysctl.conf.bak
+    
     cat >> /etc/sysctl.conf << EOF
 # Sybase ASE 优化参数
 kernel.sem = 250 32000 100 142
@@ -175,6 +197,10 @@ EOF
 # 设置资源限制
 configure_resource_limits() {
     echo "设置资源限制..."
+    
+    # 备份原配置
+    cp /etc/security/limits.conf /etc/security/limits.conf.bak
+    
     cat >> /etc/security/limits.conf << EOF
 # Sybase ASE 资源限制
 $SYBASE_USER soft nofile 65536
@@ -189,7 +215,17 @@ start_service() {
     echo "启动Sybase服务..."
     systemctl daemon-reload
     systemctl enable sybase157v1.service
-    systemctl start sybase157v1.service
+    
+    # 尝试启动服务，最多重试3次
+    for i in {1..3}; do
+        systemctl start sybase157v1.service
+        if systemctl is-active --quiet sybase157v1.service; then
+            break
+        else
+            echo "启动失败，重试 ($i/3)..."
+            sleep 5
+        fi
+    done
 }
 
 # 检查服务状态
@@ -210,7 +246,9 @@ check_service_status() {
         echo "isql -Usa -P -SSYB_ASE"
     else
         echo "错误: Sybase服务启动失败"
-        echo "请检查日志: $SYBASE_HOME/ASE-$ASE_VERSION/install/ASE.log"
+        echo "请检查日志:"
+        echo "Systemd日志: journalctl -u sybase157v1"
+        echo "Sybase日志: $SYBASE_HOME/ASE-$ASE_VERSION/install/ASE.log"
         exit 1
     fi
 }
@@ -218,15 +256,27 @@ check_service_status() {
 # 设置sa密码
 set_sa_password() {
     echo "设置sa用户密码..."
+    
+    # 等待服务完全启动
+    echo "等待Sybase服务就绪..."
+    sleep 10
+    
     $SYBASE_HOME/ASE-$ASE_VERSION/bin/isql -Usa -P -SSYB_ASE << EOF
-sp_password null, 'Secsmart#612', sa
+sp_password null, '$SA_PASSWORD', sa
 go
 exit
 EOF
+
+    # 验证密码是否设置成功
+    if ! $SYBASE_HOME/ASE-$ASE_VERSION/bin/isql -Usa -P"$SA_PASSWORD" -SSYB_ASE -b -Q "select @@version" >/dev/null 2>&1; then
+        echo "错误: 设置sa密码失败"
+        exit 1
+    fi
 }
 
 # 主函数
 main() {
+    echo "===== 开始安装 Sybase ASE 15.7 ====="
     check_root
     check_install_file
     install_dependencies
@@ -235,15 +285,17 @@ main() {
     extract_install_files
     create_response_file
     run_installer
-    # configure_environment
-    # configure_interfaces
+    configure_environment
+    configure_interfaces
     create_service
-    configure_kernel_parameters
-    configure_resource_limits
     start_service
     check_service_status
     set_sa_password
-    echo "安装完成！"
+    
+    echo "===== 安装完成 ====="
+    echo "SA用户密码: $SA_PASSWORD"
+    echo "请尽快修改密码: isql -Usa -P'$SA_PASSWORD' -SSYB_ASE"
+    echo "修改密码命令: sp_password '旧密码', '新密码', sa"
 }
 
 # 执行主函数
