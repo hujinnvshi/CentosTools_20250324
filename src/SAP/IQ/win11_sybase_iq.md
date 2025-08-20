@@ -22,7 +22,7 @@ GRANT CONNECT TO PUBLIC;
 CONNECT TO iq_server USER sa IDENTIFIED BY 'Secur3P@ssw0rd';
 
 # 后台启动
-D:\SAP_IQ\IQ-16_1\Bin64\dbsvc.exe -n iq_demo -x "TCPIP(PORT=2638)" ^
+D:\SAP_IQ\IQ-16_1\Bin64\iqsrv16.exe -n iq_demo -x "TCPIP(PORT=2638)" ^
    @C:\ProgramData\SAPIQ\demo\iqdemo.cfg ^
    C:\ProgramData\SAPIQ\demo\iqdemo.db
 
@@ -55,3 +55,6 @@ taskkill /F /IM iqsrv16.exe
 
 # 关闭所有start_iq实例
 taskkill /F /IM start_iq.exe
+
+# 创建测试库
+C:\ProgramData\SAPIQ\demo
