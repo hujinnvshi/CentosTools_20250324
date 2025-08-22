@@ -21,3 +21,5 @@ SELECT PROPERTY('ProductVersion') AS "ProductVersion",
        PROPERTY('ProductName') AS "ProductName",
        PROPERTY('ProductLevel') AS "ProductLevel",
        PROPERTY('Version') AS "Version";
+
+
