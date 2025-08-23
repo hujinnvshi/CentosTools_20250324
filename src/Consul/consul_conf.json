@@ -1,0 +1,23 @@
+{
+  "service": {
+    "id": "postgresql-192.168.1.106-6003",
+    "name": "postgresql",
+    "address": "192.168.1.106",
+    "port": 6003,
+    "tags": [
+      "database",
+      "postgres",
+      "production"
+    ],
+    "checks": [
+      {
+        "id": "postgresql-tcp-port",
+        "name": "PostgreSQL TCP Port Check",
+        "tcp": "192.168.1.106:6003",
+        "interval": "10s",
+        "timeout": "2s",
+        "status": "passing"
+      }
+    ]
+  }
+}
