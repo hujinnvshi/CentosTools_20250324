@@ -1,0 +1,43 @@
+/data/server-monitor/
+├── config/               # 配置文件
+│   ├── default.json      # 默认配置
+│   └── production.json   # 生产环境配置
+├── controllers/          # 控制器
+│   ├── apiController.js   # API控制器
+│   └── viewController.js # 视图控制器
+├── models/               # 数据模型
+│   ├── Server.js         # 服务器模型
+│   └── PortCheck.js      # 端口检查记录模型
+├── routes/               # 路由定义
+│   ├── api.js            # API路由
+│   └── web.js            # 网页路由
+├── services/             # 业务逻辑服务
+│   ├── portCheckService.js # 端口检查服务
+│   └── dataService.js    # 数据处理服务
+├── utils/                # 工具函数
+│   ├── logger.js         # 日志工具
+│   ├── helpers.js        # 辅助函数
+│   └── database.js       # 数据库连接
+├── public/               # 静态资源
+│   ├── css/              # CSS样式
+│   │   └── style.css     # 主样式文件
+│   ├── js/               # JavaScript文件
+│   └── images/           # 图片资源
+├── views/                # 视图模板
+│   ├── partials/         # 局部模板
+│   │   ├── header.ejs    # 页头
+│   │   └── footer.ejs    # 页脚
+│   ├── dashboard.ejs     # 主仪表盘
+│   └── server-detail.ejs # 服务器详情
+├── jobs/                 # 定时任务
+│   └── portScanner.js    # 端口扫描任务
+├── .env                  # 环境变量
+├── app.js                # 应用入口
+└── package.json          # 项目配置
+
+你是一名杰出的应用开发工程师。
+根据上面项目架构，帮助我从初始化node.js开发环境，安装依赖，创建项目文件夹，创建简单页面进行测试。
+将完整的一键部署的脚本给我，我目前的系统是Centos7.9。
+将项目部署到/data路径下,并给出一些简单的管理命令写入管理脚本，便于使用。
+要求逻辑步骤清晰，注释简洁，没有语法错误，或者有更好的优化建议也可以提出。
+请将事项上面需求的完整代码给我。
