@@ -11,7 +11,7 @@ tar -cvf D:\c48o9i_exp.ova *
 
 # PowerShell导入exsi,先修正ovf,修改摘要(删除mf，编制ovf)
 & "D:\ovftool\ovftool.exe" `
---name=c48_172.16.48.167_oracle9i `
+--name=c48_172.16.48.30_oracle10g `
 --diskMode=thin `
 --datastore=hpn1 `
 --network="VM Network" `

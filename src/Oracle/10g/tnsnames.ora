@@ -1,0 +1,28 @@
+orcl1 =
+  (DESCRIPTION =  
+    (ADDRESS = (PROTOCOL = TCP)(HOST = C48O9I)(PORT = 1521))  
+    (CONNECT_DATA =  
+      (SERVER = DEDICATED)  
+      (SERVICE_NAME = orcl)
+    )  
+  )  
+  
+orcl2 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = C48O9I)(PORT = 1521))
+    (CONNECT_DATA =  
+      (SERVER = DEDICATED)  
+      (SERVICE_NAME = orcl)
+    )  
+  )  
+  
+EXTPROC_CONNECTION_DATA =  
+  (DESCRIPTION =  
+    (ADDRESS_LIST =  
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1))  
+    )  
+    (CONNECT_DATA =
+      (SID = PLSExtProc)
+      (PRESENTATION = RO)
+    )
+  )
