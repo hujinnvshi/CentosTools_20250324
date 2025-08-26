@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Modified to resolve controller slot conflict-->
+<Envelope vmw:buildId="build-24781994" xmlns="http://schemas.dmtf.org/ovf/envelope/1" xmlns:cim="http://schemas.dmtf.org/wbem/wscim/1/common" xmlns:ovf="http://schemas.dmtf.org/ovf/envelope/1" xmlns:rasd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_ResourceAllocationSettingData" xmlns:vmw="http://www.vmware.com/schema/ovf" xmlns:vssd="http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/CIM_VirtualSystemSettingData" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <References>
+    <File ovf:href="C48O9I-disk1.vmdk" ovf:id="file1" ovf:size="7185438720"/>
+  </References>
+  <DiskSection>
+    <Info>Virtual disk information</Info>
+    <Disk ovf:capacity="160" ovf:capacityAllocationUnits="byte * 2^30" ovf:diskId="vmdisk1" ovf:fileRef="file1" ovf:format="http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized" ovf:populatedSize="12956073984"/>
+  </DiskSection>
+  <NetworkSection>
+    <Info>The list of logical networks</Info>
+    <Network ovf:name="VM Network"> <!-- Changed to match target network -->
+      <Description>The target network</Description>
+    </Network>
+  </NetworkSection>
+  <VirtualSystem ovf:id="vm">
+    <Info>A virtual machine</Info>
+    <Name>C48O9I</Name>
+    <OperatingSystemSection ovf:id="80" ovf:version="4" vmw:osType="rhel4_64Guest">
+      <Info>The kind of installed guest operating system</Info>
+    </OperatingSystemSection>
+    <VirtualHardwareSection>
+      <Info>Virtual hardware requirements</Info>
+      <System>
+        <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
+        <vssd:InstanceID>0</vssd:InstanceID>
+        <vssd:VirtualSystemIdentifier>C48O9I</vssd:VirtualSystemIdentifier>
+        <vssd:VirtualSystemType>vmx-08</vssd:VirtualSystemType> <!-- Updated hardware version -->
+      </System>
+      <Item>
+        <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
+        <rasd:Description>Number of Virtual CPUs</rasd:Description>
+        <rasd:ElementName>2 virtual CPU(s)</rasd:ElementName>
+        <rasd:InstanceID>1</rasd:InstanceID>
+        <rasd:ResourceType>3</rasd:ResourceType>
+        <rasd:VirtualQuantity>2</rasd:VirtualQuantity>
+        <vmw:CoresPerSocket ovf:required="false">1</vmw:CoresPerSocket>
+      </Item>
+      <Item>
+        <rasd:AllocationUnits>byte * 2^20</rasd:AllocationUnits>
+        <rasd:Description>Memory Size</rasd:Description>
+        <rasd:ElementName>3600MB of memory</rasd:ElementName>
+        <rasd:InstanceID>2</rasd:InstanceID>
+        <rasd:ResourceType>4</rasd:ResourceType>
+        <rasd:VirtualQuantity>3600</rasd:VirtualQuantity>
+      </Item>
+      
+      <!-- IDE Controller 0 -->
+      <Item>
+        <rasd:Address>0</rasd:Address>
+        <rasd:Description>Primary IDE Controller</rasd:Description>
+        <rasd:ElementName>ideController0</rasd:ElementName>
+        <rasd:InstanceID>3</rasd:InstanceID>
+        <rasd:ResourceType>5</rasd:ResourceType>
+      </Item>
+      
+      <!-- Hard Disk on IDE Controller 0, Slot 0 -->
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent> <!-- Changed to slot 0 -->
+        <rasd:ElementName>disk0</rasd:ElementName>
+        <rasd:HostResource>ovf:/disk/vmdisk1</rasd:HostResource>
+        <rasd:InstanceID>4</rasd:InstanceID>
+        <rasd:Parent>3</rasd:Parent>
+        <rasd:ResourceType>17</rasd:ResourceType>
+      </Item>
+      
+      <!-- IDE Controller 1 -->
+      <Item>
+        <rasd:Address>1</rasd:Address>
+        <rasd:Description>Secondary IDE Controller</rasd:Description>
+        <rasd:ElementName>ideController1</rasd:ElementName>
+        <rasd:InstanceID>5</rasd:InstanceID> <!-- New ID -->
+        <rasd:ResourceType>5</rasd:ResourceType>
+      </Item>
+      
+      <!-- CD-ROM on IDE Controller 1, Slot 0 (disabled) -->
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:ElementName>CD-ROM</rasd:ElementName>
+        <rasd:InstanceID>6</rasd:InstanceID> <!-- New ID -->
+        <rasd:Parent>5</rasd:Parent> <!-- Points to second IDE controller -->
+        <rasd:ResourceType>15</rasd:ResourceType>
+        <vmw:Config ovf:required="false" vmw:key="connectable.connected" vmw:value="false"/>
+      </Item>
+      
+      <!-- Network Adapter -->
+      <Item>
+        <rasd:AddressOnParent>0</rasd:AddressOnParent>
+        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
+        <rasd:Connection>VM Network</rasd:Connection> <!-- Changed to match target -->
+        <rasd:Description>E1000 ethernet adapter</rasd:Description>
+        <rasd:ElementName>ethernet0</rasd:ElementName>
+        <rasd:InstanceID>7</rasd:InstanceID> <!-- New ID -->
+        <rasd:ResourceSubType>E1000</rasd:ResourceSubType>
+        <rasd:ResourceType>10</rasd:ResourceType>
+        <vmw:Config ovf:required="false" vmw:key="connectable.allowGuestControl" vmw:value="false"/>
+      </Item>
+      
+      <!-- Video Controller -->
+      <Item ovf:required="false">
+        <rasd:AutomaticAllocation>false</rasd:AutomaticAllocation>
+        <rasd:ElementName>video</rasd:ElementName>
+        <rasd:InstanceID>8</rasd:InstanceID> <!-- New ID -->
+        <rasd:ResourceType>24</rasd:ResourceType>
+        <vmw:Config ovf:required="false" vmw:key="videoRamSizeInKB" vmw:value="131072"/>
+      </Item>
+      
+      <!-- Additional Configurations -->
+      <vmw:Config ovf:required="false" vmw:key="simultaneousThreads" vmw:value="1"/>
+      <vmw:Config ovf:required="false" vmw:key="virtualNuma.coresPerNumaNode" vmw:value="0"/>
+      <vmw:Config ovf:required="false" vmw:key="tools.syncTimeWithHost" vmw:value="false"/>
+      <vmw:Config ovf:required="false" vmw:key="powerOpInfo.powerOffType" vmw:value="soft"/>
+      <vmw:Config ovf:required="false" vmw:key="powerOpInfo.resetType" vmw:value="soft"/>
+      <vmw:Config ovf:required="false" vmw:key="powerOpInfo.suspendType" vmw:value="soft"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="nvram" vmw:value="C48O9I.nvram"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="pciBridge0.present" vmw:value="FALSE"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="pciBridge4.present" vmw:value="FALSE"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="pciBridge5.present" vmw:value="FALSE"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="pciBridge6.present" vmw:value="FALSE"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="pciBridge7.present" vmw:value="FALSE"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="virtualHW.productCompatibility" vmw:value="hosted"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="sound.present" vmw:value="FALSE"/>
+      <vmw:ExtraConfig ovf:required="false" vmw:key="usb.present" vmw:value="FALSE"/>
+    </VirtualHardwareSection>
+  </VirtualSystem>
+</Envelope>
