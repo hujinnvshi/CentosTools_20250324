@@ -1,0 +1,7 @@
+你是一名杰出的应用开发工程师，我需要单机部署一个clickhouse数据库，请给我一个完整的centos7.9系统安装clickhouse的shell脚本.
+我已经配置好clickhouse的yum源，请勿重复配置。
+需要开放tcp和http端口，使用默认端口。
+安装在默认目录下.给出基本的使用方法。
+要求逻辑清晰，注释简洁，没有语法错误，请将完整的一键部署脚本给我。
+
+wget https://packages.clickhouse.com/rpm/clickhouse.repo

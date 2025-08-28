@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<yandex>
+    <!-- 用户配置文件 - 简化版本 -->    
+    <!-- 用户列表 -->
+    <users>
+        <!-- 默认用户 -->
+        <default>
+            <!-- 密码配置 -->
+            <password>default</password>
+            
+            <!-- 允许从任何IP地址连接 -->
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            
+            <!-- 使用默认权限配置 -->
+            <profile>default</profile>
+            <quota>default</quota>
+        </default>
+        
+        <!-- 只读用户 -->
+        <readonly>
+            <password>readonly</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>readonly</profile>
+            <quota>default</quota>
+        </readonly>
+    </users>
+    
+    <!-- 权限配置文件 -->
+    <profiles>
+        <!-- 默认权限配置 -->
+        <default>
+            <!-- 最大内存使用限制 -->
+            <max_memory_usage>10000000000</max_memory_usage>
+            
+            <!-- 查询超时时间（秒） -->
+            <max_execution_time>300</max_execution_time>
+            
+            <!-- 允许所有操作 -->
+            <readonly>0</readonly>
+        </default>
+        
+        <!-- 只读权限配置 -->
+        <readonly>
+            <max_memory_usage>5000000000</max_memory_usage>
+            <max_execution_time>180</max_execution_time>
+            
+            <!-- 只允许读操作 -->
+            <readonly>1</readonly>
+        </readonly>
+    </profiles>
+    
+    <!-- 配额配置 -->
+    <quotas>
+        <!-- 默认配额 -->
+        <default>
+            <!-- 每小时配额 -->
+            <interval>
+                <duration>3600</duration>
+                <queries>0</queries>
+                <errors>0</errors>
+                <result_rows>0</result_rows>
+                <read_rows>0</read_rows>
+                <execution_time>0</execution_time>
+            </interval>
+        </default>
+    </quotas>
+</yandex>
