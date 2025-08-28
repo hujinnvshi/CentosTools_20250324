@@ -13,8 +13,7 @@ CLICKHOUSE_VERSION=""  # 留空以安装最新版本
 USER="clickhouse"      # 运行用户
 
 # 配置文件内容
-CONFIG_XML_CONTENT='
-<?xml version="1.0"?>
+CONFIG_XML_CONTENT='<?xml version="1.0"?>
 <yandex>
     <logger>
         <level>trace</level>
@@ -60,7 +59,7 @@ CONFIG_XML_CONTENT='
 
 USERS_XML_CONTENT='<?xml version="1.0"?>
 <yandex>
-    <!-- 用户配置文件 - 简化版本 -->    
+    <!-- 用户配置文件 - 简化版本 -->
     <!-- 用户列表 -->
     <users>
         <!-- 默认用户 -->
@@ -119,11 +118,11 @@ USERS_XML_CONTENT='<?xml version="1.0"?>
         <default>
             <!-- 每小时配额 -->
             <interval>
-                <duration>360极</duration>
+                <duration>3600</duration>
                 <queries>0</queries>
                 <errors>0</errors>
                 <result_rows>0</result_rows>
-                <read_rows>极</read_rows>
+                <read_rows>0</read_rows>
                 <execution_time>0</execution_time>
             </interval>
         </default>
@@ -142,7 +141,7 @@ print_info() {
 }
 
 print_warning() {
-    echo -e "${YELLOW}[WARNING]极NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 print_error() {
@@ -235,7 +234,7 @@ setup_directories() {
     
     # 创建必要的目录
     mkdir -p /var/lib/clickhouse/tmp
-    mkdir -p /极lib/clickhouse/user_files
+    mkdir -p /var/lib/clickhouse/user_files
     
     # 设置目录权限
     chown -R clickhouse:clickhouse /var/lib/clickhouse/
@@ -355,11 +354,8 @@ show_connection_info() {
 # 主函数
 main() {
     print_info "开始安装 ClickHouse"
-    echo ""
-    
     # 记录开始时间
     local start_time=$(date +%s)
-    
     # 执行安装步骤
     check_root
     check_os_version
@@ -371,7 +367,6 @@ main() {
     start_clickhouse
     verify_installation
     show_connection_info
-    
     # 计算安装时间
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
