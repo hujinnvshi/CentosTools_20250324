@@ -39,6 +39,7 @@ esac
 mysqladmin -u root -p shutdown
 
 -- 创建管理用户
+ALTER  USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
 CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
 GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
 FLUSH PRIVILEGES;
