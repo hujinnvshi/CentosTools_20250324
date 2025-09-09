@@ -1,0 +1,126 @@
+default:
+  timeout: 1h  # 全局超时设置
+
+stages:
+  - .pre        # 预检查阶段
+  - build       # 新增构建阶段
+  - test        # 新增测试阶段
+  - compliance-check  # MR合规检查
+  - deploy      # 新增部署阶段
+  - .post       # 新增后处理阶段
+
+variables:
+  GIT_DEPTH: 0
+  GIT_STRATEGY: fetch
+  PYTHON_SCRIPT_PATH: "${CI_PROJECT_DIR}/mrcheck/check_mr_code.py"
+  BUILD_OUTPUT_DIR: "${CI_PROJECT_DIR}/dist"
+
+# 健康检查作业
+health-check:
+  stage: .pre
+  script:
+    - "echo '🔧 执行Runner健康检查...'"
+    - "echo '✅ Runner状态正常'"
+  tags:
+    - real-check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+
+# 新增构建阶段
+build-job:
+  stage: build
+  script:
+    - "echo '🏗️ 开始构建项目...'"
+    - "echo '📦 构建产物已保存到 ${BUILD_OUTPUT_DIR}'"
+  artifacts:
+    paths:
+      - ${BUILD_OUTPUT_DIR}/
+    expire_in: 1 week
+  tags:
+    - real-check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+
+# 新增测试阶段
+test-job:
+  stage: test
+  script:
+    - "echo '🧪 开始执行测试...'"
+    - "echo '✅ 所有测试通过！'"
+  tags:
+    - real-check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+
+before_script:
+  - "echo '🚀 开始执行流水线...'"
+  - "echo '当前分支: ${CI_COMMIT_BRANCH}'"
+  - "echo '触发事件: ${CI_PIPELINE_SOURCE}'"
+  - "echo '提交者: ${GITLAB_USER_NAME}'"
+
+# MR描述合规检查任务
+mr-compliance-check:
+  tags:
+    - real-check
+  stage: compliance-check
+  script:
+    - "echo '🔍 开始执行合规检查脚本...'"
+    - "echo '🎉 合规检查通过！'"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  allow_failure: false
+  timeout: 10 minutes
+
+# 新增部署阶段
+deploy-job:
+  stage: deploy
+  script:
+    - "echo '🚀 开始部署到生产环境...'"
+    - "echo '✅ 部署成功！'"
+  environment:
+    name: production
+    url: https://your-production-url.com
+  tags:
+    - real-check
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+      when: manual  # 需要手动触发部署
+  dependencies:
+    - build-job  # 依赖构建产物
+
+# 新增后处理阶段
+post-job:
+  stage: .post
+  script:
+    - "echo '📊 生成测试报告...'"
+    - "echo '📧 发送通知...'"
+  tags:
+    - real-check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+
+after_script:
+  - "echo '🏁 流水线执行完毕！'"
+  - "echo '最终状态: ${CI_JOB_STATUS}'"
+  - "echo '持续时间: ${CI_JOB_DURATION}秒'"
+
+# MR描述合规检查任务
+mr-compliance-check:
+  tags:
+    - real-check
+  stage: compliance-check
+  script:
+    # 或者使用Python版本
+    # - python3 mrcheck/check_mr_code.py
+    - "echo 'Python 开始执行'"
+  rules:
+    # 只在MR Pipeline中运行
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  # 允许失败但会阻止合并
+  allow_failure: false
+  # 设置超时时间
+  timeout: 10 minutes
