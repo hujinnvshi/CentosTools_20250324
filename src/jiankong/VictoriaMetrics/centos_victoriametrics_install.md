@@ -16,7 +16,12 @@ remote_write:
       capacity: 10000
       max_shards: 10
 
-修改启动文件增加：
+修改启动文件增加:
+
+vim /etc/systemd/system/victoriametrics.service
+
+systemctl daemon-reload
+
 sudo -u victoriametrics /usr/local/bin/victoria-metrics \
 --httpListenAddr=:8428 \
 --storageDataPath=/var/lib/victoriametrics \
@@ -25,3 +30,10 @@ sudo -u victoriametrics /usr/local/bin/victoria-metrics \
 --loggerFormat=json \
 --kafka.topic=prometheus-metrics \
 --kafka.brokers=172.16.47.185:9092
+
+vim /etc/systemd/system/victoriametrics.service
+
+# 查看主题详情
+/data/kafka/bin/kafka-topics.sh --describe \
+    --topic prometheus-metrics \
+    --bootstrap-server localhost:9092
