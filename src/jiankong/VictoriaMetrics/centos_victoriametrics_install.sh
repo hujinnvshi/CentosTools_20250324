@@ -61,7 +61,7 @@ echo "创建重标签配置文件..."
 cat > $CONFIG_DIR/relabel.yml <<EOF
 - action: keep
   source_labels: [__name__]
-  regex: "node_.*|vmware_.*"
+  regex: "node_.*|vsphere_vm_.*"
 EOF
 
 chown $VM_USER:$VM_GROUP $CONFIG_DIR/relabel.yml
