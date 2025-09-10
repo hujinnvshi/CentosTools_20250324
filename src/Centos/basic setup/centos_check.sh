@@ -8,4 +8,5 @@ yum install -y iperf3 vim htop
 
 docker version
 
-iperf3 -c 172.16.48.191 -t 60 -P 4
+iperf3 -s
+iperf3 -c 172.16.48.191 -t 6000 -P 4
