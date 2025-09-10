@@ -12,7 +12,7 @@ VM_PORT=8428                       # 监听端口
 DATA_DIR="/var/lib/victoriametrics" # 数据存储目录
 CONFIG_DIR="/etc/victoriametrics"  # 配置文件目录
 LOG_DIR="/var/log/victoriametrics" # 日志目录
-RETENTION_PERIOD="1h"              # 数据保留时间(建议1小时)
+RETENTION_PERIOD="300h"              # 数据保留时间(建议1小时)
 LOCAL_PACKAGE="/tmp/victoria-metrics-linux-amd64-v1.125.1.tar.gz" # 本地安装包路径
 
 # 检查是否以root运行
@@ -59,12 +59,11 @@ rm -rf $TMP_DIR
 # 创建示例重标签配置文件
 echo "创建重标签配置文件..."
 cat > $CONFIG_DIR/relabel.yml <<EOF
-# VictoriaMetrics重标签配置
-# 只保留以node_或vmware_开头的指标
 - action: keep
   source_labels: [__name__]
   regex: "node_.*|vmware_.*"
 EOF
+
 chown $VM_USER:$VM_GROUP $CONFIG_DIR/relabel.yml
 
 # 创建systemd服务文件
@@ -83,9 +82,13 @@ ExecStart=/usr/local/bin/victoria-metrics \\
     --httpListenAddr=:$VM_PORT \\
     --storageDataPath=$DATA_DIR \\
     --retentionPeriod=$RETENTION_PERIOD \\
-    --remoteWrite.urlRelabelConfig=$CONFIG_DIR/relabel.yml \\
-    --loggerFormat=json \\
-    --loggerOutput=$LOG_DIR/victoriametrics.log
+    --relabelConfig=$CONFIG_DIR/relabel.yml \\
+    --loggerFormat=json
+
+# 日志配置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=victoriametrics
 
 # 资源限制
 LimitNOFILE=65536
@@ -101,24 +104,6 @@ StartLimitBurst=3
 WantedBy=multi-user.target
 EOF
 
-# 启用日志轮转
-echo "配置日志轮转..."
-cat > /etc/logrotate.d/victoriametrics <<EOF
-$LOG_DIR/*.log {
-    daily
-    rotate 7
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 640 $VM_USER $VM_GROUP
-    sharedscripts
-    postrotate
-        # 发送USR1信号重新打开日志文件
-        kill -USR1 \$(cat /var/run/victoriametrics.pid 2>/dev/null) 2>/dev/null || true
-    endscript
-}
-EOF
 
 # 启动服务
 echo "启动VictoriaMetrics服务..."

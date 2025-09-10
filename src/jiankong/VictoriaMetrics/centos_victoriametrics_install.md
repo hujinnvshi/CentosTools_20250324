@@ -3,3 +3,10 @@
 并生成基本的操作命令到readme.md文件。
 帮我生成完备的一键部署安装配置的bash脚本,生成好后给我。
 要求逻辑清晰，注释简洁，没有语法错误。
+
+sudo -u victoriametrics /usr/local/bin/victoria-metrics \
+--httpListenAddr=:8428 \
+--storageDataPath=/var/lib/victoriametrics \
+--retentionPeriod=300h \
+--relabelConfig=/etc/victoriametrics/relabel.yml \
+--loggerFormat=json &
