@@ -12,7 +12,7 @@ BASE_DIR="/data/victoriametrics"   # 基础目录
 CONFIG_DIR="/etc/victoriametrics"  # 配置文件目录
 LOG_DIR="/var/log/victoriametrics" # 日志目录
 RETENTION_PERIOD="300h"            # 数据保留时间
-LOCAL_PACKAGE="/tmp/victoria-metrics-linux-amd64-v1.125.1.tar.gz" # 本地安装包路径
+LOCAL_PACKAGE="/tmp/victoria-metrics-openbsd-amd64-v1.125.1-cluster.tar.gz" # 本地安装包路径
 
 # 组件端口配置
 STORAGE_PORTS=(8482 8492 8502)    # vmstorage 端口
