@@ -2,7 +2,7 @@
 # VictoriaMetrics 单机伪分布式集群部署脚本
 # Author: Your Name
 # Date: $(date +%Y-%m-%d)
-# Version: 2.0
+# Version: 2.1
 
 # 配置参数
 VM_VERSION="v1.125.1"             # VictoriaMetrics版本
@@ -33,9 +33,13 @@ if [ ! -f "$LOCAL_PACKAGE" ]; then
 fi
 
 # 创建用户和组
-if ! id -u $VM_USER >/dev/null 2>&1; then
-    echo "创建用户和组: $VM_USER:$VM_GROUP"
+if ! getent group $VM_GROUP >/dev/null; then
+    echo "创建组: $VM_GROUP"
     groupadd -r $VM_GROUP
+fi
+
+if ! id -u $VM_USER >/dev/null 2>&1; then
+    echo "创建用户: $VM_USER"
     useradd -r -s /sbin/nologin -g $VM_GROUP $VM_USER
 fi
 
@@ -62,14 +66,20 @@ cp $LOCAL_PACKAGE $BASE_DIR/bin/vm.tar.gz
 # 解压并安装
 echo "安装VictoriaMetrics..."
 tar -xzf $BASE_DIR/bin/vm.tar.gz -C $BASE_DIR/bin
-mv $BASE_DIR/bin/victoria-metrics-prod $BASE_DIR/bin/vmstorage
-mv $BASE_DIR/bin/victoria-metrics-prod $BASE_DIR/bin/vminsert
-mv $BASE_DIR/bin/victoria-metrics-prod $BASE_DIR/bin/vmselect
+
+# 复制而不是重命名
+cp $BASE_DIR/bin/victoria-metrics-prod $BASE_DIR/bin/vmstorage
+cp $BASE_DIR/bin/victoria-metrics-prod $BASE_DIR/bin/vminsert
+cp $BASE_DIR/bin/victoria-metrics-prod $BASE_DIR/bin/vmselect
+
+# 删除原始文件
+# rm -f $BASE_DIR/bin/victoria-metrics-prod
+
 chmod +x $BASE_DIR/bin/vmstorage $BASE_DIR/bin/vminsert $BASE_DIR/bin/vmselect
 chown $VM_USER:$VM_GROUP $BASE_DIR/bin/*
 
 # 清理临时文件
-rm -f $BASE_DIR/bin/vm.tar.gz
+# rm -f $BASE_DIR/bin/vm.tar.gz
 
 # 创建配置文件
 
@@ -144,8 +154,8 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$BASE_DIR/logs/storage$i.log
-StandardError=file:$BASE_DIR/logs/storage$i-error.log
+StandardOutput=file:$BASE_DIR/logs/storage$i/vmstorage.log
+StandardError=file:$BASE_DIR/logs/storage$i/vmstorage-error.log
 
 [Install]
 WantedBy=multi-user.target
@@ -172,8 +182,8 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$BASE_DIR/logs/insert$i.log
-StandardError=file:$BASE_DIR/logs/insert$i-error.log
+StandardOutput=file:$BASE_DIR/logs/insert$i/vminsert.log
+StandardError=file:$BASE_DIR/logs/insert$i/vminsert-error.log
 
 [Install]
 WantedBy=multi-user.target
@@ -200,8 +210,8 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$BASE_DIR/logs/select$i.log
-StandardError=file:$BASE_DIR/logs/select$i-error.log
+StandardOutput=file:$BASE_DIR/logs/select$i/vmselect.log
+StandardError=file:$BASE_DIR/logs/select$i/vmselect-error.log
 
 [Install]
 WantedBy=multi-user.target
