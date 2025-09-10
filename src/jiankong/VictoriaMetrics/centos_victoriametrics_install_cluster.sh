@@ -154,8 +154,6 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$BASE_DIR/logs/storage$i/vmstorage.log
-StandardError=file:$BASE_DIR/logs/storage$i/vmstorage-error.log
 
 [Install]
 WantedBy=multi-user.target
@@ -182,8 +180,6 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$BASE_DIR/logs/insert$i/vminsert.log
-StandardError=file:$BASE_DIR/logs/insert$i/vminsert-error.log
 
 [Install]
 WantedBy=multi-user.target
@@ -210,8 +206,6 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$BASE_DIR/logs/select$i/vmselect.log
-StandardError=file:$BASE_DIR/logs/select$i/vmselect-error.log
 
 [Install]
 WantedBy=multi-user.target
