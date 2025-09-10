@@ -12,7 +12,7 @@ VM_PORT=8428                      # 监听端口
 DATA_DIR="/var/lib/victoriametrics" # 数据存储目录
 CONFIG_DIR="/etc/victoriametrics"  # 配置文件目录
 LOG_DIR="/var/log/victoriametrics" # 日志目录
-RETENTION_PERIOD="1h"             # 数据保留时间（建议1小时）
+RETENTION_PERIOD="1h"             # 数据保留时间(建议1小时)
 
 # 检查是否以root运行
 if [ "$(id -u)" -ne 0 ]; then
