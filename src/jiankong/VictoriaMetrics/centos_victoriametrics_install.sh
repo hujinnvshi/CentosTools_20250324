@@ -2,21 +2,29 @@
 # VictoriaMetrics Single-Node Installer for CentOS 7.9
 # Author: Your Name
 # Date: $(date +%Y-%m-%d)
-# Version: 1.1
+# Version: 1.2
 
 # 配置参数 - 根据实际环境修改
-VM_VERSION="v1.100.0"            # VictoriaMetrics版本
-VM_USER="victoriametrics"         # 运行用户
-VM_GROUP="victoriametrics"        # 运行组
-VM_PORT=8428                      # 监听端口
+VM_VERSION="v1.125.1"             # VictoriaMetrics版本（必须与安装包匹配）
+VM_USER="victoriametrics"          # 运行用户
+VM_GROUP="victoriametrics"         # 运行组
+VM_PORT=8428                       # 监听端口
 DATA_DIR="/var/lib/victoriametrics" # 数据存储目录
 CONFIG_DIR="/etc/victoriametrics"  # 配置文件目录
 LOG_DIR="/var/log/victoriametrics" # 日志目录
-RETENTION_PERIOD="1h"             # 数据保留时间(建议1小时)
+RETENTION_PERIOD="1h"              # 数据保留时间(建议1小时)
+LOCAL_PACKAGE="/tmp/victoria-metrics-linux-amd64-v1.125.1.tar.gz" # 本地安装包路径
 
 # 检查是否以root运行
 if [ "$(id -u)" -ne 0 ]; then
     echo "错误：此脚本必须以root权限运行"
+    exit 1
+fi
+
+# 验证本地安装包是否存在
+if [ ! -f "$LOCAL_PACKAGE" ]; then
+    echo "错误：找不到本地安装包 $LOCAL_PACKAGE"
+    echo "请确保安装包已放置在指定位置"
     exit 1
 fi
 
@@ -33,17 +41,10 @@ mkdir -p $DATA_DIR $CONFIG_DIR $LOG_DIR
 chown -R $VM_USER:$VM_GROUP $DATA_DIR $CONFIG_DIR $LOG_DIR
 chmod 755 $DATA_DIR $CONFIG_DIR $LOG_DIR
 
-# 下载VictoriaMetrics
-echo "下载VictoriaMetrics $VM_VERSION..."
-VM_URL="https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/$VM_VERSION/victoria-metrics-linux-amd64-$VM_VERSION.tar.gz"
+# 使用本地安装包
+echo "使用本地安装包: $LOCAL_PACKAGE"
 TMP_DIR=$(mktemp -d)
-curl -L $VM_URL -o $TMP_DIR/vm.tar.gz
-
-# 检查下载是否成功
-if [ $? -ne 0 ]; then
-    echo "错误：下载VictoriaMetrics失败"
-    exit 1
-fi
+cp $LOCAL_PACKAGE $TMP_DIR/vm.tar.gz
 
 # 解压并安装
 echo "安装VictoriaMetrics..."
@@ -148,6 +149,7 @@ cat > /root/victoriametrics-README.md <<EOF
 - **数据目录**: $DATA_DIR
 - **配置文件**: $CONFIG_DIR
 - **日志目录**: $LOG_DIR
+- **安装包**: $LOCAL_PACKAGE
 
 ## 服务管理命令
 - 启动服务: \`systemctl start victoriametrics\`
