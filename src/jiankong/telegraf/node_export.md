@@ -12,7 +12,9 @@ sum by (instance)(
 # =============================================
 
 # 1. 内存使用率百分比
-(node_memory_MemTotal_bytes{instance="172.16.47.63:9100"} - node_memory_MemFree_bytes{instance="172.16.47.63:9100"} - node_memory_Buffers_bytes{instance="172.16.47.63:9100"} - node_memory_Cached_bytes{instance="172.16.47.63:9100"}) / node_memory_MemTotal_bytes{instance="172.16.47.63:9100"} * 100
+( node_memory_MemTotal_bytes{instance="172.16.47.63:9100"} - node_memory_MemFree_bytes{instance="172.16.47.63:9100"} 
+- node_memory_Buffers_bytes{instance="172.16.47.63:9100"} - node_memory_Cached_bytes{instance="172.16.47.63:9100"}) 
+/ node_memory_MemTotal_bytes{instance="172.16.47.63:9100"} * 100
 
 # 2. Swap 使用量 (GB)
 (node_memory_SwapTotal_bytes{instance="172.16.47.63:9100"} - node_memory_SwapFree_bytes{instance="172.16.47.63:9100"})/ 1024/1024/1024
