@@ -2,7 +2,7 @@
 # VictoriaMetrics Single-Node Installer for CentOS 7.9
 # Author: Your Name
 # Date: $(date +%Y-%m-%d)
-# Version: 1.0
+# Version: 1.1
 
 # 配置参数 - 根据实际环境修改
 VM_VERSION="v1.100.0"            # VictoriaMetrics版本
@@ -39,12 +39,21 @@ VM_URL="https://github.com/VictoriaMetrics/VictoriaMetrics/releases/download/$VM
 TMP_DIR=$(mktemp -d)
 curl -L $VM_URL -o $TMP_DIR/vm.tar.gz
 
+# 检查下载是否成功
+if [ $? -ne 0 ]; then
+    echo "错误：下载VictoriaMetrics失败"
+    exit 1
+fi
+
 # 解压并安装
 echo "安装VictoriaMetrics..."
 tar -xzf $TMP_DIR/vm.tar.gz -C $TMP_DIR
 mv $TMP_DIR/victoria-metrics-prod /usr/local/bin/victoria-metrics
 chmod +x /usr/local/bin/victoria-metrics
 chown $VM_USER:$VM_GROUP /usr/local/bin/victoria-metrics
+
+# 清理临时文件
+rm -rf $TMP_DIR
 
 # 创建示例重标签配置文件
 echo "创建重标签配置文件..."
@@ -104,7 +113,8 @@ $LOG_DIR/*.log {
     create 640 $VM_USER $VM_GROUP
     sharedscripts
     postrotate
-        systemctl reload victoriametrics >/dev/null 2>&1 || true
+        # 发送USR1信号重新打开日志文件
+        kill -USR1 \$(cat /var/run/victoriametrics.pid 2>/dev/null) 2>/dev/null || true
     endscript
 }
 EOF
@@ -117,10 +127,18 @@ systemctl start victoriametrics
 
 # 检查服务状态
 echo "检查服务状态..."
-systemctl status victoriametrics --no-pager
+if systemctl is-active --quiet victoriametrics; then
+    echo "VictoriaMetrics服务已成功启动"
+    systemctl status victoriametrics --no-pager
+else
+    echo "错误：VictoriaMetrics服务启动失败"
+    journalctl -u victoriametrics -n 50 --no-pager
+    exit 1
+fi
 
 # 创建README文件
 echo "创建README.md..."
+SERVER_IP=$(hostname -I | awk '{print $1}' | head -1)
 cat > /root/victoriametrics-README.md <<EOF
 # VictoriaMetrics 单实例部署指南
 
@@ -139,9 +157,9 @@ cat > /root/victoriametrics-README.md <<EOF
 - 查看日志: \`journalctl -u victoriametrics -f\`
 
 ## 数据访问
-- Web UI: http://<服务器IP>:$VM_PORT
-- 指标列表: http://<服务器IP>:$VM_PORT/metrics
-- Prometheus远程写入地址: http://<服务器IP>:$VM_PORT/api/v1/write
+- Web UI: http://${SERVER_IP}:$VM_PORT
+- 指标列表: http://${SERVER_IP}:$VM_PORT/metrics
+- Prometheus远程写入地址: http://${SERVER_IP}:$VM_PORT/api/v1/write
 
 ## 配置文件
 - 主配置文件: /etc/systemd/system/victoriametrics.service
@@ -166,4 +184,4 @@ echo "安装完成！"
 echo "VictoriaMetrics 已成功安装并启动"
 echo "服务状态: systemctl status victoriametrics"
 echo "详细文档请查看: /root/victoriametrics-README.md"
-echo "Web界面: http://$(hostname -I | awk '{print $1}'):$VM_PORT"
+echo "Web界面: http://${SERVER_IP}:$VM_PORT"
