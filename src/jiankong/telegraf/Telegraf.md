@@ -1,3 +1,4 @@
+# http://172.16.47.185:9091
 # CPU
 vsphere_vm_cpu_usage_average{vmname="C7.6-172.16.48.21-(hp.node1)"}
 vsphere_vm_cpu_usagemhz_average{vmname="C7.6-172.16.48.21-(hp.node1)",cpu="instance-total"}/1000
