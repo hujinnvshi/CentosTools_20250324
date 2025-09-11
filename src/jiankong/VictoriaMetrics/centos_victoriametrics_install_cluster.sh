@@ -2,7 +2,7 @@
 # VictoriaMetrics 单机伪分布式集群部署脚本
 # Author: Your Name
 # Date: $(date +%Y-%m-%d)
-# Version: 3.0 (优化版)
+# Version: 3.1 (优化版)
 
 # 配置参数 - 所有关键参数集中配置
 VM_VERSION="v1.125.1"             # VictoriaMetrics版本
@@ -67,16 +67,19 @@ echo "安装VictoriaMetrics..."
 cp "$LOCAL_PACKAGE" "$BASE_DIR/bin/vm.tar.gz" || exit 1
 tar -xzf "$BASE_DIR/bin/vm.tar.gz" -C "$BASE_DIR/bin" || exit 1
 
-# 创建组件二进制文件
-echo "创建组件二进制文件..."
-for component in vmstorage vminsert vmselect; do
-    cp "$BASE_DIR/bin/victoria-metrics-prod" "$BASE_DIR/bin/$component" || exit 1
-    chmod +x "$BASE_DIR/bin/$component"
-    chown $VM_USER:$VM_GROUP "$BASE_DIR/bin/$component"
-done
+# 重命名二进制文件（去掉-prod后缀）
+echo "重命名二进制文件..."
+cd "$BASE_DIR/bin" || exit 1
+mv vminsert-prod vminsert || { echo "重命名vminsert失败"; exit 1; }
+mv vmselect-prod vmselect || { echo "重命名vmselect失败"; exit 1; }
+mv vmstorage-prod vmstorage || { echo "重命名vmstorage失败"; exit 1; }
+
+# 设置二进制文件权限
+chmod +x vminsert vmselect vmstorage
+chown $VM_USER:$VM_GROUP vminsert vmselect vmstorage
 
 # 清理临时文件
-rm -f "$BASE_DIR/bin/vm.tar.gz" "$BASE_DIR/bin/victoria-metrics-prod"
+rm -f "$BASE_DIR/bin/vm.tar.gz"
 
 # 创建配置文件
 echo "创建配置文件..."
@@ -140,8 +143,11 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$LOG_DIR/vmstorage$i.log
-StandardError=file:$LOG_DIR/vmstorage$i.error.log
+
+# 日志配置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=victoriametrics
 
 [Install]
 WantedBy=multi-user.target
@@ -168,8 +174,11 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$LOG_DIR/vminsert$i.log
-StandardError=file:$LOG_DIR/vminsert$i.error.log
+
+# 日志配置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=victoriametrics
 
 [Install]
 WantedBy=multi-user.target
@@ -196,8 +205,11 @@ StartLimitInterval=0
 LimitNOFILE=65536
 LimitNPROC=32000
 WorkingDirectory=$BASE_DIR
-StandardOutput=file:$LOG_DIR/vmselect$i.log
-StandardError=file:$LOG_DIR/vmselect$i.error.log
+
+# 日志配置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=victoriametrics
 
 [Install]
 WantedBy=multi-user.target
@@ -330,9 +342,14 @@ cat > /root/victoriametrics-README.md <<EOF
    cp -r $BASE_DIR/bin $BASE_DIR/bin-backup-$(date +%Y%m%d)
    
 4. 安装新版本:
-   tar -xzf /tmp/vm-new.tar.gz -C $BASE_DIR/bin --strip-components=1
-   chmod +x $BASE_DIR/bin/*
-   chown $VM_USER:$VM_GROUP $BASE_DIR/bin/*
+   tar -xzf /tmp/vm-new.tar.gz -C $BASE_DIR/bin
+   # 重命名二进制文件
+   cd $BASE_DIR/bin
+   mv vminsert-prod vminsert
+   mv vmselect-prod vmselect
+   mv vmstorage-prod vmstorage
+   chmod +x vminsert vmselect vmstorage
+   chown $VM_USER:$VM_GROUP vminsert vmselect vmstorage
    
 5. 启动服务:
    systemctl start vmstorage{1..3} vminsert{1..2} vmselect{1..2}
