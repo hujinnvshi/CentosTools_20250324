@@ -28,7 +28,7 @@ ALTER ROLE vbadmin RESET ALL;
 ALTER ROLE vbadmin WITH LOGIN;
 ALTER ROLE vbadmin WITH LOGIN PASSWORD 'Secsmart#612';
 
-SELECT rolname, rolcanlogin, rolpassword 
+SELECT rolname, rolcanlogin, rolpassword
 FROM pg_roles 
 WHERE rolname = 'vbadmin';
 

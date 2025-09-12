@@ -4,3 +4,8 @@
 请给我详细的意见部署bash脚本
 
 mysql -h 172.16.48.169 -P 4000 -u admin -p Secsmart#612
+
+https://docs-archive.pingcap.com/zh/tidb/v5.0/quick-start-with-tidb/
+
+# 查看可以安装tidb版本
+tiup list tidb
