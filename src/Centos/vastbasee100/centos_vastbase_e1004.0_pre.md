@@ -49,3 +49,5 @@ tar -zxvf "$INSTALL_PACKAGE" || { echo "解压安装包失败"; exit 1; }
 
 echo "安装完成准备配置"
 EOF
+
+# sudo yum install postgresql-devel
