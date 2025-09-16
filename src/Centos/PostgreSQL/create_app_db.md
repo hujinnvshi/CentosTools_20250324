@@ -12,7 +12,7 @@ set search_path to suntao;
 
 
 -- 不使用 SUPERUSER 的写法
-CREATE ROLE suntao WITH 
+CREATE ROLE admin WITH 
     LOGIN 
     CREATEDB 
     CREATEROLE 
@@ -21,7 +21,7 @@ CREATE ROLE suntao WITH
     CONNECTION LIMIT -1 
     PASSWORD 'Secsmart#612';
 
-ALTER ROLE suntao SUPERUSER;
+ALTER ROLE admin SUPERUSER;
 
 -- 修改密码
 ALTER ROLE vbadmin RESET ALL;
