@@ -114,7 +114,7 @@ remote_write:
 vmagent \
   -remoteRead.url=http://victoria-metrics:8428/api/v1/read \
   -remoteRead.streamParse=true \
-  -remoteRead.lookback=6h \       # ★ 核心参数：告诉VM我要读取最近6小时的数据
+  -remoteRead.lookback=6h \   # ★ 核心参数：告诉VM我要读取最近6小时的数据
   -remoteRead.forcedStartTime=$(date -d "6 hours ago" +%s) \
   -remoteRead.filter='{job=~"node-exporter|vmware-exporter"}' \ # 只导出特定job的数据
   -remoteWrite.url=http://kafka-adapter:8080/receive \
