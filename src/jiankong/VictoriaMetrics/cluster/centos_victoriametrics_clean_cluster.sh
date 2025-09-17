@@ -1,11 +1,9 @@
 #!/bin/bash
-# VictoriaMetrics 清理脚本
-# 用于清理安装失败的伪分布式集群部署
-# Author: Your Name
-# Date: $(date +%Y-%m-%d)
-# Version: 1.0
+# VictoriaMetrics 集群清理脚本
+# 用于完全卸载之前部署的VictoriaMetrics集群
+# 注意：此脚本会删除所有数据和配置文件，操作不可逆！
 
-# 配置参数 - 必须与部署脚本一致
+# 配置参数 - 与安装脚本保持一致
 VM_USER="victoriametrics"          # 运行用户
 VM_GROUP="victoriametrics"         # 运行组
 BASE_DIR="/data/victoriametrics"   # 基础目录
@@ -18,9 +16,26 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-echo "开始清理VictoriaMetrics伪分布式集群环境..."
+# 警告信息
+echo "======================================================"
+echo "警告：此脚本将完全删除VictoriaMetrics集群及其所有数据！"
+echo "======================================================"
+echo "将删除以下内容："
+echo "1. 所有VictoriaMetrics服务 (vmstorage/vminsert/vmselect)"
+echo "2. 所有配置文件和数据目录"
+echo "3. 所有日志文件"
+echo "4. 系统用户和组"
+echo "5. README文档"
+echo "======================================================"
 
-# 停止并禁用服务
+# 确认操作
+read -p "确定要完全清理VictoriaMetrics集群吗？(y/N): " confirm
+if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo "操作已取消"
+    exit 0
+fi
+
+# 停止并禁用所有服务
 echo "停止并禁用服务..."
 services=(
     vmstorage1 vmstorage2 vmstorage3
@@ -29,75 +44,61 @@ services=(
 )
 
 for service in "${services[@]}"; do
-    if systemctl is-active --quiet $service; then
-        echo "停止 $service 服务..."
-        systemctl stop $service
-    fi
-    
-    if systemctl is-enabled --quiet $service; then
-        echo "禁用 $service 服务..."
-        systemctl disable $service
-    fi
-done
-
-# 删除systemd服务文件
-echo "删除systemd服务文件..."
-for i in {1..3}; do
-    service_file="/etc/systemd/system/vmstorage$i.service"
-    if [ -f "$service_file" ]; then
-        echo "删除 $service_file"
-        rm -f "$service_file"
-    fi
-done
-
-for i in {1..2}; do
-    service_file="/etc/systemd/system/vminsert$i.service"
-    if [ -f "$service_file" ]; then
-        echo "删除 $service_file"
-        rm -f "$service_file"
-    fi
-    
-    service_file="/etc/systemd/system/vmselect$i.service"
-    if [ -f "$service_file" ]; then
-        echo "删除 $service_file"
-        rm -f "$service_file"
+    # 检查服务是否存在
+    if systemctl list-unit-files | grep -q "^$service.service"; then
+        echo "停止 $service..."
+        systemctl stop $service >/dev/null 2>&1
+        
+        echo "禁用 $service..."
+        systemctl disable $service >/dev/null 2>&1
+        
+        echo "删除服务文件 /etc/systemd/system/$service.service"
+        rm -f "/etc/systemd/system/$service.service"
+    else
+        echo "跳过 $service - 服务不存在"
     fi
 done
 
 # 重新加载systemd
 systemctl daemon-reload
 
-# 删除目录结构
-echo "删除目录结构..."
-[ -d "$BASE_DIR" ] && echo "删除 $BASE_DIR" && rm -rf "$BASE_DIR"
-[ -d "$CONFIG_DIR" ] && echo "删除 $CONFIG_DIR" && rm -rf "$CONFIG_DIR"
-[ -d "$LOG_DIR" ] && echo "删除 $LOG_DIR" && rm -rf "$LOG_DIR"
+# 删除配置文件
+echo "删除配置文件..."
+[ -d "$CONFIG_DIR" ] && rm -rf "$CONFIG_DIR"
 
-# 删除用户和组（如果存在且没有其他进程使用）
-echo "检查并删除用户和组..."
-if id -u $VM_USER >/dev/null 2>&1; then
-    # 检查是否有进程使用该用户
-    if ! pgrep -u $VM_USER >/dev/null; then
-        echo "删除用户: $VM_USER"
-        userdel $VM_USER
-    else
-        echo "警告：用户 $VM_USER 仍有进程运行，跳过删除"
-    fi
+# 删除数据目录
+echo "删除数据目录..."
+[ -d "$BASE_DIR" ] && rm -rf "$BASE_DIR"
+
+# 删除日志目录
+echo "删除日志目录..."
+[ -d "$LOG_DIR" ] && rm -rf "$LOG_DIR"
+
+# 删除用户和组（如果存在）
+echo "删除用户和组..."
+if id -u "$VM_USER" >/dev/null 2>&1; then
+    userdel "$VM_USER" >/dev/null 2>&1
+    echo "已删除用户 $VM_USER"
+else
+    echo "用户 $VM_USER 不存在，跳过删除"
 fi
 
-if getent group $VM_GROUP >/dev/null; then
-    # 检查是否有其他用户在该组
-    if [ $(getent group $VM_GROUP | cut -d: -f4 | wc -w) -eq 0 ]; then
-        echo "删除组: $VM_GROUP"
-        groupdel $VM_GROUP
-    else
-        echo "警告：组 $VM_GROUP 仍有其他成员，跳过删除"
-    fi
+if getent group "$VM_GROUP" >/dev/null; then
+    groupdel "$VM_GROUP" >/dev/null 2>&1
+    echo "已删除组 $VM_GROUP"
+else
+    echo "组 $VM_GROUP 不存在，跳过删除"
 fi
 
 # 删除README文件
-readme_file="/root/victoriametrics-README.md"
-[ -f "$readme_file" ] && echo "删除 $readme_file" && rm -f "$readme_file"
+echo "删除README文件..."
+rm -f /root/victoriametrics-README.md
 
-echo "清理完成！"
-echo "注意：安装包 $LOCAL_PACKAGE 已被保留，可用于重新部署"
+# 清理journal日志中VictoriaMetrics相关条目
+echo "清理系统日志..."
+journalctl --vacuum-size=100M >/dev/null 2>&1
+journalctl --flush >/dev/null 2>&1
+
+echo "======================================================"
+echo "VictoriaMetrics集群已完全清理"
+echo "======================================================"

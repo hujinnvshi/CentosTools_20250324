@@ -18,7 +18,7 @@ LOCAL_PACKAGE="/tmp/victoria-metrics-linux-amd64-v1.125.1-cluster.tar.gz" # 本�
 # 组件端口配置 - 使用数组管理端口
 STORAGE_PORTS=(8482 8492 8502)    # vmstorage HTTP监听端口
 INSERT_PORTS=(8480 8490)          # vminsert HTTP监听端口
-SELECT_PORTS=(8481 8491)           # vmselect HTTP监听端口
+SELECT_PORTS=(8481 8491)          # vmselect HTTP监听端口
 
 # 内部通信端口 - 确保不冲突
 STORAGE_INSERT_PORTS=(8400 8410 8420) # vmstorage的vminsertAddr端口
