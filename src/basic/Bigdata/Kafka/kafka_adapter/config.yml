@@ -1,0 +1,21 @@
+kafka:
+  brokers: ["172.16.47.185:9092"]  # Kafka 集群地址
+  topic: "prometheus_metrics"                             # 目标 Topic
+  # 以下为可选配置（根据实际需求启用）
+  # sasl_mechanism: "PLAIN"                               # SASL 认证机制（如 PLAIN/SCRAM-SHA-256）
+  # sasl_username: "admin"                                # SASL 用户名
+  # sasl_password: "secret"                               # SASL 密码
+  # ssl_ca_cert_file: "/path/to/ca.pem"                   # SSL CA 证书路径
+  # compression_type: "gzip"                              # 数据压缩类型（gzip/snappy/zstd）
+
+server:
+  listen_address: ":8080"                                 # 适配器监听端口（默认 8080）
+  # basic_auth:                                           # 基础认证（可选）
+  #   username: "user"
+  #   password: "pass"
+
+# 指标过滤规则（可选）
+metric_relabel_configs:
+  - source_labels: [__name__]
+    regex: "node_.*"                                      # 仅转发以 node_ 开头的指标
+    action: keep
