@@ -138,11 +138,8 @@ cleanup() {
 # 主函数
 main() {
     print_message "开始 Kafka 功能测试..."
-    # 获取本机IP
     get_local_ip
-    # 定义 BOOTSTRAP_SERVER
     BOOTSTRAP_SERVER="$LOCAL_IP:9092"
-    # 执行测试
     test_connection
     create_test_topics
     test_produce_consume

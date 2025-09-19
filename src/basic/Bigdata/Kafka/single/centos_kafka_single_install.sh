@@ -49,8 +49,8 @@ check_system() {
     print_message "系统总内存: ${TOTAL_MEM}GB"
     
     # 计算 Kafka 建议内存
-    KAFKA_HEAP_SIZE=$(($TOTAL_MEM / 2))
-    [ $KAFKA_HEAP_SIZE -gt 8 ] && KAFKA_HEAP_SIZE=8
+    KAFKA_HEAP_SIZE=$(($TOTAL_MEM / 20))
+    [ $KAFKA_HEAP_SIZE -gt 8 ] && KAFKA_HEAP_SIZE=1
     [ $KAFKA_HEAP_SIZE -lt 1 ] && KAFKA_HEAP_SIZE=1
 }
 
@@ -77,6 +77,17 @@ download_package() {
             exit 1
         fi
     fi
+}
+
+# 获取本机IP地址
+get_local_ip() {
+    # 优先获取非回环IP地址
+    LOCAL_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '^127' | head -n 1)
+    if [ -z "$LOCAL_IP" ]; then
+        print_error "无法获取本机IP地址"
+        exit 1
+    fi
+    print_message "本机IP地址: ${LOCAL_IP}"
 }
 
 # 安装 Kafka
@@ -120,14 +131,16 @@ install_kafka() {
     fi
     
     # 创建配置文件
+    brokerno=1
     cat > ${KAFKA_CONF}/kafka/server.properties << EOF
-# Kafka Broker 配置
-node.id=1
+# Broker 配置
+node.id=${brokerno}
 process.roles=broker,controller
-listeners=PLAINTEXT://localhost:9092,CONTROLLER://localhost:9093
-advertised.listeners=PLAINTEXT://localhost:9092
+listeners=PLAINTEXT://${LOCAL_IP}:9092,CONTROLLER://localhost:9093
+advertised.listeners=PLAINTEXT://${LOCAL_IP}:9092
 controller.listener.names=CONTROLLER
-controller.quorum.voters=1@localhost:9093
+# Controller集群成员列表
+controller.quorum.voters=${brokerno}@localhost:9093
 
 # 基础配置
 num.network.threads=${CPU_CORES}
@@ -157,6 +170,7 @@ export PATH=\$PATH:\$KAFKA_HOME/bin
 export KAFKA_HEAP_OPTS="-Xmx${KAFKA_HEAP_SIZE}g -Xms${KAFKA_HEAP_SIZE}g -XX:+UseG1GC"
 export KAFKA_JVM_PERFORMANCE_OPTS="-server -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.awt.headless=true"
 export KAFKA_LOG_DIRS=${KAFKA_LOGS}
+export KAFKA_DATA_DIRS=${KAFKA_DATA}
 EOF
 
     # 设置权限
@@ -186,6 +200,7 @@ create_service_script() {
 [Unit]
 Description=Apache Kafka
 After=network.target
+Requires=network-online.target
 
 [Service]
 Type=simple
@@ -196,6 +211,10 @@ Environment="KAFKA_HEAP_OPTS=-Xmx${KAFKA_HEAP_SIZE}g -Xms${KAFKA_HEAP_SIZE}g"
 ExecStart=${KAFKA_HOME}/bin/kafka-server-start.sh ${KAFKA_CONF}/kafka/server.properties
 ExecStop=${KAFKA_HOME}/bin/kafka-server-stop.sh
 Restart=on-failure
+# 日志重定向到标准输出
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kafka
 
 [Install]
 WantedBy=multi-user.target
@@ -203,30 +222,6 @@ EOF
 
     # 重新加载系统服务
     systemctl daemon-reload
-    
-    # 创建控制脚本
-    cat > ${KAFKA_HOME}/bin/kafka_control.sh << EOF
-#!/bin/bash
-case "\$1" in
-    start)
-        systemctl start kafka
-        ;;
-    stop)
-        systemctl stop kafka
-        ;;
-    status)
-        systemctl status kafka
-        ;;
-    restart)
-        systemctl restart kafka
-        ;;
-    *)
-        echo "Usage: \$0 {start|stop|status|restart}"
-        exit 1
-esac
-EOF
-
-    chmod +x ${KAFKA_HOME}/bin/kafka_control.sh
 }
 
 # 主函数
@@ -249,6 +244,7 @@ main() {
     check_system
     create_user
     download_package
+    get_local_ip
     install_kafka
     create_service_script
     
@@ -260,12 +256,11 @@ main() {
     print_message "数据目录: ${KAFKA_DATA}"
     print_message "日志目录: ${KAFKA_LOGS}"
     print_message "配置文件: ${KAFKA_CONF}/kafka/server.properties"
-    print_message ""
     print_message "使用以下命令管理服务："
-    print_message "启动: ${KAFKA_HOME}/bin/kafka_control.sh start"
-    print_message "停止: ${KAFKA_HOME}/bin/kafka_control.sh stop"
-    print_message "状态: ${KAFKA_HOME}/bin/kafka_control.sh status"
-    print_message "重启: ${KAFKA_HOME}/bin/kafka_control.sh restart"
+    print_message "启动: systemctl start kafka"
+    print_message "停止: systemctl stop kafka"
+    print_message "状态: systemctl status kafka"
+    print_message "重启: systemctl restart kafka"
 }
 
 # 执行主函数
