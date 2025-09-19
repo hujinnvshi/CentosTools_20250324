@@ -22,8 +22,8 @@ fi
 
 # 设置变量
 export PERCONA_VERSION="5.7.35"
-export PERCONA_PORT="3309"
-export PERCONA_SID="3309"
+export PERCONA_PORT="3310"
+export PERCONA_SID="3310"
 export PERCONA_HOME="/data/percona_5.7.35_${PERCONA_SID}"
 export PERCONA_USER="percona${PERCONA_SID}"
 export PERCONA_GROUP="perconagrp${PERCONA_SID}"
