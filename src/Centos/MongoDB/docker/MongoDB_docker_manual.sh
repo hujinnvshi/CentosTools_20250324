@@ -56,8 +56,29 @@ sleep 5
 
 
 
- # 
-docker run -it --name mongo509   --privileged   -p 6001:27017 --restart=always -e MONGO_INITDB_ROOT_USERNAME="rdb" -e MONGO_INITDB_ROOT_PASSWORD="Secsmart#612" -d mongo:5.0.9
+docker stop mongo509
+docker rm mongo509
+
+# 创建专用目录用于存放 PID 文件
+mkdir -p ~/mongo_pids
+chmod 777 ~/mongo_pids
+
+# 启动容器并指定 PID 文件路径
+docker run -d --name mongo509 \
+  -p 6003:27017 \
+  --restart=always \
+  -e MONGO_INITDB_ROOT_USERNAME=admin \
+  -e MONGO_INITDB_ROOT_PASSWORD=admin \
+  -v mongo509_data:/data/db \
+  -v ~/mongo_pids:/pid_dir \
+  mongo:5.0.9 \
+  --pidfilepath /pid_dir/mongod.pid
+
+docker logs -f mongo509
+
+
 docker run -it --name mongo4214  --privileged   -p 6001:27017 --restart=always -e MONGO_INITDB_ROOT_USERNAME="rdb" -e MONGO_INITDB_ROOT_PASSWORD="Secsmart#612" -d mongo:4.2.14
+
 docker run -it --name mongo440   --privileged   -p 6002:27017 --restart=always -e MONGO_INITDB_ROOT_USERNAME="rdb" -e MONGO_INITDB_ROOT_PASSWORD="Secsmart#612" -d mongo:4.4.0 
+
 docker run -it --name mongo361   --privileged   -p 9003:27017 --restart=always -e MONGO_INITDB_ROOT_USERNAME="rdb" -e MONGO_INITDB_ROOT_PASSWORD="Secsmart#612" -d mongo:3.6.1
