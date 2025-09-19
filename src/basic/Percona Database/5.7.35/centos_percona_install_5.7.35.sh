@@ -32,9 +32,9 @@ export PERCONA_PASSWORD="Secsmart#612"
 cleanup() {
     local exit_code=$?
     if [ $exit_code -ne 0 ]; then
-        print_message "安装失败，开始清理..."  # 改用print_message，因为print_error会导致递归退出
-        systemctl stop percona 2>/dev/null || true  # 添加错误处理
-        rm -rf ${PERCONA_HOME} 2>/dev/null || true
+        print_message "安装失败，开始清理..."
+        systemctl stop percona 2>/dev/null || true
+        # rm -rf ${PERCONA_HOME} 2>/dev/null || true
         rm -f /usr/lib/systemd/system/percona.service 2>/dev/null || true
         rm -f /etc/profile.d/percona.sh 2>/dev/null || true
     fi
@@ -119,6 +119,7 @@ fi
 
 cat > ${PERCONA_HOME}/my.cnf << EOF
 [mysqld]
+server-id = ${PERCONA_PORT}
 user = ${PERCONA_USER}
 port = ${PERCONA_PORT}
 basedir = ${PERCONA_HOME}/base
@@ -129,12 +130,9 @@ character-set-server = utf8mb4
 collation-server = utf8mb4_general_ci
 explicit_defaults_for_timestamp = 1
 default-time-zone = '+8:00'
-mysqlx_socket = ${PERCONA_HOME}/tmp/mysqlx.sock
-secure-log-path = ${PERCONA_HOME}/log
 
 # 性能配置
 innodb_buffer_pool_size = ${BUFFER_POOL_SIZE}G
-innodb_redo_log_capacity = 1G
 innodb_log_buffer_size = 16M
 max_connections = 214
 thread_cache_size = 214
@@ -148,7 +146,6 @@ slow_query_log_file = ${PERCONA_HOME}/log/slow.log
 long_query_time = 2
 log_queries_not_using_indexes = 1
 log-bin = ${PERCONA_HOME}/log/binlog/Percona-bin
-binlog_expire_logs_seconds = 604800
 binlog_cache_size = 1M
 sync_binlog = 1
 
@@ -283,7 +280,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    print_error "Percona服务启动超时，请检查日志：${PERCONA_HOME}/log/error.log"
+    print_error "Percona服务启动超时，请检���日志：${PERCONA_HOME}/log/error.log"
 fi
 
 # 确保服务已完全启动
