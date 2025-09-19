@@ -71,3 +71,6 @@ netstat -nltp | grep 3306
 
 # 4. 停止MySQL
 kill -TERM `cat /data/mysql/mysql.pid`
+
+# 关闭服务
+mysqladmin -u root -pSecsmart#612 -P 6003 shutdown -S /old-data/MySQL5739_ISAS_6003/data/mysql.sock
