@@ -22,10 +22,11 @@ fi
 
 # 设置变量
 export PERCONA_VERSION="5.7.35"
-export PERCONA_HOME="/data/percona_5.7.35"
-export PERCONA_USER="percona"
-export PERCONA_GROUP="perconagrp"
 export PERCONA_PORT="3309"
+export PERCONA_SID="3309"
+export PERCONA_HOME="/data/percona_5.7.35_${PERCONA_SID}"
+export PERCONA_USER="percona${PERCONA_SID}"
+export PERCONA_GROUP="perconagrp${PERCONA_SID}"
 export PERCONA_PASSWORD="Secsmart#612"
 
 # 添加清理函数
@@ -33,10 +34,10 @@ cleanup() {
     local exit_code=$?
     if [ $exit_code -ne 0 ]; then
         print_message "安装失败，开始清理..."
-        systemctl stop percona 2>/dev/null || true
+        systemctl stop percona${PERCONA_SID} 2>/dev/null || true
         # rm -rf ${PERCONA_HOME} 2>/dev/null || true
-        rm -f /usr/lib/systemd/system/percona.service 2>/dev/null || true
-        rm -f /etc/profile.d/percona.sh 2>/dev/null || true
+        rm -f /usr/lib/systemd/system/percona${PERCONA_SID}.service 2>/dev/null || true
+        rm -f /etc/profile.d/percona${PERCONA_SID}.sh 2>/dev/null || true
     fi
     exit $exit_code
 }
@@ -119,7 +120,7 @@ fi
 
 cat > ${PERCONA_HOME}/my.cnf << EOF
 [mysqld]
-server-id = ${PERCONA_PORT}
+server-id = ${PERCONA_SID}
 user = ${PERCONA_USER}
 port = ${PERCONA_PORT}
 basedir = ${PERCONA_HOME}/base
@@ -224,7 +225,7 @@ echo "临时密码: << ${TEMP_PASSWORD} >>"
 
 # 修改服务文件配置
 print_message "创建系统服务..."
-cat > /usr/lib/systemd/system/percona.service << EOF
+cat > /usr/lib/systemd/system/percona${PERCONA_SID}.service << EOF
 [Unit]
 Description=Percona Server
 After=network.target
@@ -255,16 +256,16 @@ EOF
 
 # 配置环境变量
 print_message "配置环境变量..."
-cat > /etc/profile.d/percona.sh << EOF
+cat > /etc/profile.d/percona${PERCONA_SID}.sh << EOF
 export PERCONA_HOME=${PERCONA_HOME}
 export PATH=\$PERCONA_HOME/base/bin:\$PATH
 EOF
-source /etc/profile.d/percona.sh || print_error "加载环境变量失败"
+source /etc/profile.d/percona${PERCONA_SID}.sh || print_error "加载环境变量失败"
 
 # 启动服务
 print_message "启动Percona服务..."
 systemctl daemon-reload
-systemctl start percona
+systemctl start percona${PERCONA_SID}
 
 # 增加启动检查重试
 MAX_RETRIES=3
@@ -280,16 +281,16 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    print_error "Percona服务启动超时，请检���日志：${PERCONA_HOME}/log/error.log"
+    print_error "Percona服务启动超时，请检日志：${PERCONA_HOME}/log/error.log"
 fi
 
 # 确保服务已完全启动
 sleep 5
-if ! systemctl is-active percona >/dev/null 2>&1; then
+if ! systemctl is-active percona${PERCONA_SID} >/dev/null 2>&1; then
     print_error "Percona服务状态异常，请检查日志：${PERCONA_HOME}/log/error.log"
 fi
 
-systemctl enable percona
+systemctl enable percona${PERCONA_SID}
 
 # 等待服务启动
 sleep 10
@@ -351,10 +352,10 @@ if [ -z "${LOCAL_IP}" ]; then
 fi
 
 print_message "Percona安装完成！"
-print_message "数据库启动命令: systemctl start percona"
-print_message "数据库停止命令: systemctl stop percona"
-print_message "数据库重启命令: systemctl restart percona"
-print_message "数据库状态查看: systemctl status percona"
+print_message "数据库启动命令: systemctl start percona${PERCONA_SID}"
+print_message "数据库停止命令: systemctl stop percona${PERCONA_SID}"
+print_message "数据库重启命令: systemctl restart percona${PERCONA_SID}"
+print_message "数据库状态查看: systemctl status percona${PERCONA_SID}"
 print_message "数据库连接命令: mysql -P ${PERCONA_PORT} -S ${PERCONA_HOME}/tmp/mysql.sock -uroot -p${PERCONA_PASSWORD} "
 print_message "测试用户连接命令: mysql -h ${LOCAL_IP} -P ${PERCONA_PORT} -utest_user -pTest@123 test_db"
 print_message "测试用户连接命令: mysql -h ${LOCAL_IP} -P ${PERCONA_PORT} -uadmin -pSecsmart#612 admin"
