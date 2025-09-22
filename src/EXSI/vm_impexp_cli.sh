@@ -1,6 +1,7 @@
 
-# windows 导出exsi vm(远程,OK)
+# windows 导出exsi vm(远程,OK,删除ISO)
 D:\ovftool\ovftool.exe --noSSLVerify "vi://root:Secsmart#612@172.16.48.15/c76-172.16.48.58-kdcv2" "D:\c76-172.16.48.58-kdcv2.ovf"
+D:\ovftool\ovftool.exe --noSSLVerify "vi://root:Secsmart#612@172.16.48.11/Ubuntu24.04.1-GitlabRunner-(172.16.48.112)" "D:\u.ovf"
 
 # windows 导出workstation vm(本地,OK)
 D:\ovftool\ovftool.exe "D:\C48O9I\C48O9I.vmx" "D:\c48o9i_exp"
