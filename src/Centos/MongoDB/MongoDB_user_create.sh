@@ -24,7 +24,13 @@ db.createUser({
     { role: "readWrite", db: "test" }
   ]
 })
-
+db.createUser({
+  user: "panmingyan_read",
+  pwd: "Secsmart#612",
+  roles: [
+    { role: "read", db: "test" }
+  ]
+})
 mongosh --port 27117 -u panmingyan -p 'Secsmart#612' --authenticationDatabase test
 
 # 远程登陆
