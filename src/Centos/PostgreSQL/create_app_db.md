@@ -34,3 +34,6 @@ WHERE rolname = 'vbadmin';
 
 -- vastbase g100
 ALTER ROLE vbadmin ACCOUNT UNLOCK;
+
+ALTER ROLE vbadmin IDENTIFIED BY 'Vbadmin#612' REPLACE 'Secsmart#612';
+ALTER ROLE vbadmin IDENTIFIED BY 'Secsmart#612' REPLACE 'Vbadmin#612';
