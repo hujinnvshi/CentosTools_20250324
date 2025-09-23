@@ -9,6 +9,24 @@ db.createUser({
   roles: [ { role: "root", db: "admin" } ]
 })
 
+db.createUser({
+  user: "app",
+  pwd: "Secsmart#612",
+  roles: [ { role: "root", db: "admin" } ]
+})
+
+use admin
+
+db.createUser({
+  user: "panmingyan",
+  pwd: "Secsmart#612",
+  roles: [
+    { role: "readWrite", db: "test" }
+  ]
+})
+
+mongosh --port 27117 -u panmingyan -p 'Secsmart#612' --authenticationDatabase test
+
 # 远程登陆
 mongosh "mongodb://admin1:admin1@172.16.47.185:27017/admin"
 use admin
