@@ -4,10 +4,14 @@
 mongosh
 use admin
 db.createUser({
-  user: "admin1",
-  pwd: "admin1",  // 安全输入密码（非交互式）
+  user: "admin",
+  pwd: "admin",  // 安全输入密码（非交互式）
   roles: [ { role: "root", db: "admin" } ]
 })
+
+# 修改密码
+use admin
+db.changeUserPassword("admin", "Secsmart#612")
 
 db.createUser({
   user: "app",

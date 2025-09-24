@@ -35,7 +35,7 @@ else
 fi
 
 MySQL_Port=6005
-MySQL_ServerID=10089
+MySQL_ServerID=${MySQL_Port}
 
 # 清理旧环境
 print_message "清理旧环境..."
