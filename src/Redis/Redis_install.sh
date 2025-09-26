@@ -67,7 +67,7 @@ function create_config() {
     echo "⚙️ 生成配置文件..."
     cat << EOF > "${CONFIG_FILE}"
 # Redis 基础配置
-daemonize yes
+daemonize no
 pidfile ${INSTALL_DIR}/redis.pid
 port 6379
 bind 0.0.0.0
