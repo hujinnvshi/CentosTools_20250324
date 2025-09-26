@@ -19,6 +19,7 @@ MONGO_SERVICE="/etc/systemd/system/mongod_$MONGO_VERSION.service"
 SYSTEM_USER="mongod_$MONGO_VERSION"
 ADMIN_PASSWORD="Secsmart#612"
 MONGO_TOOLS_URL="https://downloads.mongodb.com/compass/mongodb-mongosh-1.10.6.x86_64.rpm"
+MONGO_Port="27127"
 
 # 检查是否以root用户运行
 if [ "$(id -u)" -ne 0 ]; then
@@ -106,7 +107,7 @@ processManagement:
   timeZoneInfo: /usr/share/zoneinfo
 
 net:
-  port: 27017
+  port: ${MONGO_Port}
   bindIp: 0.0.0.0  # 允许所有IP连接
   maxIncomingConnections: 10000
   unixDomainSocket:
@@ -229,12 +230,12 @@ if [ "${STATUS}" = "active" ]; then
     
     # 本地连接测试
     echo -e "\n\033[32m本地连接测试:\033[0m"
-    mongosh --host 127.0.0.1 --port 27017 -u admin -p "${ADMIN_PASSWORD}" --authenticationDatabase admin --eval "db.runCommand({connectionStatus: 1})"
+    mongosh --host 127.0.0.1 --port ${MONGO_Port} -u admin -p "${ADMIN_PASSWORD}" --authenticationDatabase admin --eval "db.runCommand({connectionStatus: 1})"
     
     # 获取服务器IP
     SERVER_IP=$(hostname -I | awk '{print $1}')
     echo -e "\n\033[32m远程连接测试命令:\033[0m"
-    echo "mongosh --host ${SERVER_IP} --port 27017 -u admin -p '${ADMIN_PASSWORD}' --authenticationDatabase admin"
+    echo "mongosh --host ${SERVER_IP} --port ${MONGO_Port} -u admin -p '${ADMIN_PASSWORD}' --authenticationDatabase admin"
     
     echo -e "\n\033[32m安装完成！MongoDB 6.0.5 已在 ${MONGO_BASE_DIR} 成功安装并运行。\033[0m"
     echo -e "\033[33m注意：防火墙已关闭，MongoDB已配置为允许所有IP连接。\033[0m"

@@ -67,11 +67,11 @@ function create_config() {
     echo "⚙️ 生成配置文件..."
     cat << EOF > "${CONFIG_FILE}"
 # Redis 基础配置
-daemonize no
+daemonize yes
 pidfile ${INSTALL_DIR}/redis.pid
 port 6379
-bind 127.0.0.1
-timeout 0
+bind 0.0.0.0
+timeout 1000
 tcp-keepalive 300
 
 # 数据存储
@@ -85,12 +85,11 @@ rdbcompression yes
 # 日志配置
 logfile ${INSTALL_DIR}/logs/redis.log
 loglevel notice
-logfile /dev/null
 
 # 安全配置
 protected-mode yes
 # 无密码 (生产环境不推荐)
-# requirepass ""
+requirepass "Secsmart#612"
 
 # 性能优化
 maxmemory 1gb

@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# MongoDB 6.0.5 清理脚本 for CentOS 7.9
+# 清理安装脚本创建的所有内容，但保留安装包
+# 创建时间：2023年
+# 作者：DeepSeek AI
+
+# 清理参数配置（与安装脚本保持一致）
+MONGO_VERSION="6.0.5"
+MONGO_BASE_DIR="/data/mongodb_$MONGO_VERSION"
+MONGO_SERVICE="/etc/systemd/system/mongod_$MONGO_VERSION.service"
+SYSTEM_USER="mongod_$MONGO_VERSION"
+MONGO_TOOLS_URL="https://downloads.mongodb.com/compass/mongodb-mongosh-1.10.6.x86_64.rpm"
+
+# 检查是否以root用户运行
+if [ "$(id -u)" -ne 0 ]; then
+  echo "错误：必须使用root权限运行此脚本"
+  exit 1
+fi
+
+echo -e "\n\033[31m⚠️ 警告：此操作将完全移除 MongoDB $MONGO_VERSION 安装及其所有数据！\033[0m"
+read -p "确认要清理 MongoDB $MONGO_VERSION 安装吗？(y/N) " confirm
+
+if [[ ! $confirm =~ ^[Yy]$ ]]; then
+  echo "操作已取消"
+  exit 0
+fi
+
+# 步骤1：停止并禁用服务
+echo -e "\n\033[32m[1/7] 停止并禁用 MongoDB 服务...\033[0m"
+systemctl stop mongod_$MONGO_VERSION 2>/dev/null
+systemctl disable mongod_$MONGO_VERSION 2>/dev/null
+systemctl daemon-reload
+
+# 步骤2：移除系统服务文件
+echo -e "\n\033[32m[2/7] 移除系统服务文件...\033[0m"
+rm -f $MONGO_SERVICE
+rm -f /etc/systemd/system/mongod_$MONGO_VERSION.service
+
+# 步骤3：删除安装目录和数据
+echo -e "\n\033[32m[3/7] 删除安装目录和数据...\033[0m"
+if [ -d "$MONGO_BASE_DIR" ]; then
+  rm -rf $MONGO_BASE_DIR
+  echo "已删除安装目录: $MONGO_BASE_DIR"
+else
+  echo "安装目录不存在: $MONGO_BASE_DIR"
+fi
+
+# 步骤4：删除符号链接
+echo -e "\n\033[32m[4/7] 删除符号链接...\033[0m"
+rm -f /usr/bin/mongod
+
+# 步骤5：删除系统用户和组
+echo -e "\n\033[32m[5/7] 删除系统用户和组...\033[0m"
+if id "$SYSTEM_USER" &>/dev/null; then
+  userdel $SYSTEM_USER
+  groupdel $SYSTEM_USER
+  echo "已删除用户和组: $SYSTEM_USER"
+else
+  echo "用户不存在: $SYSTEM_USER"
+fi
+
+# 删除 YUM 仓库文件
+rm -f /etc/yum.repos.d/mongodb-org-6.0.repo
+
+# 步骤7：清理临时文件
+echo -e "\n\033[32m[7/7] 清理临时文件...\033[0m"
+rm -f /tmp/mongosh.rpm
+
+# 保留安装包（不删除）
+echo "安装包保留在: /tmp/mongodb-linux-x86_64-rhel70-6.0.5.tgz"
+
+echo -e "\n\033[32m✅ MongoDB $MONGO_VERSION 清理完成！\033[0m"
+echo "已移除所有安装文件和配置，但保留了原始安装包"
