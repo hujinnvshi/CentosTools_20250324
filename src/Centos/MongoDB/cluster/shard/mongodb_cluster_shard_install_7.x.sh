@@ -106,6 +106,7 @@ systemLog:
   destination: file
   path: "$logfile"
   logAppend: true
+  verbosity: 0
 storage:
   dbPath: "$path"
 net:
@@ -340,6 +341,7 @@ systemLog:
   destination: file
   path: "$LOG_DIR/mongos.log"
   logAppend: true
+  verbosity: 0
 net:
   bindIp: 0.0.0.0
   port: ${PORT_ASSIGNMENTS["Mongos"]}
