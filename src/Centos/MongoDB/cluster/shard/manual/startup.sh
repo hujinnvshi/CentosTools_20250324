@@ -1,5 +1,3 @@
-
-
 # ====== 变量定义 ======
 MONGO_VERSION="7.0.12"
 BASE_DIR="/data/mongo_cluster_${MONGO_VERSION}"
@@ -28,13 +26,13 @@ start_service() {
     return 0
 }
 
-    # ====== 启动所有节点 ======
-    echo "" > "$LOG_DIR/config1.log"
-    echo "" > "$LOG_DIR/shard1.log"
-    echo "" > "$LOG_DIR/shard2.log"
-    echo "" > "$LOG_DIR/mongos.log"
-    
-    start_service "$BIN_DIR/mongod" "$DATA_DIR/config1/mongod.conf" "ConfigServer" "$LOG_DIR/config1.log" || exit 1
-    start_service "$BIN_DIR/mongod" "$DATA_DIR/shard1/mongod.conf" "Shard1" "$LOG_DIR/shard1.log" || exit 1
-    start_service "$BIN_DIR/mongod" "$DATA_DIR/shard2/mongod.conf" "Shard2" "$LOG_DIR/shard2.log" || exit 1
-    start_service "$BIN_DIR/mongos" "$CONFIG_DIR/mongos.conf" "Mongos" "$LOG_DIR/mongos.log" || exit 1
+# ====== 启动所有节点 ======
+echo "" > "$LOG_DIR/config1.log"
+echo "" > "$LOG_DIR/shard1.log"
+echo "" > "$LOG_DIR/shard2.log"
+echo "" > "$LOG_DIR/mongos.log"
+
+start_service "$BIN_DIR/mongod" "$DATA_DIR/config1/mongod.conf" "ConfigServer" "$LOG_DIR/config1.log" || exit 1
+start_service "$BIN_DIR/mongod" "$DATA_DIR/shard1/mongod.conf" "Shard1" "$LOG_DIR/shard1.log" || exit 1
+start_service "$BIN_DIR/mongod" "$DATA_DIR/shard2/mongod.conf" "Shard2" "$LOG_DIR/shard2.log" || exit 1
+start_service "$BIN_DIR/mongos" "$CONFIG_DIR/mongos.conf" "Mongos" "$LOG_DIR/mongos.log" || exit 1

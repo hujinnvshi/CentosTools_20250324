@@ -5,7 +5,7 @@ mongosh
 use admin
 db.createUser({
   user: "admin",
-  pwd: "admin",  // 安全输入密码（非交互式）
+  pwd: "Secsmart#612",
   roles: [ { role: "root", db: "admin" } ]
 })
 
@@ -28,6 +28,7 @@ db.createUser({
     { role: "readWrite", db: "test" }
   ]
 })
+
 db.createUser({
   user: "panmingyan_read",
   pwd: "Secsmart#612",
