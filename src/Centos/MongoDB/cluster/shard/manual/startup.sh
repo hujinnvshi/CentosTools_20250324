@@ -37,7 +37,12 @@ start_service "$BIN_DIR/mongod" "$DATA_DIR/shard1/mongod.conf" "Shard1" "$LOG_DI
 start_service "$BIN_DIR/mongod" "$DATA_DIR/shard2/mongod.conf" "Shard2" "$LOG_DIR/shard2.log" || exit 1
 start_service "$BIN_DIR/mongos" "$CONFIG_DIR/mongos.conf" "Mongos" "$LOG_DIR/mongos.log" || exit 1
 
-/data/mongo_cluster_7.0.12/bin/mongod -f /data/mongo_cluster_7.0.12/data/config1/mongod.conf
-/data/mongo_cluster_7.0.12/bin/mongod -f /data/mongo_cluster_7.0.12/data/shard1/mongod.conf
-/data/mongo_cluster_7.0.12/bin/mongod -f /data/mongo_cluster_7.0.12/data/shard2/mongod.conf
-/data/mongo_cluster_7.0.12/bin/mongod -f /data/mongo_cluster_7.0.12/config/mongos.conf
+/data/mongo_cluster_7.0.12/bin/mongod -f /data/mongo_cluster_7.0.12/data/config1/mongod.conf &
+/data/mongo_cluster_7.0.12/bin/mongod -f /data/mongo_cluster_7.0.12/data/shard1/mongod.conf &
+/data/mongo_cluster_7.0.12/bin/mongod -f /data/mongo_cluster_7.0.12/data/shard2/mongod.conf &
+/data/mongo_cluster_7.0.12/bin/mongos -f /data/mongo_cluster_7.0.12/config/mongos.conf &
+
+/data/mongo_cluster_7.0.12/bin/mongod --config /data/mongo_cluster_7.0.12/data/config1/mongod.conf
+/data/mongo_cluster_7.0.12/bin/mongod --config /data/mongo_cluster_7.0.12/data/shard1/mongod.conf
+/data/mongo_cluster_7.0.12/bin/mongod --config /data/mongo_cluster_7.0.12/data/shard2/mongod.conf
+/data/mongo_cluster_7.0.12/bin/mongos --config /data/mongo_cluster_7.0.12/config/mongos.conf
