@@ -46,3 +46,12 @@ start_service "$BIN_DIR/mongos" "$CONFIG_DIR/mongos.conf" "Mongos" "$LOG_DIR/mon
 /data/mongo_cluster_7.0.12/bin/mongod --config /data/mongo_cluster_7.0.12/data/shard1/mongod.conf
 /data/mongo_cluster_7.0.12/bin/mongod --config /data/mongo_cluster_7.0.12/data/shard2/mongod.conf
 /data/mongo_cluster_7.0.12/bin/mongos --config /data/mongo_cluster_7.0.12/config/mongos.conf
+
+# config
+netstat -anp | grep 27119
+# router
+netstat -anp | grep 27117
+# shard1
+netstat -anp | grep 27118
+# shard2
+netstat -anp | grep 27200
