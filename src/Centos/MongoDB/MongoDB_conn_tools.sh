@@ -29,7 +29,7 @@ echo -e "\n\033[32m[2/4] 安装MongoDB连接工具...\033[0m"
 # 安装mongosh
 if [ ! -f "/tmp/mongosh.rpm" ]; then
     echo "下载 mongosh 安装包..."
-    wget ${MONGO_TOOLS_URL} -O /tmp/mongosh.rpm
+    wget ${MONGO_TOOLS_URL} --no-check-certificate -O /tmp/mongosh.rpm
     
     # 检查下载是否成功
     if [ ! -f "/tmp/mongosh.rpm" ]; then
