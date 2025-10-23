@@ -90,7 +90,7 @@ start_docker() {
     log_info "启动 Docker 服务..."
     
     # 重置 Docker 服务状态
-    systemctl reset-failed docker.service || log_error "重置 Docker 服务状态失败"
+    # systemctl reset-failed docker.service || log_error "重置 Docker 服务状态失败"
     
     # 启用并启动服务
     systemctl enable docker || log_error "Docker 服务启用失败"
@@ -156,3 +156,6 @@ main() {
 
 # 执行主函数
 main
+# 业已核验之次数： 
+# 172.16.48.158 时间：2025-10-23 安装Docker完成，提示错误systemctl reset-failed docker.service || log_error "重置 Docker 服务状态失败"
+# 172.16.48.159 时间：2025-10-23 再次验证。
