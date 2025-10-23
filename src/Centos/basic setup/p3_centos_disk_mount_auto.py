@@ -84,7 +84,7 @@ def format_partitions():
     print("\n💾 格式化分区")
     for i, part in enumerate(PARTITIONS, start=1):
         partition = f"{DISK}{i}"
-        if not run_command(["mkfs.xfs", "-L", part['label'], partition], 
+        if not run_command(["mkfs.xfs", "-f", "-L", part['label'], partition], 
                           f"格式化 {partition} 为 XFS"):
             sys.exit(1)
     print("✅ 格式化完成")
@@ -206,3 +206,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+# 1，干净环境正常执行。
+# 2，先卸载挂载，删除分区表，fdisk删除分区,清理/etc/fstab。
