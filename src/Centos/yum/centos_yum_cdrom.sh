@@ -68,7 +68,7 @@ configure_local_yum() {
     # 清理现有 YUM 源文件，保留 LocalYum.repo
     for repo_file in /etc/yum.repos.d/*.repo; do
         if [[ $(basename "$repo_file") != "LocalYum.repo" ]]; then
-            rm -f "$repo_file"
+            print_message "保留 $repo_file"
         fi
     done
     
@@ -127,5 +127,6 @@ main() {
 # 执行主函数
 main
 
-# 业已核验之次数： 
-# - ⭐️ 172.16.48.171 时间：2025-04-11 16:21:50
+# 精进过程：
+# - 172.16.48.171 时间：2025-04-11 自动挂载，配置为本地yum源
+# - 172.16.48.158 时间：2025-10-23 不删除原有yum源
