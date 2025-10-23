@@ -1,7 +1,3 @@
-# 删除 GPT 分区表
-# sudo parted /dev/sdb mklabel gpt
-# 删除 MBR 分区表
-# sudo parted /dev/sdb mklabel msdos
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -11,9 +7,9 @@ import sys
 
 # 分区配置
 PARTITIONS = [
-    {"mount_point": "/data/log1", "size": "120", "label": "log_data"},
-    {"mount_point": "/data/1", "size": "40", "label": "app_data"},
-    {"mount_point": "/docker", "size": "20", "label": "docker_data"}
+    {"mount_point": "/data/log1", "size": "500", "label": "log_data"},
+    {"mount_point": "/data/1", "size": "150", "label": "app_data"},
+    {"mount_point": "/docker", "size": "150", "label": "docker_data"}
 ]
 
 DISK = "/dev/sdb"
@@ -206,5 +202,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
 # 1，干净环境正常执行。
 # 2，先卸载挂载，删除分区表，fdisk删除分区,清理/etc/fstab。
+
+# 删除 GPT 分区表
+# sudo parted /dev/sdb mklabel gpt
+# 删除 MBR 分区表
+# sudo parted /dev/sdb mklabel msdos
