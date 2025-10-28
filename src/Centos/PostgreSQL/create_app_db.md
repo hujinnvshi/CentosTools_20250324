@@ -39,3 +39,6 @@ ALTER ROLE vbadmin IDENTIFIED BY 'Secsmart#612' REPLACE 'Vbadmin#612';
 
 psql -d postgres
 psql -h 172.16.48.145 -p 5432 -d postgres -U vbadmin
+
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO suntao;
