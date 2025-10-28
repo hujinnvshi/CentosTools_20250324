@@ -112,7 +112,7 @@ verify_config() {
 
 # 主函数
 main() {
-    print_message "开始配置CDROM本地YUM源..."    
+    print_message "开始配置CDROM本地YUM源..."
     check_root
     create_mount_point
     check_cdrom
