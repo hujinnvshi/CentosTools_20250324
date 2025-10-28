@@ -8,8 +8,8 @@ cd openssl-1.0.2u
 
 # 配置编译选项
 ./config --prefix=/usr/local/openssl1.0 \
-         --openssldir=/usr/local/openssl1.0 \
-         shared zlib
+--openssldir=/usr/local/openssl1.0 \
+shared zlib
 
 # 编译并安装
 make
