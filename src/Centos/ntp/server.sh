@@ -23,7 +23,7 @@ server 127.127.1.0
 fudge 127.127.1.0 stratum 10
 
 # 允许内网客户端访问
-restrict 192.168.20.0 mask 255.255.255.0 nomodify notrap
+restrict 172.16.48.0 mask 255.255.255.0 nomodify notrap
 
 # 日志配置
 logfile /var/log/ntp.log
