@@ -42,3 +42,6 @@ psql -h 172.16.48.145 -p 5432 -d postgres -U vbadmin
 
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO suntao;
+
+-- 将 username 替换为实际的用户名
+GRANT CREATE ON SCHEMA public TO suntao;
