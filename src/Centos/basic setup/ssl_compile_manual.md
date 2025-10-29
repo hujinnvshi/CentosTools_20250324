@@ -23,6 +23,7 @@ sudo ln -s /usr/local/openssl1.0/lib/libcrypto.so.1.0.0 /usr/lib64/libcrypto.so.
 sudo ldconfig
 
 # 检查符号链接
+chmod 755 /usr/local/openssl1.0
 ls -l /usr/lib64/libssl.so.10
 ls -l /usr/lib64/libcrypto.so.10
 
