@@ -33,4 +33,22 @@ echo 'export LD_LIBRARY_PATH=/usr/local/openssl1.0/lib:$LD_LIBRARY_PATH' | sudo 
 source /etc/profile.d/openssl10.sh
 
 # 检查 PostgreSQL 依赖
-ldd ./base/bin/postgres | grep ssl
+ldd ./postgres | grep ssl
+
+ls -l /lib64/libcrypto.so*
+ls -l /lib64/libssl.so*
+
+
+➜ ls -l /lib64/libcrypto.so*
+lrwxrwxrwx. 1 root root      19 Jul 16 10:56 /lib64/libcrypto.so -> libcrypto.so.1.0.2k
+lrwxrwxrwx. 1 root root      19 Jul 16 10:56 /lib64/libcrypto.so.10 -> libcrypto.so.1.0.2k
+-rwxr-xr-x. 1 root root 2521224 Mar 21  2023 /lib64/libcrypto.so.1.0.2k
+lrwxrwxrwx  1 root root      19 Aug  1 17:16 /lib64/libcrypto.so.1.1 -> libcrypto.so.1.1.1k
+-rwxr-xr-x  1 root root 3090568 Jan 24  2024 /lib64/libcrypto.so.1.1.1k
+[15:53:55] root@gxnt3 /data/PostgreSQL_16.3_V1/base/bin
+➜ ls -l /lib64/libssl.so*
+lrwxrwxrwx. 1 root root     16 Jul 16 10:56 /lib64/libssl.so -> libssl.so.1.0.2k
+lrwxrwxrwx. 1 root root     16 Jul 16 10:56 /lib64/libssl.so.10 -> libssl.so.1.0.2k
+-rwxr-xr-x. 1 root root 470328 Mar 21  2023 /lib64/libssl.so.1.0.2k
+lrwxrwxrwx  1 root root     16 Aug  1 17:16 /lib64/libssl.so.1.1 -> libssl.so.1.1.1k
+-rwxr-xr-x  1 root root 603592 Jan 24  2024 /lib64/libssl.so.1.1.1k
