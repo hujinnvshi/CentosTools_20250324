@@ -3,6 +3,7 @@
 # 配置root用户的SSH免密登录
 
 # 检查并创建 ~/.ssh 目录
+# passwd user
 if [ ! -d ~/.ssh ]; then
     mkdir -p ~/.ssh
 fi
