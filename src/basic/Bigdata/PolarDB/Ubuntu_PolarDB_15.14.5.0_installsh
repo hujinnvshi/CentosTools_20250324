@@ -1,0 +1,228 @@
+#!/bin/bash
+
+# PolarDB for PostgreSQL 一键安装脚本
+# 版本: 15.14.5.0
+# 适用于 Ubuntu 24.04
+
+# 检查是否为 root 用户
+if [ "$(id -u)" -ne 0 ]; then
+    echo "请使用 sudo 或以 root 用户运行此脚本"
+    exit 1
+fi
+
+# 安装信息
+VERSION="15.14.5.0"
+DEB_FILE="PolarDB_15.14.5.0-b4011ae4-ubuntu24.04_amd64.deb"
+DOWNLOAD_URL="https://github.com/ApsaraDB/PolarDB-for-PostgreSQL/releases/download/v15.14.5.0/$DEB_FILE"
+
+# 安装依赖
+echo "安装依赖库..."
+apt update
+apt install -y wget lsb-release libreadline-dev zlib1g-dev libssl-dev libicu-dev libxml2-dev libxslt1-dev libperl-dev
+
+# 检查是否已存在 DEB 文件
+if [ -f "$DEB_FILE" ]; then
+    echo "检测到本地已存在 $DEB_FILE 文件，跳过下载"
+else
+    echo "下载 PolarDB $VERSION..."
+    wget "$DOWNLOAD_URL"
+    
+    if [ ! -f "$DEB_FILE" ]; then
+        echo "下载失败，请检查网络连接或下载链接是否有效"
+        exit 1
+    fi
+fi
+
+# 安装 PolarDB
+echo "安装 PolarDB $VERSION..."
+dpkg -i "$DEB_FILE"
+
+# 解决可能的依赖问题
+apt -f install -y
+
+# 查找 PolarDB 安装路径
+echo "查找 PolarDB 安装位置..."
+POLARDB_PATHS=(
+    "/usr/local/polardb"
+    "/opt/polardb"
+    "/usr/polardb"
+    "/polardb"
+)
+
+POLARDB_HOME=""
+for path in "${POLARDB_PATHS[@]}"; do
+    if [ -d "$path" ] && [ -f "$path/bin/initdb" ]; then
+        POLARDB_HOME="$path"
+        echo "找到 PolarDB 安装目录: $POLARDB_HOME"
+        break
+    fi
+done
+
+if [ -z "$POLARDB_HOME" ]; then
+    echo "警告: 未找到 PolarDB 安装目录，尝试搜索二进制文件..."
+    # 尝试查找二进制文件
+    INITDB_PATH=$(find / -name "initdb" -type f 2>/dev/null | grep -i polar | head -1)
+    if [ -n "$INITDB_PATH" ]; then
+        POLARDB_HOME=$(dirname $(dirname "$INITDB_PATH"))
+        echo "通过二进制文件找到 PolarDB 目录: $POLARDB_HOME"
+    else
+        echo "错误: 无法找到 PolarDB 安装目录"
+        echo "尝试手动查找安装位置..."
+        find / -name "*polar*" -type d 2>/dev/null | head -10
+        exit 1
+    fi
+fi
+
+# 添加 PolarDB 到 PATH
+echo "export PATH=\$PATH:$POLARDB_HOME/bin" >> /etc/profile
+source /etc/profile
+
+# 创建 polar 用户（如果不存在）
+if ! id "polar" &>/dev/null; then
+    echo "创建 polar 用户..."
+    useradd -r -m -s /bin/bash polar
+fi
+
+# 创建数据目录
+DATA_DIR="/var/lib/polardb/data"
+mkdir -p "$DATA_DIR"
+chown polar:polar "$DATA_DIR"
+
+# 初始化数据库集群
+echo "初始化数据库集群..."
+sudo -u polar $POLARDB_HOME/bin/initdb -D "$DATA_DIR" -U polar --pwprompt
+
+if [ $? -eq 0 ]; then
+    echo "数据库初始化成功"
+else
+    echo "数据库初始化失败，尝试无密码初始化..."
+    sudo -u polar $POLARDB_HOME/bin/initdb -D "$DATA_DIR" -U polar
+fi
+
+# 创建 systemd 服务文件
+echo "创建 systemd 服务..."
+cat > /etc/systemd/system/polardb.service << EOF
+[Unit]
+Description=PolarDB for PostgreSQL
+After=network.target
+
+[Service]
+Type=forking
+User=polar
+Group=polar
+ExecStart=$POLARDB_HOME/bin/pg_ctl -D $DATA_DIR -l /var/log/polardb/postgresql.log start
+ExecStop=$POLARDB_HOME/bin/pg_ctl -D $DATA_DIR stop
+ExecReload=$POLARDB_HOME/bin/pg_ctl -D $DATA_DIR reload
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 创建日志目录
+mkdir -p /var/log/polardb
+chown polar:polar /var/log/polardb
+
+# 重新加载 systemd
+systemctl daemon-reload
+
+# 启动 PolarDB 服务
+echo "启动 PolarDB 服务..."
+systemctl start polardb
+
+# 设置开机自启
+systemctl enable polardb
+
+# 等待服务启动
+sleep 5
+
+# 检查服务状态
+echo "检查服务状态..."
+if systemctl is-active --quiet polardb; then
+    echo "✓ PolarDB 服务运行正常"
+else
+    echo "✗ PolarDB 服务启动失败，检查日志..."
+    journalctl -u polardb -n 20 --no-pager
+    echo "尝试手动启动..."
+    sudo -u polar $POLARDB_HOME/bin/pg_ctl -D $DATA_DIR -l /var/log/polardb/postgresql.log start
+fi
+
+# 创建默认数据库和用户
+echo "创建默认数据库和用户..."
+# 首先检查数据库是否可连接
+sleep 3
+
+# 尝试连接并执行SQL
+sudo -u polar $POLARDB_HOME/bin/psql -d postgres -c "CREATE DATABASE polardb;" 2>/dev/null || echo "无法创建数据库，可能连接有问题"
+
+sudo -u polar $POLARDB_HOME/bin/psql -d postgres -c "CREATE USER polaradmin WITH PASSWORD 'PolarDB@123';" 2>/dev/null || echo "无法创建用户"
+
+sudo -u polar $POLARDB_HOME/bin/psql -d postgres -c "ALTER USER polaradmin WITH SUPERUSER;" 2>/dev/null || echo "无法设置超级用户权限"
+
+# 修改 pg_hba.conf 允许密码认证
+echo "配置客户端认证..."
+cat >> $DATA_DIR/pg_hba.conf << EOF
+
+# 允许远程连接
+host    all             all             0.0.0.0/0               md5
+host    all             all             ::/0                    md5
+EOF
+
+# 修改 postgresql.conf 允许远程连接
+echo "配置网络连接..."
+sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" $DATA_DIR/postgresql.conf
+sed -i "s/#port = 38528/port = 38528/" $DATA_DIR/postgresql.conf
+
+# 重启服务应用配置
+systemctl restart polardb
+sleep 3
+
+# 安装完成信息
+echo ""
+echo "================================================"
+echo " PolarDB for PostgreSQL $VERSION 安装完成！"
+echo "================================================"
+echo ""
+echo "安装信息："
+echo "PolarDB 目录: $POLARDB_HOME"
+echo "数据目录: $DATA_DIR"
+echo "日志文件: /var/log/polardb/postgresql.log"
+echo ""
+echo "基本使用说明："
+echo "1. 启动服务: systemctl start polardb"
+echo "2. 停止服务: systemctl stop polardb"
+echo "3. 重启服务: systemctl restart polardb"
+echo "4. 查看状态: systemctl status polardb"
+echo "5. 查看日志: journalctl -u polardb -f"
+echo ""
+echo "数据库连接信息："
+echo "主机: localhost"
+echo "端口: 38528"
+echo "超级用户: polar"
+echo "应用用户: polaradmin"
+echo "密码: PolarDB@123"
+echo "数据库: polardb"
+echo ""
+echo "连接示例："
+echo "本地连接: $POLARDB_HOME/bin/psql -U polar -d postgres"
+echo "远程连接: $POLARDB_HOME/bin/psql -U polaradmin -d polardb -h <服务器IP> -p 38528"
+echo ""
+echo "配置文件位置："
+echo "主配置: $DATA_DIR/postgresql.conf"
+echo "认证配置: $DATA_DIR/pg_hba.conf"
+echo ""
+echo "重要提示："
+echo "1. 请立即修改默认密码！"
+echo "2. 生产环境请仔细配置 pg_hba.conf 安全规则"
+echo "3. 建议定期备份数据目录"
+echo ""
+echo "================================================"
+
+# 显示最终状态
+echo ""
+echo "最终服务状态："
+systemctl status polardb --no-pager
+
+echo ""
+echo "测试连接："
+sudo -u polar $POLARDB_HOME/bin/psql -d postgres -c "SELECT version();" 2>/dev/null || echo "连接测试失败，请检查服务状态"
