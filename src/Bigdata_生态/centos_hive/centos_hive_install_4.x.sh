@@ -303,7 +303,49 @@ EOF
     <name>datanucleus.schema.autoCreateAll</name>
     <value>true</value>
   </property>
-  
+  <!-- 添加这些关键配置 -->
+
+    <property>
+        <name>hive.server2.thrift.bind.host</name>
+        <value>0.0.0.0</value>
+    </property>
+    
+    <property>
+        <name>hive.server2.transport.mode</name>
+        <value>binary</value>
+    </property>
+    
+    <property>
+        <name>hive.server2.thrift.min.worker.threads</name>
+        <value>5</value>
+    </property>
+    
+    <property>
+        <name>hive.server2.thrift.max.worker.threads</name>
+        <value>100</value>
+    </property>
+    
+    <property>
+        <name>hive.server2.authentication</name>
+        <value>NONE</value>
+    </property>
+    
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>/user/hive/warehouse</value>
+        <description>location of default database for the warehouse</description>
+    </property>
+    
+    <property>
+        <name>hive.metastore.uris</name>
+        <value>thrift://localhost:${METASTORE_PORT}</value>
+    </property>
+
+    <property>
+        <name>hive.metastore.event.db.notification.api.auth</name>
+        <value>false</value>
+    </property>
+
   <!-- 动态端口配置 -->
   <property>
     <name>hive.server2.thrift.port</name>
@@ -333,6 +375,7 @@ EOF
     <name>hive.server2.webui.port</name>
     <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
   </property>
+  
 </configuration>
 EOF
     
