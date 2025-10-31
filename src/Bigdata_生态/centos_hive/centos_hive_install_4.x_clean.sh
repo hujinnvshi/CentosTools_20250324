@@ -250,60 +250,61 @@ EOF
     cat > "$HIVE_BASE_DIR/conf/hive-site.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-  <!-- 元数据库配置 -->
-  <property>
-    <name>javax.jdo.option.ConnectionURL</name>
-    <value>jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${HIVE_META_DB}?createDatabaseIfNotExist=true&amp;useSSL=false&amp;characterEncoding=UTF-8</value>
-  </property>
-  <property>
-    <name>javax.jdo.option.ConnectionDriverName</name>
-    <value>com.mysql.jdbc.Driver</value>
-  </property>
-  <property>
-    <name>javax.jdo.option.ConnectionUserName</name>
-    <value>${MYSQL_USER}</value>
-  </property>
-  <property>
-    <name>javax.jdo.option.ConnectionPassword</name>
-    <value>${MYSQL_PASS}</value>
-  </property>
+
+    <!-- 元数据库配置 -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${HIVE_META_DB}?createDatabaseIfNotExist=true&amp;useSSL=false&amp;characterEncoding=UTF-8</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.jdbc.Driver</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>${MYSQL_USER}</value>
+    </property>
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>${MYSQL_PASS}</value>
+    </property>
   
-  <!-- 版本化存储配置 -->
-  <property>
-    <name>hive.metastore.warehouse.dir</name>
-    <value>${warehouse_dir}</value>
-  </property>
-  <property>
-    <name>hive.exec.scratchdir</name>
-    <value>${scratch_dir}</value>
-  </property>
+    <!-- 版本化存储配置 -->
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>${warehouse_dir}</value>
+    </property>
+    <property>
+        <name>hive.exec.scratchdir</name>
+        <value>${scratch_dir}</value>
+    </property>
   
-  <!-- 日志配置 -->
-  <property>
-    <name>hive.querylog.location</name>
-    <value>${SERVICE_LOG_DIR}</value>
-  </property>
-  
-  <!-- 性能配置 -->
-  <property>
-    <name>hive.exec.compress.output</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>hive.exec.compress.intermediate</name>
-    <value>true</value>
-  </property>
-  
-  <!-- 元数据验证 -->
-  <property>
-    <name>hive.metastore.schema.verification</name>
-    <value>false</value>
-  </property>
-  <property>
-    <name>datanucleus.schema.autoCreateAll</name>
-    <value>true</value>
-  </property>
-  <!-- 添加这些关键配置 -->
+    <!-- 日志配置 -->
+    <property>
+        <name>hive.querylog.location</name>
+        <value>${SERVICE_LOG_DIR}</value>
+    </property>
+    
+    <!-- 性能配置 -->
+    <property>
+        <name>hive.exec.compress.output</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.exec.compress.intermediate</name>
+        <value>true</value>
+    </property>
+    
+    <!-- 元数据验证 -->
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>datanucleus.schema.autoCreateAll</name>
+        <value>true</value>
+    </property>
+    <!-- 添加这些关键配置 -->
 
     <property>
         <name>hive.server2.thrift.bind.host</name>
@@ -346,35 +347,35 @@ EOF
         <value>false</value>
     </property>
 
-  <!-- 动态端口配置 -->
-  <property>
-    <name>hive.server2.thrift.port</name>
-    <value>${HIVESERVER_PORT}</value>
-  </property>
-  <property>
-    <name>hive.metastore.port</name>
-    <value>${METASTORE_PORT}</value>
-  </property>
-  
-  <!-- 安全配置 -->
-  <property>
-    <name>hive.server2.enable.doAs</name>
-    <value>false</value>
-  </property>
-  
-  <!-- 操作日志 -->
-  <property>
-    <name>hive.server2.logging.operation.enabled</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>hive.server2.logging.operation.log.location</name>
-    <value>${SERVICE_LOG_DIR}/operation_logs</value>
-  </property>
-  <property>
-    <name>hive.server2.webui.port</name>
-    <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
-  </property>
+    <!-- 动态端口配置 -->
+    <property>
+        <name>hive.server2.thrift.port</name>
+        <value>${HIVESERVER_PORT}</value>
+    </property>
+    <property>
+        <name>hive.metastore.port</name>
+        <value>${METASTORE_PORT}</value>
+    </property>
+    
+    <!-- 安全配置 -->
+    <property>
+        <name>hive.server2.enable.doAs</name>
+        <value>false</value>
+    </property>
+    
+    <!-- 操作日志 -->
+    <property>
+        <name>hive.server2.logging.operation.enabled</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.server2.logging.operation.log.location</name>
+        <value>${SERVICE_LOG_DIR}/operation_logs</value>
+    </property>
+    <property>
+        <name>hive.server2.webui.port</name>
+        <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
+    </property>
   
 </configuration>
 EOF
