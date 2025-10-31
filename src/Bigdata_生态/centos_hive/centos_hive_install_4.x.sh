@@ -3,14 +3,14 @@ set -euo pipefail
 
 # 配置参数 - 这些参数可以外部传入或修改
 HIVE_VERSION="${HIVE_VERSION:-4.0.1}"
-INSTANCE_ID="${INSTANCE_ID:-v2}"  # 实例标识，用于区分同版本的不同实例
+INSTANCE_ID="${INSTANCE_ID:-v1}"   # 实例标识，用于区分同版本的不同实例
 HIVE_BASE_DIR="/data/hive_${HIVE_VERSION}_${INSTANCE_ID}"
 MYSQL_HOST="172.16.47.57"
 MYSQL_PORT="6005"
 MYSQL_USER="admin"
 MYSQL_PASS="Secsmart#612"
-MYSQL_DRIVER="/tmp/mysql-connector-java-5.1.49.jar"
-HIVE_META_DB="hive_meta_${HIVE_VERSION//./}_${INSTANCE_ID}"  # 动态生成元数据库名称
+MYSQL_DRIVER="/tmp/mysql-connector-java-5.1.44.jar"
+HIVE_META_DB="hive_meta_${HIVE_VERSION//./}_${INSTANCE_ID}"
 
 # 依赖路径配置
 JAVA_HOME="/usr/lib/jvm/jdk1.8.0_341"
@@ -177,11 +177,11 @@ create_user() {
         warn "系统用户已存在: $HIVE_USER"
     else
         info "创建系统用户: $HIVE_USER"
-        useradd -r -s /bin/false -d "$HIVE_BASE_DIR" "$HIVE_USER"
+        useradd -r -s /bin/bash -d "$HIVE_BASE_DIR" "$HIVE_USER" -g hadoop
     fi
     
     # 确保用户目录存在
-    local user_dir="/user/$HIVE_USER"    
+    local user_dir="/user/$HIVE_USER"
     # 使用Hadoop超级用户执行所有HDFS操作
     su - $HADOOP_USER <<EOF
         hdfs dfs -mkdir -p '$user_dir'
@@ -192,8 +192,8 @@ EOF
 
 # 下载Hive
 download_hive() {
-    local hive_tar="apache-hive-$HIVE_VERSION-bin.tar.gz"
-    local hive_url="wget https://downloads.apache.org/hive/hive-$HIVE_VERSION/apache-hive-$HIVE_VERSION-bin.tar.gz"
+    hive_tar="apache-hive-$HIVE_VERSION-bin.tar.gz"
+    hive_url="https://downloads.apache.org/hive/hive-$HIVE_VERSION/apache-hive-$HIVE_VERSION-bin.tar.gz"
     
     info "开始下载Hive $HIVE_VERSION"
     
@@ -202,12 +202,11 @@ download_hive() {
         info "使用本地缓存的Hive安装包"
         cp "/tmp/$hive_tar" .
     else
-        wget "$hive_url" -O "$hive_tar" || error "下载Hive失败"
+        wget $hive_url -O $hive_tar || error "下载Hive失败"
     fi
     
     # 检查文件完整性
-    [ $(stat -c %s "$hive_tar") -gt 1000000 ] || error "下载的Hive包不完整"
-    
+    [ $(stat -c %s "$hive_tar") -gt 1000000 ] || error "下载的Hive包不完整"    
     info "Hive下载成功"
 }
 
@@ -341,12 +340,12 @@ EOF
     chmod 640 "$HIVE_BASE_DIR/conf/hive-site.xml"
     
     # 创建版本化环境变量
-    local env_file="/etc/profile.d/hive-${HIVE_VERSION}-${INSTANCE_ID}.sh"
+    local env_file="/etc/profile.d/hive_${HIVE_VERSION}_${INSTANCE_ID}.sh"
     cat > "$env_file" <<EOF
 export HIVE_HOME_${HIVE_VERSION//./}_${INSTANCE_ID}="$HIVE_BASE_DIR"
 export PATH="\$PATH:$HIVE_BASE_DIR/bin"
-alias hive-${HIVE_VERSION}-${INSTANCE_ID}="$HIVE_BASE_DIR/bin/hive"
-alias beeline-${HIVE_VERSION}-${INSTANCE_ID}="$HIVE_BASE_DIR/bin/beeline"
+alias hive_${HIVE_VERSION}_${INSTANCE_ID}="$HIVE_BASE_DIR/bin/hive"
+alias beeline_${HIVE_VERSION}_${INSTANCE_ID}="$HIVE_BASE_DIR/bin/beeline"
 EOF
     
     source "$env_file"
@@ -364,9 +363,9 @@ init_metastore() {
     info "创建版本化HDFS目录hive.metastore.warehouse.dir: $warehouse_dir"
     info "创建版本化HDFS目录hive.exec.scratchdir: $scratch_dir"
     info "HIVE_BASE_DIR: $HIVE_BASE_DIR"
-    hdfs dfs -mkdir -p "$warehouse_dir" "$scratch_dir"
-    hdfs dfs -chmod 773 "$warehouse_dir"
-    hdfs dfs -chmod 777 "$scratch_dir"
+    su - hdfs -c "hdfs dfs -mkdir -p $warehouse_dir $scratch_dir"
+    su - hdfs -c "hdfs dfs -chmod 773 $warehouse_dir"
+    su - hdfs -c "hdfs dfs -chmod 777 $scratch_dir"
     
     # 初始化元数据库（带重试）
     for i in {1..3}; do
@@ -377,7 +376,6 @@ init_metastore() {
         warn "元数据库初始化失败，尝试 $i/3..."
         sleep $((i*5))
     done
-    
     error "元数据库初始化失败"
 }
 
@@ -460,7 +458,7 @@ test_hive() {
 # 设置权限
 set_permissions() {
     info "设置目录权限"
-    chown -R "$HIVE_USER":"$HIVE_USER" "$HIVE_BASE_DIR"
+    chown -R "$HIVE_USER":"$HIVE_USER" $HIVE_BASE_DIR
     chmod 755 "$HIVE_BASE_DIR"/bin
     chmod 750 "$HIVE_BASE_DIR"/conf
     chmod 770 "$PID_DIR"
@@ -477,7 +475,6 @@ install_main() {
     configure_hive
     init_metastore
     set_permissions
-    
     info "运行安装测试..."
     test_hive || warn "功能测试失败，但安装已完成"
     
@@ -499,11 +496,11 @@ HDFS目录:
   仓库目录: $(grep -A1 'hive.metastore.warehouse.dir' $HIVE_BASE_DIR/conf/hive-site.xml | tail -1 | sed -e 's/<[^>]*>//g')
   临时目录: $(grep -A1 'hive.exec.scratchdir' $HIVE_BASE_DIR/conf/hive-site.xml | tail -1 | sed -e 's/<[^>]*>//g')
 
-环境变量文件: /etc/profile.d/hive-${HIVE_VERSION}-${INSTANCE_ID}.sh
+环境变量文件: /etc/profile.d/hive_${HIVE_VERSION}_${INSTANCE_ID}.sh
 
 使用说明:
 1. 加载环境变量:
-   source /etc/profile.d/hive-${HIVE_VERSION}-${INSTANCE_ID}.sh
+   source /etc/profile.d/hive_${HIVE_VERSION}_${INSTANCE_ID}.sh
 
 2. 启动服务:
    nohup $HIVE_BASE_DIR/bin/hive --service metastore > $SERVICE_LOG_DIR/metastore.log 2>&1 &
@@ -529,9 +526,8 @@ EOF
     echo "多版本Hive安装工具"
     echo "用法:"
     echo "  HIVE_VERSION=x.x.x INSTANCE_ID=id $0 install"
-    echo "示例:"
-    echo "  HIVE_VERSION=2.3.9 INSTANCE_ID=v1 $0 install(✅)"
-    echo "  HIVE_VERSION=3.1.3 INSTANCE_ID=v1 $0 install(✅)"
+    echo "示例:"    
+    echo "  HIVE_VERSION=4.0.1 INSTANCE_ID=v1 $0 install"
     exit 1
 }
 
