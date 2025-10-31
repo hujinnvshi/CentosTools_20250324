@@ -257,7 +257,8 @@ export HADOOP_HOME=${HADOOP_HOME}
 export HADOOP_CONF_DIR=\${HADOOP_HOME}/etc/hadoop
 export HADOOP_LOG_DIR=${HADOOP_LOGS}
 export HADOOP_MAPRED_LOG_DIR=${HADOOP_LOGS}
-export YARN_LOG_DIR=${HADOOP_LOGS}
+# export YARN_LOG_DIR=${HADOOP_LOGS}
+export HADOOP_LOG_DIR=${HADOOP_LOGS}
 export PATH=\$PATH:\${JAVA_HOME}/bin:\${HADOOP_HOME}/bin:\${HADOOP_HOME}/sbin
 export HADOOP_OPTS="-Djava.library.path=\${HADOOP_HOME}/lib/native"
 EOF
@@ -277,9 +278,10 @@ cat > ${HADOOP_HOME}/etc/hadoop/core-site.xml << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
+    
     <property>
         <name>fs.defaultFS</name>
-        <value>hdfs://${HOST_IP}:9000</value>
+        <value>hdfs://${HOST_IP}:8020</value>
     </property>
     <property>
         <name>hadoop.tmp.dir</name>
@@ -293,6 +295,7 @@ cat > ${HADOOP_HOME}/etc/hadoop/core-site.xml << EOF
         <name>hadoop.proxyuser.hdfs.groups</name>
         <value>*</value>
     </property>
+
 </configuration>
 EOF
 
