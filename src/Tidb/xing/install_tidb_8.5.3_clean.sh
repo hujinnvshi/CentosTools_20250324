@@ -122,7 +122,7 @@ backup_important_data() {
 # 停止 TiDB 集群服务
 stop_cluster_services() {
     print_step "3. 停止集群服务"
-    
+    systemctl stop node-exporter || true
     # 检查集群是否存在
     if tiup cluster list 2>/dev/null | grep -q "$CLUSTER_NAME"; then
         print_message "停止 TiDB 集群: $CLUSTER_NAME"

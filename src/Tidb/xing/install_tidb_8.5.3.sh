@@ -139,7 +139,9 @@ chmod 600 ~/.ssh/authorized_keys
 
 # 部署集群
 print_message "部署 TiDB 集群..."
-tiup cluster deploy ${CLUSTER_NAME} ${TIDB_VERSION} ${TIDB_HOME}/conf/topology.yaml --user root -p
+tiup cluster deploy ${CLUSTER_NAME} ${TIDB_VERSION} ${TIDB_HOME}/conf/topology.yaml --user root -p "Secsmart#612" --yes
+sleep 20
+tiup cluster start tidb-cluster --init # 56-03@t+K7k1jVqLY*
 
 # 启动集群
 print_message "启动 TiDB 集群..."
