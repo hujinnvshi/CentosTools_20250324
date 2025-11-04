@@ -69,7 +69,7 @@ fi
 
 # 配置环境变量
 print_message "配置环境变量..."
-cat > /etc/profile.d/java.sh << EOF
+cat > /etc/profile.d/java8.sh << EOF
 # Java 环境变量
 export JAVA_HOME=${JAVA_HOME}
 export PATH=\$JAVA_HOME/bin:\$PATH
@@ -105,7 +105,7 @@ chmod 755 /data/java/logs
 ln -sf ${JAVA_HOME}/bin/java /usr/bin/java
 
 # 使环境变量生效
-source /etc/profile.d/java.sh
+source /etc/profile.d/java8.sh
 
 # 验证安装
 print_message "验证 Java 安装..."
@@ -120,5 +120,6 @@ echo "JVM 堆内存：${HEAP_SIZE}G"
 print_message "Java 环境安装完成！"
 print_message "请执行 'source /etc/profile' 使环境变量生效"
 
-# 业已核验之次数： 
+# 业已核验之次数：
 # ⭐️ 172.16.48.171 时间戳：2025-04-11 17:05:27
+# ⭐️ 172.16.47.99  时间戳：2025-11-04 10:00:00
