@@ -2,21 +2,21 @@
 set -euo pipefail
 
 # 配置参数 - 这些参数可以外部传入或修改
-HIVE_VERSION="${HIVE_VERSION:-2.3.9}"
-INSTANCE_ID="${INSTANCE_ID:-v2}"  # 实例标识，用于区分同版本的不同实例
+HIVE_VERSION="${HIVE_VERSION:-2.1.1}"
+INSTANCE_ID="${INSTANCE_ID:-v1}"  # 实例标识，用于区分同版本的不同实例
 HIVE_BASE_DIR="/data/hive_${HIVE_VERSION}_${INSTANCE_ID}"
-MYSQL_HOST="172.16.48.233"
+MYSQL_HOST="localhost"
 MYSQL_PORT="6005"
 MYSQL_USER="admin"
 MYSQL_PASS="Secsmart#612"
-MYSQL_DRIVER="/tmp/mysql-connector-java-5.1.49.jar"
+MYSQL_DRIVER="/tmp/mysql-connector-java-5.1.44.jar"
 HIVE_META_DB="hive_meta_${HIVE_VERSION//./}_${INSTANCE_ID}"  # 动态生成元数据库名称
 
 # 依赖路径配置
-JAVA_HOME="/data/java/jdk1.8.0_251"
-HADOOP_VERSION="2.7.7"
-HADOOP_USER="hadoop_${HADOOP_VERSION}_v1"
-HADOOP_HOME="/data/hadoop_2.7.7_v1/current"
+JAVA_HOME="/usr/lib/jvm/jdk1.8.0_341"
+HADOOP_VERSION="3.7.1"
+HADOOP_USER="hdfs"
+HADOOP_HOME="/opt/hadoop"
 
 # 检查端口是否可用
 check_port_available() {
