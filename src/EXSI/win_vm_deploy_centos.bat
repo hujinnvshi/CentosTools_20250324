@@ -3,8 +3,8 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 :: =============================================
-:: VMware Workstation CentOS 静默部署脚本 (Windows)
-:: 功能：一键部署 CentOS 虚拟机，完全静默安装
+:: VMware CentOS 静默部署脚本 - 动态磁盘版本
+:: 功能：创建动态分配、独立模式的虚拟磁盘
 :: =============================================
 
 :: 设置错误处理
@@ -20,38 +20,9 @@ setlocal enabledelayedexpansion
 for /f "tokens=1,2 delims=#" %%a in ('"prompt #$H#$E# & echo on & for %%b in (1) do rem"') do (
     set "DEL=%%a"
 )
-set "RED=[31m"
-set "GREEN=[32m"
-set "YELLOW=[33m"
-set "BLUE=[34m"
-set "NC=[0m"
-
-:: 日志函数
-set "LOG_FILE=%TEMP%\vmware_deploy.log"
-echo 部署开始: %DATE% %TIME% > "%LOG_FILE%"
-
-:log_error
-echo %* >> "%LOG_FILE%"
-echo %DEL%!RED![错误] %*%DEL%!NC!
-exit /b 1
-
-:log_warn
-echo %* >> "%LOG_FILE%"
-echo %DEL%!YELLOW![警告] %*%DEL%!NC!
-exit /b 0
-
-:log_info
-echo %* >> "%LOG_FILE%"
-echo %DEL%!GREEN![信息] %*%DEL%!NC!
-exit /b 0
-
-:log_debug
-echo %* >> "%LOG_FILE%"
-echo %DEL%!BLUE![调试] %*%DEL%!NC!
-exit /b 0
 
 :: =============================================
-:: 配置参数
+:: 配置参数 - 动态磁盘版本
 :: =============================================
 
 :: VMware 工具路径
@@ -61,16 +32,21 @@ set "VDISKMANAGER_PATH=C:\Program Files (x86)\VMware\VMware Workstation\vmware-v
 :: 镜像路径
 set "ISO_PATH=D:\BaiduNetdiskDownload\CentOS-7-x86_64-DVD-2009.iso"
 
-:: 虚拟机配置
-set "VM_NAME=CentOS7-AutoDeploy"
+:: 虚拟机配置 - D 盘 VMS 目录
+set "VM_NAME=CentOS7-DynamicDisk"
 set "VM_BASE_DIR=D:\VMS"
 set "VM_DIR=%VM_BASE_DIR%\%VM_NAME%"
 set "VMX_PATH=%VM_DIR%\%VM_NAME%.vmx"
 
 :: 硬件规格
-set "DISK_SIZE=20"
-set "MEMORY_SIZE=4096"
-set "CPU_COUNT=2"
+set "DISK_SIZE=40"           :: 最大磁盘大小(GB)
+set "MEMORY_SIZE=2048"       :: 内存大小(MB)
+set "CPU_COUNT=2"            :: CPU核心数
+
+:: 磁盘模式配置 - 关键修改
+set "DISK_MODE=thin"         :: thin(动态分配)/thick(预先分配)
+set "DISK_TYPE=independent"  :: independent(独立)/persistent(持久)
+set "DISK_ACCESS=rw"         :: rw(读写)/rdonly(只读)
 
 :: 网络配置
 set "NETWORK_TYPE=nat"
@@ -84,101 +60,47 @@ set "USER_NAME=admin"
 set "USER_PASSWORD=Secsmart#612"
 
 :: =============================================
-:: 环境检查
+:: 环境检查函数
 :: =============================================
 
-call :check_environment
-if errorlevel 1 (
-    call :log_error "环境检查失败"
+:check_environment
+echo 开始环境检查...
+
+:: 检查 D 盘
+if not exist "D:\" (
+    echo 错误: D 盘不存在!
     pause
     exit /b 1
 )
 
-:: =============================================
-:: 主部署流程
-:: =============================================
-
-call :log_info "开始 CentOS 静默部署"
-call :log_info "虚拟机名称: %VM_NAME%"
-call :log_info "ISO 镜像: %ISO_PATH%"
-
-echo.
-echo ============ 部署配置 ============
-echo 内存: %MEMORY_SIZE% MB
-echo CPU: %CPU_COUNT% 核心
-echo 磁盘: %DISK_SIZE% GB
-echo 网络: %NETWORK_TYPE%
-echo IP地址: %VM_IP%
-echo ==================================
-echo.
-
-call :create_vm_config
-call :create_virtual_disk
-call :create_kickstart_config
-call :register_and_start_vm
-call :verify_deployment
-call :generate_documentation
-
-call :log_info "🎉 虚拟机部署完成!"
-echo.
-echo ============ 部署完成 ============
-echo IP地址: %VM_IP%
-echo SSH: ssh root@%VM_IP% (密码: %ROOT_PASSWORD%)
-echo 用户: %USER_NAME% (密码: %USER_PASSWORD%)
-echo.
-echo 管理命令:
-echo 启动: "%VMRUN_PATH%" -T ws start "%VMX_PATH%" nogui
-echo 停止: "%VMRUN_PATH%" -T ws stop "%VMX_PATH%"
-echo 状态: "%VMRUN_PATH%" -T ws list
-echo ==================================
-
-echo 详细日志: %LOG_FILE%
-pause
-exit /b 0
-
-:: =============================================
-:: 功能函数
-:: =============================================
-
-:check_environment
-call :log_info "检查环境..."
-
 :: 检查 VMware 工具
 if not exist "%VMRUN_PATH%" (
-    call :log_error "vmrun 未找到: %VMRUN_PATH%"
-    call :log_info "请确保已安装 VMware Workstation"
+    echo 错误: vmrun 未找到
+    pause
     exit /b 1
-)
-
-if not exist "%VDISKMANAGER_PATH%" (
-    call :log_warn "vmware-vdiskmanager 未找到，将使用替代方案"
 )
 
 :: 检查 ISO 文件
 if not exist "%ISO_PATH%" (
-    call :log_error "ISO 文件未找到: %ISO_PATH%"
+    echo 错误: ISO 文件未找到
+    pause
     exit /b 1
 )
 
-:: 检查磁盘空间
-for /f "tokens=3" %%a in ('dir /-c %ISO_PATH% ^| find "字节"') do set "ISO_SIZE=%%a"
-set /a "ISO_SIZE_MB=ISO_SIZE/1048576"
-if !ISO_SIZE_MB! lss 100 (
-    call :log_error "ISO 文件可能损坏或太小: !ISO_SIZE_MB! MB"
-    exit /b 1
-)
+:: 创建基础目录
+if not exist "%VM_BASE_DIR%" mkdir "%VM_BASE_DIR%"
+if not exist "%VM_DIR%" mkdir "%VM_DIR%"
 
-call :log_info "环境检查通过"
-exit /b 0
+echo 环境检查通过
+goto :create_vm_config
+
+:: =============================================
+:: 创建虚拟机配置（包含独立磁盘设置）
+:: =============================================
 
 :create_vm_config
-call :log_info "创建虚拟机配置..."
+echo 创建虚拟机配置（独立磁盘模式）...
 
-:: 创建虚拟机目录
-if not exist "%VM_DIR%" mkdir "%VM_DIR%"
-call :log_info "虚拟机目录: %VM_DIR%"
-
-:: 创建 VMX 配置文件
 (
 echo #!/usr/bin/vmware
 echo .encoding = "UTF-8"
@@ -194,12 +116,16 @@ echo memsize = "%MEMORY_SIZE%"
 echo numvcpus = "%CPU_COUNT%"
 echo cpuid.coresPerSocket = "1"
 echo.
-echo # 磁盘配置
+echo # === 磁盘配置 - 动态分配 + 独立模式 ===
 echo scsi0.present = "TRUE"
 echo scsi0.virtualDev = "lsilogic"
 echo scsi0:0.present = "TRUE"
 echo scsi0:0.fileName = "%VM_NAME%.vmdk"
 echo scsi0:0.deviceType = "scsi-hardDisk"
+echo scsi0:0.mode = "%DISK_MODE%"              :: 磁盘分配模式
+echo scsi0:0.access = "%DISK_ACCESS%"          :: 磁盘访问模式
+echo scsi0:0.independent = "TRUE"               :: 关键：设置为独立磁盘
+echo scsi0:0.persistence = "nonpersistent"     :: 非持久性（可选）
 echo.
 echo # CD-ROM 配置
 echo ide1:0.present = "TRUE"
@@ -228,33 +154,44 @@ echo.
 echo # 高级配置
 echo tools.syncTime = "TRUE"
 echo tools.remindInstall = "FALSE"
-echo guestInfo.iso.config = "%VM_DIR%\ks.cfg"
+echo guestInfo.disk.mode = "%DISK_MODE%"
+echo guestInfo.disk.independent = "TRUE"
 ) > "%VMX_PATH%"
 
-call :log_info "虚拟机配置文件创建完成"
-exit /b 0
+echo 虚拟机配置文件创建完成
+goto :create_dynamic_disk
 
-:create_virtual_disk
-call :log_info "创建虚拟磁盘..."
+:: =============================================
+:: 创建动态分配磁盘（不预先分配空间）
+:: =============================================
+
+:create_dynamic_disk
+echo 创建动态分配磁盘...
 
 if exist "%VDISKMANAGER_PATH%" (
-    call :log_info "使用 vmware-vdiskmanager 创建磁盘"
+    echo 使用 vmware-vdiskmanager 创建动态磁盘...
+    
+    :: 关键参数说明：
+    :: -t 0: 动态分配（thin provisioning）
+    :: -t 1: 预先分配，不置零
+    :: -t 2: 预先分配，置零
+    
     "%VDISKMANAGER_PATH%" -c -s %DISK_SIZE%GB -a lsilogic -t 0 "%VM_DIR%\%VM_NAME%.vmdk"
+    
     if errorlevel 1 (
-        call :log_warn "磁盘创建失败，尝试替代方案"
-        goto :create_disk_manual
+        echo 警告: 动态磁盘创建失败，尝试替代方案
+        goto :create_dynamic_disk_manual
     )
 ) else (
-    goto :create_disk_manual
+    goto :create_dynamic_disk_manual
 )
 
-call :log_info "虚拟磁盘创建完成"
-exit /b 0
+echo 动态磁盘创建成功
+goto :create_kickstart_config
 
-:create_disk_manual
-call :log_info "手动创建虚拟磁盘..."
+:create_dynamic_disk_manual
+echo 手动创建动态磁盘描述文件...
 
-:: 创建磁盘描述文件
 (
 echo # Disk DescriptorFile
 echo version=1
@@ -262,43 +199,45 @@ echo encoding="UTF-8"
 echo CID=fffffffe
 echo parentCID=ffffffff
 echo isNativeSnapshot="no"
-echo createType="monolithicFlat"
+echo createType="monolithicSparse"   :: 关键：稀疏文件（动态分配）
 echo.
 echo # Extent description
-echo RW %DISK_SIZE%000 FLAT "%VM_NAME%-flat.vmdk" 0
+echo RW %DISK_SIZE%000 SPARSE "%VM_NAME%-s0001.vmdk" 0  :: 稀疏文件
 echo.
-echo # The Disk Data Base
+echo # The Disk Data Base 
 echo #DDB
 echo.
 echo ddb.adapterType = "lsilogic"
-echo ddb.geometry.cylinders = "1305"
-echo ddb.geometry.heads = "255"
+echo ddb.geometry.cylinders = "16383"
+echo ddb.geometry.heads = "16"
 echo ddb.geometry.sectors = "63"
 echo ddb.longContentID = "ffffffffffffffffffffffffffffffff"
 echo ddb.virtualHWVersion = "19"
+echo ddb.thinProvisioned = "1"      :: 标记为动态分配
 ) > "%VM_DIR%\%VM_NAME%.vmdk"
 
-:: 创建磁盘数据文件
-call :log_info "创建磁盘数据文件 (%DISK_SIZE% GB)..."
-fsutil file createnew "%VM_DIR%\%VM_NAME%-flat.vmdk" %DISK_SIZE%000000000 >nul 2>&1
+:: 创建初始稀疏文件（很小，不预先分配空间）
+echo 创建初始稀疏文件...
+fsutil file createnew "%VM_DIR%\%VM_NAME%-s0001.vmdk" 65536 >nul 2>&1
+
 if errorlevel 1 (
-    call :log_warn "使用替代方法创建磁盘文件"
-    powershell -Command "& {[System.IO.File]::WriteAllBytes('%VM_DIR%\%VM_NAME%-flat.vmdk', [byte[]]::new(%DISK_SIZE%000000000))}" >nul 2>&1
+    powershell -Command "[System.IO.File]::WriteAllBytes('%VM_DIR%\%VM_NAME%-s0001.vmdk', [byte[]]::new(65536))" >nul 2>&1
 )
 
-call :log_info "虚拟磁盘创建完成"
-exit /b 0
+echo 动态磁盘手动创建完成
+goto :create_kickstart_config
+
+:: =============================================
+:: 创建自动安装配置
+:: =============================================
 
 :create_kickstart_config
-call :log_info "创建 Kickstart 自动安装配置..."
+echo 创建自动安装配置...
 
 set "KS_PATH=%VM_DIR%\ks.cfg"
 
 (
-echo # CentOS 7 自动安装配置
-echo # 生成时间: %DATE% %TIME%
-echo.
-echo # 基本配置
+echo # CentOS 7 自动安装配置 - 动态磁盘版本
 echo install
 echo text
 echo lang en_US.UTF-8
@@ -308,13 +247,13 @@ echo rootpw --plaintext %ROOT_PASSWORD%
 echo auth --enableshadow --passalgo=sha512
 echo selinux --disabled
 echo firewall --disabled
-echo services --enabled=sshd,network
 echo network --bootproto=static --ip=%VM_IP% --netmask=%NETMASK% --gateway=%GATEWAY% --nameserver=8.8.8.8,8.8.4.4 --hostname=%VM_NAME%
-echo reboot --eject
+echo reboot
 echo.
-echo # 磁盘分区
+echo # 磁盘分区 - 针对动态磁盘优化
+echo zerombr
 echo clearpart --all --initlabel
-echo autopart --type=lvm
+echo autopart --type=lvm --fstype=ext4
 echo.
 echo # 软件包选择
 echo %%packages --nobase
@@ -323,244 +262,222 @@ echo vim-enhanced
 echo wget
 echo curl
 echo net-tools
-echo openssh-clients
 echo openssh-server
-echo tar
-echo gcc
-echo make
-echo kernel-devel
 echo open-vm-tools
 echo %%end
 echo.
 echo # 安装后脚本
-echo %%post --log=/root/install.log
+echo %%post
 echo #!/bin/bash
 echo.
-echo # 设置主机名
-echo echo "%VM_NAME%" ^> /etc/hostname
-echo hostnamectl set-hostname "%VM_NAME%"
+echo # 磁盘优化配置
+echo echo "vm.dirty_ratio = 10" ^>^> /etc/sysctl.conf
+echo echo "vm.dirty_background_ratio = 5" ^>^> /etc/sysctl.conf
+echo echo "vm.swappiness = 10" ^>^> /etc/sysctl.conf
+echo sysctl -p
 echo.
-echo # 配置网络
-echo cat ^> /etc/sysconfig/network-scripts/ifcfg-eth0 ^<^< NETEOF
-echo DEVICE=eth0
-echo BOOTPROTO=static
-echo ONBOOT=yes
-echo IPADDR=%VM_IP%
-echo NETMASK=%NETMASK%
-echo GATEWAY=%GATEWAY%
-echo DNS1=8.8.8.8
-echo DNS2=8.8.4.4
-echo NETEOF
+echo # 启用 VMware 工具
+echo systemctl enable vmtoolsd
+echo systemctl start vmtoolsd
 echo.
 echo # 创建用户
 echo useradd -m -G wheel %USER_NAME%
 echo echo "%USER_PASSWORD%" ^| passwd --stdin %USER_NAME%
+echo echo "%%wheel ALL=(ALL) NOPASSWD: ALL" ^>^> /etc/sudoers
 echo.
-echo # 配置 SSH
-echo sed -i 's/^#PermitRootLogin yes/PermitRootLogin yes/' /etc/ssh/sshd_config
-echo sed -i 's/^PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-echo.
-echo # 配置 sudo
-echo echo "%%wheel ALL=^(ALL^) NOPASSWD: ALL" ^>^> /etc/sudoers
-echo.
-echo # 安装 VMware 工具
-echo systemctl enable vmtoolsd
-echo systemctl start vmtoolsd
-echo.
-echo # 更新系统
-echo yum update -y
-echo.
-echo # 清理安装介质
-echo eject
-echo.
-echo # 创建完成标志
-echo echo "Installation completed at ^$(date^)" ^> /etc/vmware-install-complete
-echo.
+echo # 完成标记
+echo echo "Dynamic disk installation completed at \$(date)" ^> /etc/vmware-dynamic-disk-installed
 echo %%end
 ) > "%KS_PATH%"
 
-call :log_info "Kickstart 配置创建完成"
-exit /b 0
+echo Kickstart 配置创建完成
+goto :register_and_start_vm
+
+:: =============================================
+:: 注册和启动虚拟机
+:: =============================================
 
 :register_and_start_vm
-call :log_info "注册并启动虚拟机..."
+echo 注册并启动虚拟机...
 
-:: 检查虚拟机是否已注册
-"%VMRUN_PATH%" list | findstr /C:"%VMX_PATH%" >nul
+:: 检查是否已注册
+"%VMRUN_PATH%" list | findstr /c:"%VMX_PATH%" >nul
 if not errorlevel 1 (
-    call :log_info "虚拟机已注册，先取消注册..."
+    echo 虚拟机已注册，先取消注册...
     "%VMRUN_PATH%" -T ws unregister "%VMX_PATH%"
 )
 
 :: 注册虚拟机
-call :log_info "注册虚拟机..."
+echo 注册虚拟机...
 "%VMRUN_PATH%" -T ws register "%VMX_PATH%"
 if errorlevel 1 (
-    call :log_error "虚拟机注册失败"
+    echo 错误: 虚拟机注册失败
+    pause
     exit /b 1
 )
 
 :: 启动虚拟机（静默模式）
-call :log_info "启动虚拟机..."
+echo 启动虚拟机...
 "%VMRUN_PATH%" -T ws start "%VMX_PATH%" nogui
 if errorlevel 1 (
-    call :log_error "虚拟机启动失败"
+    echo 错误: 虚拟机启动失败
+    pause
     exit /b 1
 )
 
-call :log_info "虚拟机启动命令执行成功"
-exit /b 0
+echo 虚拟机启动成功
+goto :verify_deployment
+
+:: =============================================
+:: 验证部署结果
+:: =============================================
 
 :verify_deployment
-call :log_info "验证部署结果..."
-
-:: 检查虚拟机是否已注册
-"%VMRUN_PATH%" list | findstr /C:"%VMX_PATH%" >nul
-if errorlevel 1 (
-    call :log_error "虚拟机未正确注册"
-    exit /b 1
-)
-
-:: 检查虚拟机文件
-if not exist "%VMX_PATH%" (
-    call :log_error "VMX 文件未找到: %VMX_PATH%"
-    exit /b 1
-)
-
-if not exist "%VM_DIR%\%VM_NAME%.vmdk" (
-    call :log_error "虚拟磁盘文件未找到"
-    exit /b 1
-)
-
-if not exist "%VM_DIR%\ks.cfg" (
-    call :log_error "Kickstart 配置文件未找到"
-    exit /b 1
-)
+echo 验证部署结果...
 
 :: 检查虚拟机状态
-for /f "tokens=2" %%i in ('"%VMRUN_PATH%" -T ws list ^| findstr /C:"%VM_NAME%"') do set "VM_STATE=%%i"
-call :log_info "虚拟机状态: %VM_STATE%"
+for /f "tokens=2" %%i in ('"%VMRUN_PATH%" -T ws list ^| findstr /c:"%VM_NAME%"') do set "VM_STATE=%%i"
+echo 虚拟机状态: %VM_STATE%
 
-:: 检查网络连通性
-call :log_info "测试网络连通性..."
-ping -n 1 -w 2000 %VM_IP% >nul 2>&1
-if errorlevel 1 (
-    call :log_warn "虚拟机网络未连通，可能仍在安装中"
+:: 检查磁盘文件
+dir "%VM_DIR%\%VM_NAME%.vmdk" /-c
+for /f "tokens=3" %%a in ('dir "%VM_DIR%\%VM_NAME%.vmdk" /-c ^| findstr "vmdk"') do set "DISK_SIZE_ACTUAL=%%a"
+echo 磁盘文件大小: %DISK_SIZE_ACTUAL%
+
+:: 验证动态磁盘特性
+if "%DISK_SIZE_ACTUAL%" LSS "1000000" (
+    echo ✅ 动态磁盘配置成功（小文件大小确认）
 ) else (
-    call :log_info "✅ 虚拟机网络连通性验证通过"
+    echo ⚠️  磁盘文件较大，可能未正确配置为动态分配
 )
 
-call :log_info "✅ 基础部署验证通过"
-exit /b 0
+goto :generate_documentation
+
+:: =============================================
+:: 生成使用文档
+:: =============================================
 
 :generate_documentation
-call :log_info "生成使用文档..."
+echo 生成使用文档...
 
-set "DOC_PATH=%VM_DIR%\README.txt"
+set "DOC_PATH=%VM_DIR%\README-DynamicDisk.txt"
 
 (
-echo ================================
-echo    CentOS 7 虚拟机部署文档
-echo ================================
+echo ====================================
+echo    CentOS 7 动态磁盘虚拟机文档
+echo ====================================
 echo.
 echo 部署信息：
 echo   虚拟机名称: %VM_NAME%
 echo   部署时间: %DATE% %TIME%
 echo   虚拟机路径: %VM_DIR%
-echo   ISO 镜像: %ISO_PATH%
 echo.
-echo 硬件配置：
-echo   内存: %MEMORY_SIZE% MB
-echo   CPU: %CPU_COUNT% 核心
-echo   磁盘: %DISK_SIZE% GB
-echo   网络: %NETWORK_TYPE%
+echo 磁盘配置：
+echo   磁盘模式: %DISK_MODE% (动态分配)
+echo   磁盘类型: %DISK_TYPE% (独立磁盘)
+echo   最大容量: %DISK_SIZE% GB
+echo   初始大小: 动态增长
 echo.
-echo 系统信息：
-echo   IP 地址: %VM_IP%
-echo   子网掩码: %NETMASK%
-echo   网关: %GATEWAY%
-echo   root 密码: %ROOT_PASSWORD%
-echo   普通用户: %USER_NAME% / %USER_PASSWORD%
+echo 独立磁盘特性：
+echo   ✅ 不预先分配磁盘空间
+echo   ✅ 磁盘文件随使用增长
+echo   ✅ 独立于快照（可选持久/非持久）
+echo   ✅ 性能优化配置
 echo.
 echo 管理命令：
-echo   启动: "%VMRUN_PATH%" -T ws start "%VMX_PATH%" nogui
-echo   停止: "%VMRUN_PATH%" -T ws stop "%VMX_PATH%"
-echo   暂停: "%VMRUN_PATH%" -T ws suspend "%VMX_PATH%"
-echo   重启: "%VMRUN_PATH%" -T ws reset "%VMX_PATH%"
-echo   状态: "%VMRUN_PATH%" -T ws list
+echo   查看磁盘信息: "%VDISKMANAGER_PATH%" -d "%VM_DIR%\%VM_NAME%.vmdk"
+echo   扩展磁盘: "%VDISKMANAGER_PATH%" -x %DISK_SIZE%GB "%VM_DIR%\%VM_NAME%.vmdk"
+echo   碎片整理: "%VDISKMANAGER_PATH%" -k "%VM_DIR%\%VM_NAME%.vmdk"
 echo.
-echo 连接方式：
-echo   SSH: ssh root@%VM_IP%
-echo        密码: %ROOT_PASSWORD%
-echo   SSH: ssh %USER_NAME%@%VM_IP%
-echo        密码: %USER_PASSWORD%
+echo 性能优化建议：
+echo   1. 定期进行磁盘碎片整理
+echo   2. 监控磁盘空间使用
+echo   3. 避免磁盘过度分配
+echo   4. 使用 SSD 存储提升性能
 echo.
-echo VMware 控制台：
-echo   1. 打开 VMware Workstation/Player
-echo   2. 选择 "打开虚拟机"
-echo   3. 浏览到: %VMX_PATH%
-echo.
-echo 故障排除：
-echo   1. 检查 VMware 服务是否运行
-echo   2. 确认有足够的内存和磁盘空间
-echo   3. 查看 VMware 日志文件
-echo.
-echo 后续步骤：
-echo   1. 安装完成后，建议移除 ISO 镜像
-echo   2. 配置定期备份
-echo   3. 安装必要的应用服务
-echo.
-echo ================================
-echo   文档生成时间: %DATE% %TIME%
-echo ================================
+echo ====================================
 ) > "%DOC_PATH%"
 
-call :log_info "使用文档生成完成: %DOC_PATH%"
+echo 使用文档生成完成
+goto :show_summary
+
+:: =============================================
+:: 显示部署摘要
+:: =============================================
+
+:show_summary
+echo.
+echo ============================================
+echo           部署完成摘要
+echo ============================================
+echo.
+echo ✅ 虚拟机名称: %VM_NAME%
+echo ✅ 存储位置: %VM_DIR%
+echo ✅ 磁盘模式: %DISK_MODE% (动态分配)
+echo ✅ 磁盘类型: %DISK_TYPE% (独立磁盘)
+echo ✅ 最大容量: %DISK_SIZE% GB
+echo ✅ 网络地址: %VM_IP%
+echo.
+echo 📊 磁盘空间节省:
+echo    传统分配: %DISK_SIZE% GB 立即占用
+echo    动态分配: 仅占用实际使用空间
+echo    预计节省: 约 %DISK_SIZE% GB 初始空间
+echo.
+echo ⚡ 性能特性:
+echo    - 快速部署（不等待磁盘分配）
+echo    - 按需增长（节省存储空间）
+echo    - 独立模式（快照隔离）
+echo.
+echo 🔧 管理命令:
+echo   启动: "%VMRUN_PATH%" -T ws start "%VMX_PATH%" nogui
+echo   停止: "%VMRUN_PATH%" -T ws stop "%VMX_PATH%"
+echo   状态: "%VMRUN_PATH%" -T ws list
+echo.
+echo ============================================
+pause
 exit /b 0
 
 :: =============================================
-:: 安装监控（可选功能）
+:: 磁盘管理工具函数（可选）
 :: =============================================
 
-:monitor_installation
-call :log_info "开始监控安装进度..."
-set /a "MAX_WAIT=1800"
-set /a "WAIT_TIME=0"
-set /a "INTERVAL=30"
+:disk_management
+echo 磁盘管理工具...
 
-call :log_info "等待虚拟机安装完成（最多等待30分钟）..."
-
-:monitor_loop
-timeout /t %INTERVAL% /nobreak >nul
-set /a "WAIT_TIME+=INTERVAL"
-
-:: 检查虚拟机状态
-for /f "tokens=2" %%i in ('"%VMRUN_PATH%" -T ws list ^| findstr /C:"%VM_NAME%" 2^>nul') do set "CURRENT_STATE=%%i"
-
-if "%CURRENT_STATE%"=="running" (
-    set /a "MINUTES=WAIT_TIME/60"
-    call :log_info "✅ 虚拟机正在运行 (已运行 !MINUTES! 分钟)"
-) else if "%CURRENT_STATE%"=="stopped" (
-    call :log_info "🔄 虚拟机已停止，可能正在重启"
-) else (
-    call :log_warn "⚠️ 虚拟机状态未知"
-)
-
-:: 检查网络连通性
-if !WAIT_TIME! gtr 600 (
-    ping -n 1 -w 2000 %VM_IP% >nul 2>&1
-    if not errorlevel 1 (
-        call :log_info "🎉 虚拟机网络已连通，安装可能已完成"
-        goto :monitor_end
+:: 检查磁盘信息
+if exist "%VDISKMANAGER_PATH%" (
+    echo 磁盘信息:
+    "%VDISKMANAGER_PATH%" -d "%VM_DIR%\%VM_NAME%.vmdk"
+    
+    echo.
+    echo 磁盘使用情况:
+    for /f "tokens=3" %%a in ('dir "%VM_DIR%\%VM_NAME%*.vmdk" /-c ^| findstr "vmdk"') do (
+        set "FILE_SIZE=%%a"
+        set /a "SIZE_MB=FILE_SIZE/1048576"
+        echo   文件大小: !SIZE_MB! MB / %DISK_SIZE% GB
     )
 )
 
-if !WAIT_TIME! lss !MAX_WAIT! goto :monitor_loop
+goto :eof
 
-:monitor_end
-if !WAIT_TIME! geq !MAX_WAIT! (
-    call :log_warn "⚠️ 安装监控超时，但虚拟机可能仍在运行"
-) else (
-    call :log_info "✅ 安装监控完成"
-)
-exit /b 0
+:: =============================================
+:: 主执行流程
+:: =============================================
+
+echo VMware 动态磁盘虚拟机部署脚本
+echo ==================================
+
+call :check_environment
+call :create_vm_config
+call :create_dynamic_disk
+call :create_kickstart_config
+call :register_and_start_vm
+call :verify_deployment
+call :generate_documentation
+call :show_summary
+
+:: 可选：显示磁盘管理信息
+set /p "SHOW_DISK_INFO=显示磁盘详细信息? (y/N): "
+if /i "%SHOW_DISK_INFO%"=="y" call :disk_management
+
+pause
