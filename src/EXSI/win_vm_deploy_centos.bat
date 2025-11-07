@@ -63,24 +63,25 @@ set "ISO_PATH=D:\BaiduNetdiskDownload\CentOS-7-x86_64-DVD-2009.iso"
 
 :: 虚拟机配置
 set "VM_NAME=CentOS7-AutoDeploy"
-set "VM_DIR=%USERPROFILE%\Documents\Virtual Machines\%VM_NAME%"
+set "VM_BASE_DIR=D:\VMS"
+set "VM_DIR=%VM_BASE_DIR%\%VM_NAME%"
 set "VMX_PATH=%VM_DIR%\%VM_NAME%.vmx"
 
 :: 硬件规格
 set "DISK_SIZE=20"
-set "MEMORY_SIZE=2048"
+set "MEMORY_SIZE=4096"
 set "CPU_COUNT=2"
 
 :: 网络配置
 set "NETWORK_TYPE=nat"
-set "VM_IP=192.168.137.100"
+set "VM_IP=192.168.174.100"
 set "NETMASK=255.255.255.0"
-set "GATEWAY=192.168.137.1"
+set "GATEWAY=192.168.174.1"
 
 :: 系统配置
-set "ROOT_PASSWORD=vmware123"
-set "USER_NAME=vmuser"
-set "USER_PASSWORD=vmware123"
+set "ROOT_PASSWORD=Rede@612@Mixed"
+set "USER_NAME=admin"
+set "USER_PASSWORD=Secsmart#612"
 
 :: =============================================
 :: 环境检查
