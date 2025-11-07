@@ -5,16 +5,16 @@ set -euo pipefail
 HIVE_VERSION="${HIVE_VERSION:-4.0.1}"
 INSTANCE_ID="${INSTANCE_ID:-v1}"   # 实例标识，用于区分同版本的不同实例
 HIVE_BASE_DIR="/data/hive_${HIVE_VERSION}_${INSTANCE_ID}"
-MYSQL_HOST="172.16.47.57"
-MYSQL_PORT="6005"
+MYSQL_HOST="172.16.47.99"
+MYSQL_PORT="3312"
 MYSQL_USER="admin"
 MYSQL_PASS="Secsmart#612"
-MYSQL_DRIVER="/tmp/mysql-connector-java-5.1.44.jar"
+MYSQL_DRIVER="/tmp/mysql-connector-java-8.0.17.jar"
 HIVE_META_DB="hive_meta_${HIVE_VERSION//./}_${INSTANCE_ID}"
 
 # 依赖路径配置
-JAVA_HOME="/usr/lib/jvm/jdk1.8.0_341"
-HADOOP_VERSION="3.3.6"
+JAVA_HOME="/data/java/jdk1.8.0_251"
+HADOOP_VERSION="3.4.1"
 HADOOP_USER="hdfs"
 HADOOP_HOME="/opt/hadoop"
 
@@ -177,7 +177,7 @@ create_user() {
         warn "系统用户已存在: $HIVE_USER"
     else
         info "创建系统用户: $HIVE_USER"
-        useradd -r -s /bin/bash -d "$HIVE_BASE_DIR" "$HIVE_USER" -g hadoop
+        useradd -r -s /bin/bash -d "$HIVE_BASE_DIR" "$HIVE_USER"
     fi
     
     # 确保用户目录存在
