@@ -10,7 +10,7 @@ D:\ovftool\ovftool.exe "D:\C48O9I\C48O9I.vmx" "D:\c48o9i_exp"
 cd D:\c48o9i_exp
 tar -cvf D:\c48o9i_exp.ova *
 
-# PowerShell导入exsi,先修正ovf,修改摘要(删除mf，编制ovf)
+# PowerShell导入exsi,先修正ovf,修改摘要(删除mf,编制ovf)
 & "D:\ovftool\ovftool.exe" `
 --name=c48_172.16.48.30_oracle10g `
 --diskMode=thin `
@@ -22,7 +22,7 @@ tar -cvf D:\c48o9i_exp.ova *
 "D:\c48o9i_exp\C48O9I\C48O9I.ovf" `
 "vi://root:Secsmart#612@172.16.48.11/"
 
-# 直接导入原始虚拟机(删除cd/usb后需要重新启动虚拟机一次，更新vmx，无效)
+# 直接导入原始虚拟机(删除cd/usb后需要重新启动虚拟机一次,更新vmx,无效)
 & "D:\ovftool\ovftool.exe" `
 --name=c48_172.16.48.167_oracle9i `
 --diskMode=thin `
