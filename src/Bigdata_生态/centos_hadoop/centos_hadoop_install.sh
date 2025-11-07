@@ -12,7 +12,7 @@ Service_ID="hadoop_${HADOOP_VERSION}_v1"
 HADOOP_BASE_DIR="/data/${Service_ID}"
 HADOOP_DATA_DIR="$HADOOP_BASE_DIR/data"
 HADOOP_LOG_DIR="$HADOOP_BASE_DIR/logs"
-JDK_HOME="/data/java/jdk1.8.0_251"
+JDK_HOME="/usr/lib/jvm/jdk1.8.0_341"
 HADOOP_USER=${Service_ID}
 HADOOP_GROUP=${Service_ID}
 
@@ -25,7 +25,7 @@ fi
 # 安装依赖
 install_dependencies() {
     echo "安装系统依赖..."
-    yum install -y wget ssh pdsh
+    yum install -y wget ssh pdsh net-tools
 }
 
 # 创建用户和组
@@ -33,8 +33,8 @@ create_user_group() {
     if ! id "$HADOOP_USER" &>/dev/null; then
         echo "创建Hadoop用户: $HADOOP_USER"
         groupadd "$HADOOP_GROUP"
-        useradd -g "$HADOOP_GROUP" "$HADOOP_USER" -d "$HADOOP_BASE_DIR"
-        echo "hadoop" | passwd --stdin "$HADOOP_USER"
+        useradd -g "$HADOOP_GROUP" "$HADOOP_USER" -d "$HADOOP_BASE_DIR" -s /bin/bash
+        echo "$HADOOP_USER" | passwd --stdin "$HADOOP_USER"
         # 创建配置文件
         chmod 750 /etc/sudoers
         echo "$HADOOP_USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -289,13 +289,13 @@ test_connection() {
 # 设置环境变量
 setup_environment() {
     echo "设置环境变量..."
-    cat > /etc/profile.d/hadoop.sh <<EOF
+    cat > /etc/profile.d/${Service_ID}.sh <<EOF
 export HADOOP_HOME=$HADOOP_BASE_DIR/current
 export PATH=\$PATH:\$HADOOP_HOME/bin:\$HADOOP_HOME/sbin
 export HADOOP_CONF_DIR=\$HADOOP_HOME/etc/hadoop
 export HADOOP_CLASSPATH=\$HADOOP_HOME/lib/*
 EOF
-    source /etc/profile.d/hadoop.sh
+    source /etc/profile.d/${Service_ID}.sh
 }
 
 # 版本切换函数
