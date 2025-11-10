@@ -362,7 +362,7 @@ EOF
     <value>false</value>
   </property>
   <!-- tez-site.xml 配置示例 -->
-<configuration>
+
   <!-- 启用向量化查询 -->
   <property>
     <name>hive.vectorized.execution.enabled</name>
@@ -380,7 +380,7 @@ EOF
     <name>tez.am.dag.split.waves</name>
     <value>2</value>
   </property>
-</configuration>
+
   <!-- 操作日志 -->
   <property>
     <name>hive.server2.logging.operation.enabled</name>
