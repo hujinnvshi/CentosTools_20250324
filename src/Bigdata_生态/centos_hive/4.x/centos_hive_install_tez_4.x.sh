@@ -4,10 +4,10 @@ set -euo pipefail
 # ========================
 # 用户可配置参数 (可按需调整)
 # ========================
-TEZ_VERSION="${TEZ_VERSION:-0.9.2}"             # 默认使用较新版本
-HIVE_VERSION="${HIVE_VERSION:-2.3.9}"
+TEZ_VERSION="${TEZ_VERSION:-0.10.2}"             # 默认使用较新版本
+HIVE_VERSION="${HIVE_VERSION:-4.0.1}"
 INSTANCE_ID="${INSTANCE_ID:-v1}"
-HADOOP_VERSION="${HADOOP_VERSION:-2.7.7}"        # 添加Hadoop版本变量
+HADOOP_VERSION="${HADOOP_VERSION:-3.4.1}"        # 添加Hadoop版本变量
 HADOOP_INSTANCE="${HADOOP_INSTANCE:-v1}"         # Hadoop实例标识
 
 # ========================
@@ -15,13 +15,13 @@ HADOOP_INSTANCE="${HADOOP_INSTANCE:-v1}"         # Hadoop实例标识
 # ========================
 HIVE_BASE_DIR="/data/hive_${HIVE_VERSION}_${INSTANCE_ID}"
 TEZ_BASE_DIR="/data/tez_${TEZ_VERSION}_hive${HIVE_VERSION}_${INSTANCE_ID}"
-HADOOP_HOME="/data/hadoop_${HADOOP_VERSION}_${HADOOP_INSTANCE}/current"
+HADOOP_HOME="/opt/hadoop"
 JAVA_HOME="/data/java/jdk1.8.0_251"
 
 # ========================
 # 服务用户定义
 # ========================
-HADOOP_USER="hadoop_${HADOOP_VERSION}_${HADOOP_INSTANCE}"
+HADOOP_USER="hdfs"
 HIVE_USER="hive_${HIVE_VERSION}_${INSTANCE_ID}"
 
 # ========================
@@ -270,6 +270,7 @@ configure_hive_tez() {
 # Tez环境配置 (自动生成)
 export TEZ_HOME="$TEZ_BASE_DIR"
 export PATH="\$PATH:\$TEZ_HOME/bin"
+export HADOOP_CLASSPATH=$HADOOP_HOME/etc/hadoop
 export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:\$TEZ_HOME/*:\$TEZ_HOME/lib/*
 EOF
     
