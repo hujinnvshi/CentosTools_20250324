@@ -105,7 +105,7 @@ download_tez() {
         if ! wget -t 3 -T 30 "$tez_url" -O "$tez_tar"; then
             # 尝试备份镜像源
             backup_url="https://dlcdn.apache.org/tez/${TEZ_VERSION}/${tez_tar}"
-            warn "主镜像下载失败，尝试备份源"
+            warn "主镜像下载失败,尝试备份源"
             wget -t 2 -T 20 "$backup_url" -O "$tez_tar" || error "Tez下载失败"
         fi
         cp "$tez_tar" /tmp/
@@ -126,7 +126,7 @@ install_tez() {
     
     # 清理旧目录
     [ -d "$TEZ_BASE_DIR" ] && { 
-        warn "发现已存在的Tez安装，备份后将删除"
+        warn "发现已存在的Tez安装,备份后将删除"
         backup_dir="${TEZ_BASE_DIR}.bak_$(date +%Y%m%d%H%M)"
         mv "$TEZ_BASE_DIR" "$backup_dir"
     }
@@ -230,7 +230,7 @@ EOF
 # 配置Hive使用Tez
 # ========================
 configure_hive_tez() {
-    info "配置Hive使用Tez执行引擎"    
+    info "配置Hive使用Tez执行引擎"
     local hive_site="$HIVE_BASE_DIR/conf/hive-site.xml"
     local tmp_file=$(mktemp)
     
@@ -373,7 +373,7 @@ test_tez() {
         local execution_engine=$("$HIVE_BASE_DIR/bin/beeline" -u "jdbc:hive2://$hostname:$hiveserver_port/default" -n "$HIVE_USER" -e "set hive.execution.engine" | grep "tez")
         [ -n "$execution_engine" ] && info "执行引擎验证: Tez激活成功" || warn "执行引擎未设置为Tez"
     else
-        warn "Tez测试失败，请检查日志: ${HIVE_BASE_DIR}/logs/tez_test_${test_db}.log"
+        warn "Tez测试失败,请检查日志: ${HIVE_BASE_DIR}/logs/tez_test_${test_db}.log"
     fi
 }
 
@@ -420,7 +420,7 @@ Tez版本:     $TEZ_VERSION
   4. 监控任务执行:
      yarn application -list | grep HIVE
 
-注意: Tez Web UI默认不启用，需要时配置tez.site.uri
+注意: Tez Web UI默认不启用,需要时配置tez.site.uri
 =================================================
 EOF
 }
