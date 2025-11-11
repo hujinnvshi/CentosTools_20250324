@@ -251,6 +251,7 @@ EOF
     cat > "$HIVE_BASE_DIR/conf/hive-site.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+  
   <!-- 元数据库配置 -->
   <property>
     <name>javax.jdo.option.ConnectionURL</name>
@@ -334,6 +335,7 @@ EOF
     <name>hive.server2.webui.port</name>
     <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
   </property>
+
 </configuration>
 EOF
     
@@ -425,20 +427,27 @@ stop_service() {
 
 # 测试Hive功能
 test_hive() {
+    
     info "启动Hive服务..."
     
     # 启动服务
-    nohup "$HIVE_BASE_DIR/bin/hive" --service metastore > "$SERVICE_LOG_DIR/metastore.log" 2>&1 &
+    nohup "$HIVE_BASE_DIR/bin/hive" --service metastore > "$SERVICE_LOG_DIR/metastore_$(date +%Y%m%d).log" 2>&1 &
     metastore_pid=$!
+    info "Metastore 服务启动成功 (PID: $metastore_pid)"
     echo $metastore_pid > "$PID_DIR/metastore.pid"
     
-    nohup "$HIVE_BASE_DIR/bin/hive" --service hiveserver2 > "$SERVICE_LOG_DIR/hiveserver2.log" 2>&1 &
+    sleep 10
+
+    nohup "$HIVE_BASE_DIR/bin/hive" --service hiveserver2 > "$SERVICE_LOG_DIR/hiveserver2_$(date +%Y%m%d).log" 2>&1 &
     hiveserver_pid=$!
+    info "HiveServer2 服务启动成功 (PID: $hiveserver_pid)"
     echo $hiveserver_pid > "$PID_DIR/hiveserver2.pid"
     
+
     # 服务健康检查
     check_service_health $METASTORE_PORT "Metastore"
     check_service_health $HIVESERVER_PORT "HiveServer2"
+    
     
     # 创建测试环境
     "$HIVE_BASE_DIR/bin/hive" -e "CREATE DATABASE IF NOT EXISTS test_db;
@@ -454,6 +463,7 @@ test_hive() {
     
     # 停止服务
     stop_service "$PID_DIR/metastore.pid" "Metastore"
+    sleep 10
     stop_service "$PID_DIR/hiveserver2.pid" "HiveServer2"
 }
 

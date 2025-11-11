@@ -254,6 +254,7 @@ EOF
   <property>
     <name>javax.jdo.option.ConnectionURL</name>
     <value>jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${HIVE_META_DB}?createDatabaseIfNotExist=true&amp;useSSL=false&amp;characterEncoding=UTF-8</value>
+    
   </property>
   <property>
     <name>javax.jdo.option.ConnectionDriverName</name>
