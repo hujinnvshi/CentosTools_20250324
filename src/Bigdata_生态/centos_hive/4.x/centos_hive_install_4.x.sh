@@ -240,6 +240,7 @@ export HIVE_HOME="$HIVE_BASE_DIR"
 export HIVE_CONF_DIR="$HIVE_BASE_DIR/conf"
 export HIVE_LOG_DIR="$SERVICE_LOG_DIR"
 export PATH="\$PATH:\$HIVE_HOME/bin"
+export HIVE_SERVER2_HEAPSIZE=4096
 EOF
     
     # 版本化HDFS路径
