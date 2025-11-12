@@ -251,20 +251,23 @@ EOF
     cat > "$HIVE_BASE_DIR/conf/hive-site.xml" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+
   <!-- 元数据库配置 -->
   <property>
     <name>javax.jdo.option.ConnectionURL</name>
-    <value>jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${HIVE_META_DB}?createDatabaseIfNotExist=true&amp;useSSL=false&amp;characterEncoding=UTF-8</value>
-    
+    <value>jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${HIVE_META_DB}?createDatabaseIfNotExist=true&amp;useSSL=false&amp;characterEncoding=UTF-8</value>    
   </property>
+
   <property>
     <name>javax.jdo.option.ConnectionDriverName</name>
     <value>com.mysql.jdbc.Driver</value>
   </property>
+  
   <property>
     <name>javax.jdo.option.ConnectionUserName</name>
     <value>${MYSQL_USER}</value>
   </property>
+  
   <property>
     <name>javax.jdo.option.ConnectionPassword</name>
     <value>${MYSQL_PASS}</value>
@@ -275,6 +278,7 @@ EOF
     <name>hive.metastore.warehouse.dir</name>
     <value>${warehouse_dir}</value>
   </property>
+  
   <property>
     <name>hive.exec.scratchdir</name>
     <value>${scratch_dir}</value>
@@ -291,6 +295,7 @@ EOF
     <name>hive.exec.compress.output</name>
     <value>true</value>
   </property>
+  
   <property>
     <name>hive.exec.compress.intermediate</name>
     <value>true</value>
