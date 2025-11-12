@@ -1,0 +1,193 @@
+# ============================================
+# Ubuntu 24.04.1 LTS 图形界面自动安装配置（修复版）
+# 适用于 ESXi 虚拟化环境
+# 版本: 1.1（修复版）
+# 最后更新: 2024-01-15
+# ============================================
+
+# Autoinstall 配置版本
+version: 1
+
+# === 身份认证配置 ===
+identity:
+  realname: "Ubuntu Desktop User"
+  username: "desktop-user"
+  password: "$6$rounds=4096$GENERATED_SALT$HASHED_PASSWORD"
+  # 使用以下命令生成密码哈希:
+  # echo 'YourPassword123!' | mkpasswd -s -m sha-512
+
+# === 本地化配置 ===
+locale: en_US.UTF-8
+keyboard:
+  layout: us
+  variant: ""
+timezone: Asia/Shanghai
+
+# === 网络配置 ===
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens160:  # 修改为 ESXi 常见的网卡名称
+      dhcp4: true
+      dhcp6: false
+      optional: true
+
+# === 镜像配置 ===
+apt:
+  primary:
+    - arches: [amd64]
+      uri: http://archive.ubuntu.com/ubuntu
+  security:
+    - arches: [amd64]
+      uri: http://security.ubuntu.com/ubuntu
+  geoip: true
+  preserve_sources_list: false
+
+# === 存储配置 ===
+storage:
+  layout:
+    name: lvm
+  config:
+    - type: disk
+      id: disk0
+      ptable: gpt
+      wipe: superblock
+      preserve: false
+      grub_device: true
+      path: /dev/sda
+
+    - type: partition
+      id: boot-partition
+      device: disk0
+      size: 512M
+      flag: boot
+      number: 1
+
+    - type: partition
+      id: root-partition
+      device: disk0
+      size: 40G
+      number: 2
+
+    - type: format
+      id: boot-format
+      volume: boot-partition
+      fstype: fat32
+
+    - type: format
+      id: root-format
+      volume: root-partition
+      fstype: ext4
+
+    - type: mount
+      id: boot-mount
+      device: boot-format
+      path: /boot/efi
+
+    - type: mount
+      id: root-mount
+      device: root-format
+      path: /
+
+# === 图形界面软件包配置 ===
+packages:
+  - ubuntu-desktop
+  - open-vm-tools
+  - open-vm-tools-desktop
+  - firefox
+  - vim
+  - curl
+  - git
+
+# === 自动安装配置 ===
+autoinstall:
+  version: 1
+  shutdown: reboot
+  interactive-sections: []
+  
+  # 用户数据配置（正确嵌套位置）
+  user-data:
+    disable_root: false
+    preserve_hostname: false
+    
+    users:
+      - name: desktop-user
+        groups: [adm, cdrom, sudo, dip, plugdev, lpadmin, lxd, sambashare]
+        shell: /bin/bash
+        lock-passwd: false
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        passwd: "$6$rounds=4096$GENERATED_SALT$HASHED_PASSWORD"
+        gecos: "Ubuntu Desktop User"
+    
+    # 正确的自动登录配置
+    autologin: true
+    autologin-user: desktop-user
+    
+    # 运行命令
+    runcmd:
+      # 1. 基础服务配置
+      - [systemctl, enable, gdm3]
+      - [systemctl, start, gdm3]
+      - [systemctl, enable, NetworkManager]
+      - [systemctl, start, NetworkManager]
+      
+      # 2. VMware 工具配置
+      - [systemctl, enable, open-vm-tools]
+      - [systemctl, start, open-vm-tools]
+      - [systemctl, enable, vmtoolsd]
+      - [systemctl, start, vmtoolsd]
+      
+      # 3. 显示管理器配置（简化版）
+      - [sed, -i, 's/#WaylandEnable=false/WaylandEnable=false/g', /etc/gdm3/custom.conf]
+      - [sed, -i, 's/#AutomaticLoginEnable=true/AutomaticLoginEnable=true/g', /etc/gdm3/custom.conf]
+      - [sed, -i, 's/#AutomaticLogin=user1/AutomaticLogin=desktop-user/g', /etc/gdm3/custom.conf]
+      
+      # 4. 基础优化
+      - [echo, 'vm.swappiness=10', >>, /etc/sysctl.conf]
+      - [sysctl, -p]
+      
+      # 5. 创建用户目录结构
+      - [mkdir, -p, /home/desktop-user/Desktop]
+      - [chown, -R, desktop-user:desktop-user, /home/desktop-user]
+      
+      # 6. 设置默认应用程序
+      - [update-alternatives, --set, x-www-browser, /usr/bin/firefox]
+      - [update-alternatives, --set, gnome-www-browser, /usr/bin/firefox]
+
+  # 早期命令
+  early-commands:
+    - echo "开始 Ubuntu 24.04.1 图形界面自动安装 - $(date)"
+    - ping -c 3 archive.ubuntu.com || echo "网络连接检查"
+
+  # 延迟命令
+  late-commands:
+    - curtin in-target -- systemctl enable gdm3
+    - curtin in-target -- systemctl enable open-vm-tools
+    - curtin in-target -- timedatectl set-timezone Asia/Shanghai
+    - |
+      curtin in-target -- tee /var/log/autoinstall-complete.log << 'EOF'
+      Ubuntu 24.04.1 图形界面安装完成
+      安装时间: $(date)
+      用户: desktop-user
+      自动登录: 已启用
+      EOF
+
+# === 完成消息 ===
+final-message: |
+  Ubuntu 24.04.1 图形界面自动安装完成！
+  
+  系统信息:
+  - 主机名: ${HOSTNAME}
+  - 用户名: desktop-user
+  - 桌面环境: GNOME
+  
+  访问方式:
+  1. 通过 ESXi 控制台直接访问图形界面
+  2. 用户名: desktop-user
+  3. 自动登录已启用
+  
+  下一步操作:
+  1. 检查显示分辨率设置
+  2. 安装所需应用程序
+  3. 配置个性化设置
