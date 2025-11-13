@@ -34,14 +34,14 @@ check_environment() {
     
     # 检查网络连接
     if ! ping -c 1 mirrors.aliyun.com &> /dev/null; then
-        print_error "无法访问阿里云镜像站，请检查网络连接"
+        print_error "无法访问阿里云镜像站,请检查网络连接"
         exit 1
     fi
     
     # 检查必要工具
     for tool in curl sed; do
         if ! command -v ${tool} &> /dev/null; then
-            print_warning "未找到 ${tool}，正在安装..."
+            print_warning "未找到 ${tool},正在安装..."
             yum install -y ${tool}
         fi
     done
@@ -81,7 +81,7 @@ backup_config() {
     print_message "备份现有配置..."
     BACKUP_DIR="/etc/yum.repos.d/backup_$(date +%Y%m%d_%H%M%S)"
     mkdir -p ${BACKUP_DIR}    
-    # 备份所有 .repo 文件，排除 LocalYum.repo
+    # 备份所有 .repo 文件,排除 LocalYum.repo
     for repo_file in /etc/yum.repos.d/*.repo; do
         cp -f "$repo_file" ${BACKUP_DIR}/ 2>/dev/null || true
     done    
@@ -93,7 +93,7 @@ backup_config() {
 configure_repos() {
     print_message "配置软件源..."
     
-    # 清理现有源，保留 LocalYum.repo
+    # 清理现有源,保留 LocalYum.repo
     for repo_file in /etc/yum.repos.d/*.repo; do
         if [[ $(basename "$repo_file") != "LocalYum.repo" ]]; then
             print_message "保留 $repo_file"
@@ -192,3 +192,4 @@ main
 # 精进过程：
 # - 172.16.48.171 时间：2025-04-11 自动配置yum源
 # - 172.16.48.158 时间：2025-10-23 不删除原有yum源
+# - 172.16.47.101 时间：2025-11-13 部署tidb8.5.3

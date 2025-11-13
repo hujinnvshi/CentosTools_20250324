@@ -34,7 +34,7 @@ create_mount_point() {
 check_cdrom() {
     print_message "检查CDROM设备..."
     if ! blkid | grep -q "iso9660"; then
-        print_error "未检测到CentOS 7.9安装光盘，请插入后重试"
+        print_error "未检测到CentOS 7.9安装光盘,请插入后重试"
     fi
     
     CDROM_DEV=$(blkid | grep "iso9660" | cut -d: -f1)
@@ -58,14 +58,13 @@ configure_fstab() {
     echo "${CDROM_DEV} /media/cdrom iso9660 defaults 0 0" >> /etc/fstab
     
     # 测试挂载
-    mount -a || print_error "挂载测试失败，请检查/etc/fstab配置"
+    mount -a || print_error "挂载测试失败,请检查/etc/fstab配置"
 }
 
 # 配置本地YUM源
 configure_local_yum() {
     print_message "配置本地YUM源..."
-    
-    # 清理现有 YUM 源文件，保留 LocalYum.repo
+    # 清理现有 YUM 源文件,保留 LocalYum.repo
     for repo_file in /etc/yum.repos.d/*.repo; do
         if [[ $(basename "$repo_file") != "LocalYum.repo" ]]; then
             print_message "保留 $repo_file"
@@ -74,7 +73,7 @@ configure_local_yum() {
     
     # 检查LocalYum是否已存在
     if [ -f /etc/yum.repos.d/LocalYum.repo ]; then
-        print_message "LocalYum源已存在，跳过配置"
+        print_message "LocalYum源已存在,跳过配置"
         return
     fi
     
@@ -118,7 +117,7 @@ main() {
     check_cdrom
     configure_fstab
     configure_local_yum
-    verify_config    
+    verify_config
     print_message "配置完成！"
     print_message "CDROM已挂载到 /media/cdrom"
     print_message "本地YUM源已配置为 LocalYum"
@@ -128,5 +127,6 @@ main() {
 main
 
 # 精进过程：
-# - 172.16.48.171 时间：2025-04-11 自动挂载，配置为本地yum源
+# - 172.16.48.171 时间：2025-04-11 自动挂载,配置为本地yum源
 # - 172.16.48.158 时间：2025-10-23 不删除原有yum源
+# - 172.16.47.101 时间：2025-11-13 部署tidb8.5.3
