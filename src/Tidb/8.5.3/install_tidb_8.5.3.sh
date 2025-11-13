@@ -65,7 +65,6 @@ source ~/.bash_profile
 
 # 安装 TiUP cluster 组件
 print_message "安装 TiUP cluster 组件..."
-tiup cluster
 tiup update --self && tiup update cluster
 tiup list tidb --all | grep -v "nightly" | grep -v "rc" | tail -5
 
@@ -139,20 +138,23 @@ chmod 600 ~/.ssh/authorized_keys
 
 # 部署集群
 print_message "部署 TiDB 集群..."
-tiup cluster deploy ${CLUSTER_NAME} ${TIDB_VERSION} ${TIDB_HOME}/conf/topology.yaml --user root -p "Secsmart#612" --yes
+# tiup cluster deploy ${CLUSTER_NAME} ${TIDB_VERSION} ${TIDB_HOME}/conf/topology.yaml --user root -p "Rede@612@Mixed" --yes
+tiup cluster deploy ${CLUSTER_NAME} ${TIDB_VERSION} ${TIDB_HOME}/conf/topology.yaml --user root --yes
 sleep 20
+
 tiup cluster start tidb-cluster --init # 56-03@t+K7k1jVqLY*
+sleep 20
 
 # 启动集群
-print_message "启动 TiDB 集群..."
+print_message "启动 TiDB 集群: tiup cluster start ${CLUSTER_NAME}"
 tiup cluster start ${CLUSTER_NAME}
 
 # 等待集群启动
 print_message "等待集群启动..."
-sleep 30
+sleep 15
 
 # 验证集群状态
-print_message "验证集群状态..."
+print_message "验证集群状态: tiup cluster display ${CLUSTER_NAME} "
 tiup cluster display ${CLUSTER_NAME}
 
 # 创建验证脚本
