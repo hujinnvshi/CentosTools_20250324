@@ -27,7 +27,7 @@ fi
 
 # 设置变量
 TIDB_VERSION="v8.5.3"
-TIDB_HOME="/data2/tidb"
+TIDB_HOME="/data/tidb"
 TIDB_DEPLOY_DIR="${TIDB_HOME}/deploy"
 TIDB_DATA_DIR="${TIDB_HOME}/data"
 CLUSTER_NAME="tidb-cluster"
@@ -130,7 +130,7 @@ grafana_servers:
 EOF
 
 # 配置 SSH 密钥认证
-print_message "配置 SSH 密钥认证..."
+print_message "配置 <<root>> SSH 密钥认证..."
 if [ ! -f ~/.ssh/id_rsa ]; then
     ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
 fi
@@ -171,8 +171,8 @@ print_message "TiDB 集群部署完成！"
 print_message "集群名称: ${CLUSTER_NAME}"
 print_message "访问信息:"
 print_message "TiDB: mysql -h 127.0.0.1 -P 4000 -u root"
-print_message "Grafana: http://172.16.47.57:3000 (admin/admin)"
-print_message "Dashboard: http://172.16.47.57:2379/dashboard"
+print_message "Grafana: http://127.0.0.1:3000 (admin/admin)"
+print_message "Dashboard: http://127.0.0.1:2379/dashboard"
 print_message "验证脚本: ${TIDB_HOME}/bin/check_tidb.sh"
 
 # 创建管理员用户
@@ -205,3 +205,5 @@ done
 if [ $attempt -gt $max_attempts ]; then
     print_error "TiDB 服务未就绪，管理员用户创建失败"
 fi
+# 精进过程：
+# - 172.16.47.101 时间：2025-11-13 内网部署

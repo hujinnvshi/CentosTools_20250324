@@ -20,7 +20,7 @@ print_step() { echo -e "${BLUE}[STEP]${NC} $*"; }
 
 # 配置变量（与安装脚本保持一致）
 TIDB_VERSION="v8.5.3"
-TIDB_HOME="/data2/tidb"
+TIDB_HOME="/data/tidb"
 TIDB_DEPLOY_DIR="${TIDB_HOME}/deploy"
 TIDB_DATA_DIR="${TIDB_HOME}/data"
 CLUSTER_NAME="tidb-cluster"
@@ -578,5 +578,5 @@ main() {
     esac
 }
 
-# 执行主函数
+# 执行主函数 source ~/.bash_profile
 main "$@"
