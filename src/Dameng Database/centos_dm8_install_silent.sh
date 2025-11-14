@@ -145,3 +145,5 @@ echo "   查看状态：systemctl status DmServiceDMSERVER"
 echo "3. 日志文件位置："
 echo "   错误日志：${INSTALL_DIR}/dmdbms/data/DAMENG/DAMENG.log"
 echo "   慢查询日志：${INSTALL_DIR}/dmdbms/data/DAMENG/DAMENG_slow.log"
+
+# mark: 2025-11-14@172.16.48.206
