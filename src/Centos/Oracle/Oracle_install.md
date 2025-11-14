@@ -11,6 +11,7 @@ cd /tmp/database
 /u01/app/oraInventory/orainstRoot.sh
 /u01/app/oracle/product/11.2.0/db_1/root.sh
 
+https://blog.csdn.net/Gestapos/article/details/117037123
 
 
 su - oracle
@@ -18,3 +19,5 @@ $ORACLE_HOME/bin/netca /silent /responseFile /tmp/netca.rsp
 
 su - oracle
 dbca -silent -responseFile /tmp/dbca.rsp
+
+# 2025-11-14@172.16.48.206
