@@ -1,7 +1,7 @@
 #!/bin/bash
-# Hadoop 3.3.6 一键安装脚本
+# Hadoop 3.1.2|3.3.6| 一键安装脚本
 # 适用于 Ubuntu/CentOS 系统
-# wget https://downloads.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz
+# wget https://downloads.apache.org/hadoop/common/hadoop-3.1.2/hadoop-3.1.2.tar.gz
 # 设置颜色变量
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -33,7 +33,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # 安装信息
-print_step "=== Hadoop 3.3.6 一键安装脚本 ==="
+print_step "=== Hadoop 3.1.2 一键安装脚本 ==="
 
 # 检查系统类型
 if [ -f /etc/os-release ]; then
@@ -94,7 +94,7 @@ check_requirements() {
 check_requirements
 
 # 设置 Hadoop 变量
-HADOOP_VERSION="3.3.6"
+HADOOP_VERSION="3.1.2"
 HADOOP_HOME="/opt/hadoop"
 HADOOP_DATA="/data/hadoop"
 HADOOP_LOGS="/var/log/hadoop"
@@ -567,7 +567,7 @@ fi
 sudo -u hdfs ${HADOOP_HOME}/bin/hdfs dfs -mkdir -p /user/hdfs 2>/dev/null || true
 
 # 显示安装结果
-print_step "=== Hadoop 3.3.6 安装完成 ==="
+print_step "=== Hadoop 3.1.2 安装完成 ==="
 echo ""
 print_message "安装信息:"
 echo "  Hadoop 版本: ${HADOOP_VERSION}"
@@ -601,3 +601,4 @@ else
 fi
 
 print_message "安装日志目录: ${HADOOP_LOGS}"
+# mark:2025-11-14-@172.16.48.206

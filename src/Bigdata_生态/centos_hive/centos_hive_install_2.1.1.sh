@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# 配置参数 - 这些参数可以外部传入或修改
+# 配置参数 - 这些参数可以外部传入或修改|2.3.9|2.2.9不兼容Hadoop3.x
 HIVE_VERSION="${HIVE_VERSION:-2.1.1}"
 INSTANCE_ID="${INSTANCE_ID:-v1}"  # 实例标识，用于区分同版本的不同实例
 HIVE_BASE_DIR="/data/hive_${HIVE_VERSION}_${INSTANCE_ID}"
@@ -13,8 +13,8 @@ MYSQL_DRIVER="/tmp/mysql-connector-java-5.1.44.jar"
 HIVE_META_DB="hive_meta_${HIVE_VERSION//./}_${INSTANCE_ID}"  # 动态生成元数据库名称
 
 # 依赖路径配置
-JAVA_HOME="/usr/lib/jvm/jdk1.8.0_341"
-HADOOP_VERSION="3.7.1"
+JAVA_HOME="/data/java/jdk1.8.0_251"
+HADOOP_VERSION="3.1.2"
 HADOOP_USER="hdfs"
 HADOOP_HOME="/opt/hadoop"
 
