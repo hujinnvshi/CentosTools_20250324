@@ -402,6 +402,41 @@ EOF
     <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
   </property>
   
+  <!-- 启用并发支持（ACID 依赖） -->
+<property>
+    <name>hive.support.concurrency</name>
+    <value>true</value>
+</property>
+
+<!-- 强制分桶（ACID 表要求） -->
+<property>
+    <name>hive.enforce.bucketing</name>
+    <value>true</value>
+</property>
+
+<!-- 动态分区模式（非严格，可选但推荐） -->
+<property>
+    <name>hive.exec.dynamic.partition.mode</name>
+    <value>nonstrict</value>
+</property>
+
+<!-- 核心：设置 ACID 事务管理器（必须配置） -->
+<property>
+    <name>hive.txn.manager</name>
+    <value>org.apache.hadoop.hive.ql.lockmgr.DbTxnManager</value>
+</property>
+
+<!-- 启用压缩启动器（处理事务日志合并） -->
+<property>
+    <name>hive.compactor.initiator.on</name>
+    <value>true</value> <!-- 至少一个节点设为 true -->
+</property>
+
+<!-- 压缩工作线程数（至少 1） -->
+<property>
+    <name>hive.compactor.worker.threads</name>
+    <value>1</value>
+</property>
 </configuration>
 EOF
     
