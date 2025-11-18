@@ -157,6 +157,8 @@ spark.history.fs.logDirectory  hdfs://localhost:${HDFS_PORT}/spark-logs
 spark.dynamicAllocation.enabled true
 spark.dynamicAllocation.minExecutors 1
 spark.dynamicAllocation.maxExecutors 10
+spark.io.compression.codec snappy
+
 EOF
 
     # 配置 spark-env.sh
