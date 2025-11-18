@@ -252,65 +252,65 @@ EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-  <!-- 元数据库配置 -->
-  <property>
-    <name>javax.jdo.option.ConnectionURL</name>
-    <value>jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${HIVE_META_DB}?createDatabaseIfNotExist=true&amp;useSSL=false&amp;characterEncoding=UTF-8</value>    
-  </property>
+    <!-- 元数据库配置 -->
+    <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${HIVE_META_DB}?createDatabaseIfNotExist=true&amp;useSSL=false&amp;characterEncoding=UTF-8</value>    
+    </property>
 
-  <property>
-    <name>javax.jdo.option.ConnectionDriverName</name>
-    <value>com.mysql.jdbc.Driver</value>
-  </property>
-  
-  <property>
-    <name>javax.jdo.option.ConnectionUserName</name>
-    <value>${MYSQL_USER}</value>
-  </property>
-  
-  <property>
-    <name>javax.jdo.option.ConnectionPassword</name>
-    <value>${MYSQL_PASS}</value>
-  </property>
-  
-  <!-- 版本化存储配置 -->
-  <property>
-    <name>hive.metastore.warehouse.dir</name>
-    <value>${warehouse_dir}</value>
-  </property>
-  
-  <property>
-    <name>hive.exec.scratchdir</name>
-    <value>${scratch_dir}</value>
-  </property>
-  
-  <!-- 日志配置 -->
-  <property>
-    <name>hive.querylog.location</name>
-    <value>${SERVICE_LOG_DIR}</value>
-  </property>
-  
-  <!-- 性能配置 -->
-  <property>
-    <name>hive.exec.compress.output</name>
-    <value>true</value>
-  </property>
-  
-  <property>
-    <name>hive.exec.compress.intermediate</name>
-    <value>true</value>
-  </property>
-  
-  <!-- 元数据验证 -->
-  <property>
-    <name>hive.metastore.schema.verification</name>
-    <value>false</value>
-  </property>
-  <property>
-    <name>datanucleus.schema.autoCreateAll</name>
-    <value>true</value>
-  </property>
-  <!-- 添加这些关键配置 -->
+    <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.jdbc.Driver</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>${MYSQL_USER}</value>
+    </property>
+    
+    <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>${MYSQL_PASS}</value>
+    </property>
+    
+    <!-- 版本化存储配置 -->
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>${warehouse_dir}</value>
+    </property>
+    
+    <property>
+        <name>hive.exec.scratchdir</name>
+        <value>${scratch_dir}</value>
+    </property>
+    
+    <!-- 日志配置 -->
+    <property>
+        <name>hive.querylog.location</name>
+        <value>${SERVICE_LOG_DIR}</value>
+    </property>
+    
+    <!-- 性能配置 -->
+    <property>
+        <name>hive.exec.compress.output</name>
+        <value>true</value>
+    </property>
+    
+    <property>
+        <name>hive.exec.compress.intermediate</name>
+        <value>true</value>
+    </property>
+    
+    <!-- 元数据验证 -->
+    <property>
+        <name>hive.metastore.schema.verification</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>datanucleus.schema.autoCreateAll</name>
+        <value>true</value>
+    </property>
+    <!-- 添加这些关键配置 -->
 
     <property>
         <name>hive.server2.thrift.bind.host</name>
@@ -353,90 +353,91 @@ EOF
         <value>false</value>
     </property>
 
-  <!-- 动态端口配置 -->
-  <property>
-    <name>hive.server2.thrift.port</name>
-    <value>${HIVESERVER_PORT}</value>
-  </property>
-  <property>
-    <name>hive.metastore.port</name>
-    <value>${METASTORE_PORT}</value>
-  </property>
-  
-  <!-- 安全配置 -->
-  <property>
-    <name>hive.server2.enable.doAs</name>
-    <value>false</value>
-  </property>
-  <!-- tez-site.xml 配置示例 -->
+    <!-- 动态端口配置 -->
+    <property>
+        <name>hive.server2.thrift.port</name>
+        <value>${HIVESERVER_PORT}</value>
+    </property>
+    <property>
+        <name>hive.metastore.port</name>
+        <value>${METASTORE_PORT}</value>
+    </property>
+    
+    <!-- 安全配置 -->
+    <property>
+        <name>hive.server2.enable.doAs</name>
+        <value>false</value>
+    </property>
+    <!-- tez-site.xml 配置示例 -->
 
-  <!-- 启用向量化查询 -->
-  <property>
-    <name>hive.vectorized.execution.enabled</name>
-    <value>true</value>
-  </property>
-  
-  <!-- Tez 容器内存设置 -->
-  <property>
-    <name>tez.task.resource.memory.mb</name>
-    <value>2048</value>
-  </property>
-  
-  <!-- DAG 优化 -->
-  <property>
-    <name>tez.am.dag.split.waves</name>
-    <value>2</value>
-  </property>
+    <!-- 启用向量化查询 -->
+    <property>
+        <name>hive.vectorized.execution.enabled</name>
+        <value>true</value>
+    </property>
+    
+    <!-- Tez 容器内存设置 -->
+    <property>
+        <name>tez.task.resource.memory.mb</name>
+        <value>2048</value>
+    </property>
+    
+    <!-- DAG 优化 -->
+    <property>
+        <name>tez.am.dag.split.waves</name>
+        <value>2</value>
+    </property>
 
-  <!-- 操作日志 -->
-  <property>
-    <name>hive.server2.logging.operation.enabled</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>hive.server2.logging.operation.log.location</name>
-    <value>${SERVICE_LOG_DIR}/operation_logs</value>
-  </property>
-  <property>
-    <name>hive.server2.webui.port</name>
-    <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
-  </property>
-  
-  <!-- 启用并发支持（ACID 依赖） -->
-<property>
-    <name>hive.support.concurrency</name>
-    <value>true</value>
-</property>
+    <!-- 操作日志 -->
+    <property>
+        <name>hive.server2.logging.operation.enabled</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.server2.logging.operation.log.location</name>
+        <value>${SERVICE_LOG_DIR}/operation_logs</value>
+    </property>
+    <property>
+        <name>hive.server2.webui.port</name>
+        <value>${WEBUI_PORT}</value>  <!-- 改为未被占用的端口 -->
+    </property>
+    
+    <!-- 启用并发支持（ACID 依赖） -->
+    <property>
+        <name>hive.support.concurrency</name>
+        <value>true</value>
+    </property>
 
-<!-- 强制分桶（ACID 表要求） -->
-<property>
-    <name>hive.enforce.bucketing</name>
-    <value>true</value>
-</property>
+    <!-- 强制分桶（ACID 表要求） -->
+    <property>
+        <name>hive.enforce.bucketing</name>
+        <value>true</value>
+    </property>
 
-<!-- 动态分区模式（非严格，可选但推荐） -->
-<property>
-    <name>hive.exec.dynamic.partition.mode</name>
-    <value>nonstrict</value>
-</property>
+    <!-- 动态分区模式（非严格，可选但推荐） -->
+    <property>
+        <name>hive.exec.dynamic.partition.mode</name>
+        <value>nonstrict</value>
+    </property>
 
-<!-- 核心：设置 ACID 事务管理器（必须配置） -->
-<property>
-    <name>hive.txn.manager</name>
-    <value>org.apache.hadoop.hive.ql.lockmgr.DbTxnManager</value>
-</property>
+    <!-- 核心：设置 ACID 事务管理器（必须配置） -->
+    <property>
+        <name>hive.txn.manager</name>
+        <value>org.apache.hadoop.hive.ql.lockmgr.DbTxnManager</value>
+    </property>
 
-<!-- 启用压缩启动器（处理事务日志合并） -->
-<property>
-    <name>hive.compactor.initiator.on</name>
-    <value>true</value> <!-- 至少一个节点设为 true -->
-</property>
+    <!-- 启用压缩启动器（处理事务日志合并） -->
+    <property>
+        <name>hive.compactor.initiator.on</name>
+        <value>true</value> <!-- 至少一个节点设为 true -->
+    </property>
 
-<!-- 压缩工作线程数（至少 1） -->
-<property>
-    <name>hive.compactor.worker.threads</name>
-    <value>1</value>
-</property>
+    <!-- 压缩工作线程数（至少 1） -->
+    <property>
+        <name>hive.compactor.worker.threads</name>
+        <value>1</value>
+    </property>
+
 </configuration>
 EOF
     
