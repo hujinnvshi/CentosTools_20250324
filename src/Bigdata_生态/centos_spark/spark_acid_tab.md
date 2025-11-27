@@ -24,6 +24,7 @@ cp /etc/hive/conf/hive-site.xml $SPARK_HOME/conf/
 
 ```bash
 # 启动spark-shell，指定yarn master，同时加载Hive配置
+# yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users 设置为false
 spark-shell --master yarn \
   --conf spark.hadoop.hive.metastore.kerberos.principal=spark/cdhk2@EXAMPLE.COM \
   --conf spark.hadoop.hive.server2.authentication=KERBEROS \
