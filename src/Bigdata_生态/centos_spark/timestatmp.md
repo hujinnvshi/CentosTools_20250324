@@ -11,4 +11,5 @@ STORED AS ORC;
 INSERT INTO events VALUES (
 1,'用户登录',
 '2025-11-21 08:30:00',
-'北京');
+'北京'
+);
