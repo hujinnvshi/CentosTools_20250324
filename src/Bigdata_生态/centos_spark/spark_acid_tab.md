@@ -26,9 +26,12 @@ cp /etc/hive/conf/hive-site.xml $SPARK_HOME/conf/
 # 启动spark-shell，指定yarn master，同时加载Hive配置
 # yarn.nodemanager.linux-container-executor.nonsecure-mode.limit-users 设置为false
 spark-shell --master yarn \
-  --conf spark.hadoop.hive.metastore.kerberos.principal=spark/cdhk2@EXAMPLE.COM \
-  --conf spark.hadoop.hive.server2.authentication=KERBEROS \
-  --conf spark.hadoop.hadoop.security.authentication=kerberos
+  --conf spark.hadoop.hadoop.security.authentication=kerberos \
+  --conf spark.hadoop.hive.metastore.kerberos.principal=hive/cdhk1@EXAMPLE.COM \
+  --conf spark.hadoop.hive.metastore.authentication=KERBEROS \
+  --conf spark.sql.hive.metastore.jars=/opt/cloudera/parcels/CDH/lib/hive/lib/* \
+  --conf spark.hadoop.hive.metastore.uris=thrift://cdhk1:9083 \
+  --conf spark.hadoop.hive.metastore.disable.set.ugi=true
 ```
 
 启动成功后进入 Scala 交互提示符（`scala>`），且 SparkSession 会自动关联 Hive（默认名为`spark`）。
