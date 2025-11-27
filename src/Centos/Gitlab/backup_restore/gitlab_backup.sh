@@ -10,7 +10,7 @@ LOG_FILE="/var/log/gitlab_backup.log"
 GITLAB_RB="/etc/gitlab/gitlab.rb"
 GITLAB_SECRETS="/etc/gitlab/gitlab-secrets.json"
 # GitLab 11.2.3 使用旧版备份命令
-GITLAB_BACKUP_CMD="gitlab-rake gitlab:backup:create SKIP=artifacts"
+GITLAB_BACKUP_CMD="gitlab-rake gitlab:backup:create SKIP=artifacts,builds,uploads"
 # 备份文件命名格式
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_NAME="${TIMESTAMP}_gitlab_backup"
@@ -49,7 +49,8 @@ pre_check() {
 
     # 3. 检查GitLab版本（11.2.3特定检查）
     log_info "检测GitLab版本信息..."
-    GITLAB_VERSION=$(gitlab-rake gitlab:env:info 2>/dev/null | grep -i "gitlab version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+    GITLAB_VERSION=$(gitlab-rake gitlab:env:info 2>/dev/null | grep -i '^Version:' | awk '{print $2}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+    echo "GitLab版本：${GITLAB_VERSION}"
     if [ "${GITLAB_VERSION}" = "unknown" ]; then
         log_warn "无法解析GitLab具体版本，继续执行备份（建议手动确认版本）"
     else
@@ -168,6 +169,7 @@ post_check() {
 
     # 4. 检查备份文件大小
     BACKUP_FILE=$(find "${BACKUP_DIR}" -name "*_gitlab_backup.tar" | head -1)
+
     if [ -n "${BACKUP_FILE}" ]; then
         FILE_SIZE=$(stat -c%s "${BACKUP_FILE}" 2>/dev/null || du -b "${BACKUP_FILE}" | cut -f1)
         if [ "${FILE_SIZE}" -lt 1024 ]; then
@@ -181,8 +183,8 @@ post_check() {
 
 # ============================ 清理旧备份 ============================
 clean_old_backups() {
-    log_info "清理旧备份文件（保留最近7天）..."
-    find "${BACKUP_ROOT}" -name "*_gitlab_backup" -type d -mtime +7 -exec rm -rf {} \; 2>/dev/null && \
+    log_info "清理旧备份文件（保留最近70天）..."
+    find "${BACKUP_ROOT}" -name "*_gitlab_backup*" -type f -mtime +70 -exec rm -rf {} \; 2>/dev/null && \
     log_info "旧备份清理完成" || \
     log_warn "清理旧备份时出错"
 }
