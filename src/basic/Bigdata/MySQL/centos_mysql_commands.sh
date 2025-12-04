@@ -34,6 +34,10 @@ mysql -h localhost -u root -pSecsmart#612
 # 备份单个数据库
 mysqldump -u root -pSecsmart#612 testdb > /backup/testdb_$(date +%Y%m%d).sql
 
+mysqldump -u root -pSecsmart#612 -S /var/lib/mysql/mysql.sock xn > /data2/mysql_backup/xn.sql
+mysql -u root -pSecsmart#612 -S /var/lib/mysql/mysql.sock xn < /data2/mysql_backup/xn.sql
+mysql -u root -pSecsmart#612 -S /var/lib/mysql/mysql.sock --default-character-set=utf8mb4 xn < /data2/mup/xn.sql
+
 # 备份所有数据库
 mysqldump -u root -pSecsmart#612 --all-databases > /backup/all_db_$(date +%Y%m%d).sql
 
