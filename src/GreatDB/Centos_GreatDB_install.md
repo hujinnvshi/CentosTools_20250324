@@ -139,6 +139,7 @@ ps -elf | grep unidbd
 7. 登录并创建管理账号
    数据库启动后，需要登录并创建一个有远程访问权限的管理员账号。
    • 登录数据库（初始时 root 用户无密码）：
+   mysql -u root -p -S /data/greatdb_v1/log/mysql.sock
    /data/greatdb_v1/base/greatdb/bin/unidb -h 127.0.0.1 -P 6108 -u root
 
 • 在数据库命令行中，执行以下 SQL 语句创建管理员账号并授权：
@@ -147,11 +148,11 @@ ALTER USER 'SYSTEM_DAA'@'%' IDENTIFIED BY 'Secsmart#612';
 ALTER USER 'SYSTEM_DBA'@'%' IDENTIFIED BY 'Secsmart#612';
 ALTER USER 'SYSTEM_DSA'@'%' IDENTIFIED BY 'Secsmart#612';
 
-    -- 创建新的管理员用户并授予全部权限
-    CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
-    GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;
-    FLUSH PRIVILEGES; -- 刷新权限使其生效
-    EXIT; -- 退出
+-- 创建新的管理员用户并授予全部权限
+CREATE USER 'admin'@'%' IDENTIFIED BY 'Secsmart#612';
+GRANT ALL PRIVILEGES ON _._ TO 'admin'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES; -- 刷新权限使其生效
+EXIT; -- 退出
 
 8. 验证部署
    通过以下命令检查数据库服务是否正常运行。
@@ -166,7 +167,7 @@ ls -l /data/greatdb_v1/log/mysql.sock
 
 # 使用新创建的管理员账号登录并执行一个简单查询
 
-/data/greatdb_v1/base/greatdb/bin/greatdb -h 127.0.0.1 -P 6108 -u admin -p'Secsmart#612' -e "SELECT VERSION();"
+/data/greatdb_v1/base/greatdb/bin/unidb -h 127.0.0.1 -P 6108 -u admin -p'Secsmart#612' -e "SELECT VERSION();"
 
 如果一切正常，将会返回 GreatDB 的版本号。
 
