@@ -133,13 +133,13 @@ enforce_gtid_consistency=ON
 # 性能配置
 innodb_buffer_pool_size = ${INNODB_BUFFER_POOL_SIZE}
 innodb_log_file_size = 1G
-innodb_log_buffer_size = 16M
-query_cache_size = 0
-query_cache_type = 0
+innodb_log_buffer_size = 64M
+query_cache_size = 1000M
+query_cache_type = 1
 max_connections = 10000
 max_user_connections = 10000
-tmp_table_size = 16M
-sort_buffer_size = 2M
+tmp_table_size = 160M
+sort_buffer_size = 20M
 
 # 日志配置
 log-error = ${MYSQL_BASE}/log/error.log
